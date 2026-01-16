@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import MapView from 'react-native-maps';
 import SlideUpModal, { SlideUpModalContext } from '../components/ui/slide-up-modal';
@@ -148,7 +148,6 @@ export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const [selectedTrain, setSelectedTrain] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const detailModalAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -176,19 +175,6 @@ export default function MapScreen() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (showDetailModal) {
-      Animated.spring(detailModalAnim, {
-        toValue: SCREEN_HEIGHT * 0.5,
-        useNativeDriver: true,
-        damping: 30,
-        stiffness: 150,
-      }).start();
-    } else {
-      detailModalAnim.setValue(SCREEN_HEIGHT);
-    }
-  }, [showDetailModal]);
-
   return (
     <View style={styles.container}>
       <MapView
@@ -209,16 +195,14 @@ export default function MapScreen() {
       </SlideUpModal>
 
       {showDetailModal && selectedTrain && (
-        <Animated.View style={[styles.detailModalContainer, {
-          transform: [{ translateY: detailModalAnim }]
-        }]}>
+        <View style={styles.detailModalContainer}>
           <SlideUpModal onDismiss={() => setShowDetailModal(false)}>
             <TrainDetailModal 
               train={selectedTrain}
               onClose={() => setShowDetailModal(false)}
             />
           </SlideUpModal>
-        </Animated.View>
+        </View>
       )}
     </View>
   );
