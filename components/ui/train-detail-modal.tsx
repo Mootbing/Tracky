@@ -95,33 +95,24 @@ export default function TrainDetailModal({ visible, train, onClose }: TrainDetai
               </View>
               
               <View style={styles.stopSection}>
-                <View style={styles.durationContent}>
-                  <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} />
-                  <Text style={styles.durationText}>1h 52m</Text>
-                </View>
-                <Text style={styles.stopInfo}>5:45 PM • Harrisburg • HAR</Text>
+                <Text style={styles.stopTime}>5:45 PM</Text>
+                <Text style={styles.stopStation}>Harrisburg • HAR</Text>
+                <Text style={styles.stopMetrics}>1h 52m from {train.from} • 1h 52m after Philadelphia</Text>
               </View>
 
               <View style={styles.stopSection}>
-                <View style={styles.durationContent}>
-                  <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} />
-                  <Text style={styles.durationText}>3h 19m</Text>
-                </View>
-                <Text style={styles.stopInfo}>7:12 PM • Pittsburgh • PIT</Text>
+                <Text style={styles.stopTime}>7:12 PM</Text>
+                <Text style={styles.stopStation}>Pittsburgh • PIT</Text>
+                <Text style={styles.stopMetrics}>3h 19m from {train.from} • 1h 27m after Harrisburg</Text>
               </View>
 
               <View style={styles.stopSection}>
-                <View style={styles.durationContent}>
-                  <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} />
-                  <Text style={styles.durationText}>5h 37m</Text>
-                </View>
-                <Text style={styles.stopInfo}>9:30 PM • Chicago • CHI</Text>
+                <Text style={styles.stopTime}>9:30 PM</Text>
+                <Text style={styles.stopStation}>Chicago • CHI</Text>
+                <Text style={styles.stopMetrics}>5h 37m from {train.from} • 2h 18m after Pittsburgh</Text>
               </View>
 
-              <View style={styles.durationLineRow}>
-                <View style={styles.durationContent}>
-                  <MaterialCommunityIcons name="arrow-bottom-left" size={14} color={COLORS.secondary} />
-                </View>
+              <View style={styles.endLineRow}>
                 <View style={styles.horizontalLine} />
               </View>
             </View>
@@ -207,8 +198,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.secondary,
   },
   routeTitle: {
     fontSize: 24,
@@ -272,6 +261,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  endLineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 20,
+    marginTop: 24,
+    marginBottom: 8,
+  },
   horizontalLine: {
     flex: 1,
     height: 1,
@@ -301,19 +297,18 @@ const styles = StyleSheet.create({
   },
   timelineContainer: {
     position: 'relative',
+    marginLeft: 8,
   },
   dashedLineWrapper: {
     position: 'absolute',
-    left: 26,
+    left: 18,
     top: 0,
     bottom: 0,
     width: 2,
+    height: '100%',
   },
   dashedLine: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
+    flex: 1,
     width: 2,
     borderLeftWidth: 2,
     borderLeftColor: COLORS.tertiary,
@@ -321,26 +316,32 @@ const styles = StyleSheet.create({
   },
   stopSection: {
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingLeft: 40,
-    position: 'relative',
-  },
-  stopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
+    marginTop: -8,
   },
   stopTime: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '600',
     fontFamily: FONTS.family,
     color: COLORS.primary,
-    fontWeight: '500',
+    marginBottom: 4,
   },
-  stopDash: {
-    fontSize: 18,
+  stopStation: {
+    fontSize: 14,
+    fontFamily: FONTS.family,
+    color: COLORS.primary,
+    marginBottom: 6,
+  },
+  stopElapsed: {
+    fontSize: 12,
     fontFamily: FONTS.family,
     color: COLORS.secondary,
-    marginLeft: 8,
+  },
+  stopMetrics: {
+    fontSize: 12,
+    fontFamily: FONTS.family,
+    color: COLORS.secondary,
   },
   stopInfo: {
     fontSize: 14,
