@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -7,112 +6,150 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import MapView from 'react-native-maps';
 import SlideUpModal, { SlideUpModalContext } from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
-import { AppColors, BorderRadius, FontSizes, FontWeights, Spacing } from '../constants/theme';
-import { gtfsParser } from '../utils/gtfs-parser';
+import { AppColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { DEFAULT_TRAIN } from '../fixtures/trains';
+import { TrainAPIService } from '../services/api';
+import { TrainStorageService } from '../services/storage';
+import type { Train } from '../types/train';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Helper function to convert 24-hour time to 12-hour AM/PM format
-const formatTime = (time24: string): string => {
-  const [hours, minutes] = time24.substring(0, 5).split(':');
-  let h = parseInt(hours);
-  const m = minutes;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  if (h > 12) h -= 12;
-  if (h === 0) h = 12;
-  return `${h}:${m} ${ampm}`;
-};
-
-// Color palette
+// Use centralized theme constants
 const COLORS = AppColors;
-
 const FONTS = {
   family: 'System',
-  weight: FontWeights,
 };
 
-function ModalContent({ onTrainSelect }: { onTrainSelect: (train: any) => void }) {
+// Search Results Component
+function SearchResults({ 
+  query, 
+  onSelectResult 
+}: { 
+  query: string; 
+  onSelectResult: (result: any) => void;
+}) {
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const searchTrains = async () => {
+      setLoading(true);
+      const searchResults = await TrainAPIService.search(query);
+      setResults(searchResults);
+      setLoading(false);
+    };
+    searchTrains();
+  }, [query]);
+
+  if (loading) {
+    return (
+      <View style={styles.frequentlyUsedItem}>
+        <Text style={styles.frequentlyUsedName}>Searching...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      {results.map((result) => (
+        <TouchableOpacity
+          key={result.id}
+          style={styles.frequentlyUsedItem}
+          activeOpacity={0.7}
+          onPress={() => onSelectResult(result)}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={`${result.name}, ${result.subtitle}`}
+          accessibilityHint={`Select ${result.type} ${result.name}`}
+        >
+          <View style={styles.frequentlyUsedIcon}>
+            {result.type === 'train' && (
+              <Ionicons name="train" size={24} color={COLORS.accentBlue} />
+            )}
+            {result.type === 'station' && (
+              <Ionicons name="location" size={24} color={COLORS.accentBlue} />
+            )}
+            {result.type === 'route' && (
+              <Ionicons name="train" size={24} color={COLORS.accentBlue} />
+            )}
+          </View>
+          <View style={styles.frequentlyUsedText}>
+            <Text style={styles.frequentlyUsedName}>{result.name}</Text>
+            <Text style={styles.frequentlyUsedSubtitle}>{result.subtitle}</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={20} color={COLORS.secondary} />
+        </TouchableOpacity>
+      ))}
+    </>
+  );
+}
+
+function ModalContent({ onTrainSelect }: { onTrainSelect: (train: Train) => void }) {
   const { isFullscreen, scrollOffset, panGesture, isMinimized, snapToPoint } = useContext(SlideUpModalContext);
   const [imageError, setImageError] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [savedTrains, setSavedTrains] = useState<any[]>([]);
+  const [savedTrains, setSavedTrains] = useState<Train[]>([]);
   const searchInputRef = React.useRef<TextInput>(null);
 
-  // Load saved trains from AsyncStorage on mount
+  // Load saved trains from storage service
   useEffect(() => {
     const loadSavedTrains = async () => {
-      try {
-        const data = await AsyncStorage.getItem('savedTrains');
-        if (data) {
-          setSavedTrains(JSON.parse(data));
-        } else {
-          // Add a default train on first load
-          const defaultTrain = {
-            id: 234047,
-            airline: 'AMTK',
-            flightNumber: '234047',
-            from: 'Penn Station',
-            to: 'Miami',
-            fromCode: 'NYP',
-            toCode: 'MIA',
-            departTime: '2:50 PM',
-            arriveTime: '10:05 AM',
-            date: 'Today',
-            daysAway: 0,
-            routeName: 'Train 234047',
-            intermediateStops: [
-              { time: '3:30 PM', name: 'Jamaica Station', code: 'JMZ' },
-              { time: '4:45 PM', name: 'Baltimore Penn Station', code: 'BAL' },
-              { time: '7:20 PM', name: 'Richmond Union Station', code: 'RVR' },
-              { time: '10:15 PM', name: 'Raleigh Station', code: 'RGH' },
-            ],
-          };
-          setSavedTrains([defaultTrain]);
-          await AsyncStorage.setItem('savedTrains', JSON.stringify([defaultTrain]));
-        }
-      } catch (error) {
-        console.error('Error loading saved trains:', error);
+      const trains = await TrainStorageService.getSavedTrains();
+      if (trains.length === 0) {
+        // Initialize with default train
+        await TrainStorageService.initializeWithDefaults([DEFAULT_TRAIN]);
+        setSavedTrains([DEFAULT_TRAIN]);
+      } else {
+        setSavedTrains(trains);
       }
     };
     loadSavedTrains();
   }, []);
 
-  // Save train to AsyncStorage
-  const saveTrain = async (train: any) => {
-    try {
-      // Check if train already exists
-      const exists = savedTrains.some(t => t.flightNumber === train.flightNumber);
-      if (!exists) {
-        const updatedTrains = [...savedTrains, train];
-        setSavedTrains(updatedTrains);
-        await AsyncStorage.setItem('savedTrains', JSON.stringify(updatedTrains));
-      }
-    } catch (error) {
-      console.error('Error saving train:', error);
+  // Save train using storage service
+  const saveTrain = async (train: Train) => {
+    const saved = await TrainStorageService.saveTrain(train);
+    if (saved) {
+      const updatedTrains = await TrainStorageService.getSavedTrains();
+      setSavedTrains(updatedTrains);
     }
   };
 
   const flights = savedTrains;
 
-  const frequentlyUsed = [
-    // Get first 3 routes from GTFS
-    ...gtfsParser.getAllRoutes().slice(0, 3).map((route, index) => ({
-      id: `freq-route-${index}`,
-      name: route.route_long_name,
-      code: route.route_short_name || route.route_id.substring(0, 3),
-      subtitle: `AMT${route.route_id}`,
-      type: 'train' as const,
-    })),
-    // Get first 2 stops from GTFS
-    ...gtfsParser.getAllStops().slice(0, 2).map((stop, index) => ({
-      id: `freq-stop-${index}`,
-      name: stop.stop_name,
-      code: stop.stop_id,
-      subtitle: stop.stop_id,
-      type: 'station' as const,
-    })),
-  ];
+  const [frequentlyUsed, setFrequentlyUsed] = useState<Array<{
+    id: string;
+    name: string;
+    code: string;
+    subtitle: string;
+    type: 'train' | 'station';
+  }>>([]);
+
+  useEffect(() => {
+    const loadFrequentlyUsed = async () => {
+      const routes = await TrainAPIService.getRoutes();
+      const stops = await TrainAPIService.getStops();
+      
+      setFrequentlyUsed([
+        ...routes.slice(0, 3).map((route, index) => ({
+          id: `freq-route-${index}`,
+          name: route.route_long_name,
+          code: route.route_short_name || route.route_id.substring(0, 3),
+          subtitle: `AMT${route.route_id}`,
+          type: 'train' as const,
+        })),
+        ...stops.slice(0, 2).map((stop, index) => ({
+          id: `freq-stop-${index}`,
+          name: stop.stop_name,
+          code: stop.stop_id,
+          subtitle: stop.stop_id,
+          type: 'station' as const,
+        })),
+      ]);
+    };
+    loadFrequentlyUsed();
+  }, []);
 
   return (
     <GestureDetector gesture={panGesture}>
@@ -148,12 +185,21 @@ function ModalContent({ onTrainSelect }: { onTrainSelect: (train: any) => void }
                 }, 50);
               }}
               onBlur={() => setIsSearchFocused(false)}
+              accessible={true}
+              accessibilityLabel="Search for trains or stations"
+              accessibilityHint="Enter train name, station name, or route to search"
             />
             {isSearchFocused && (
-              <TouchableOpacity onPress={() => {
-                setIsSearchFocused(false);
-                snapToPoint?.('half');
-              }} activeOpacity={0.7}>
+              <TouchableOpacity 
+                onPress={() => {
+                  setIsSearchFocused(false);
+                  snapToPoint?.('half');
+                }} 
+                activeOpacity={0.7}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Close search"
+              >
                 <Ionicons name="close-circle" size={20} color="#888" />
               </TouchableOpacity>
             )}
@@ -165,98 +211,32 @@ function ModalContent({ onTrainSelect }: { onTrainSelect: (train: any) => void }
               {searchQuery ? 'SEARCH RESULTS' : 'FREQUENTLY USED'}
             </Text>
             {searchQuery ? (
-              gtfsParser.search(searchQuery).map((result) => (
-                <TouchableOpacity
-                  key={result.id}
-                  style={styles.frequentlyUsedItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    if (result.type === 'train') {
-                      // For trains, use the trip data to create a train object
-                      const { trip_id, stop_name } = result.data;
-                      const stopTimes = gtfsParser.getStopTimesForTrip(trip_id);
-                      if (stopTimes.length > 0) {
-                        const firstStop = stopTimes[0];
-                        const lastStop = stopTimes[stopTimes.length - 1];
-                        const trainObj = {
-                          id: parseInt(trip_id),
-                          airline: 'AMTK',
-                          flightNumber: trip_id,
-                          from: firstStop.stop_name,
-                          to: lastStop.stop_name,
-                          fromCode: firstStop.stop_id,
-                          toCode: lastStop.stop_id,
-                          departTime: formatTime(firstStop.departure_time),
-                          arriveTime: formatTime(lastStop.arrival_time),
-                          date: 'Today',
-                          daysAway: 0,
-                          routeName: `Train ${trip_id}`,
-                          intermediateStops: stopTimes.slice(1, -1).map(stop => ({
-                            time: formatTime(stop.departure_time),
-                            name: stop.stop_name,
-                            code: stop.stop_id,
-                          })),
-                        };
-                        saveTrain(trainObj);
-                        onTrainSelect(trainObj);
-                        setSearchQuery('');
-                        setIsSearchFocused(false);
-                      }
-                    } else if (result.type === 'station') {
-                      // For stations, get the first train that stops there
-                      const { stop_id } = result.data;
-                      const trips = gtfsParser.getTripsForStop(stop_id);
-                      if (trips.length > 0) {
-                        const stopTimes = gtfsParser.getStopTimesForTrip(trips[0]);
-                        if (stopTimes.length > 0) {
-                          const firstStop = stopTimes[0];
-                          const lastStop = stopTimes[stopTimes.length - 1];
-                          const trainObj = {
-                            id: parseInt(trips[0]),
-                            airline: 'AMTK',
-                            flightNumber: trips[0],
-                            from: firstStop.stop_name,
-                            to: lastStop.stop_name,
-                            fromCode: firstStop.stop_id,
-                            toCode: lastStop.stop_id,
-                            departTime: formatTime(firstStop.departure_time),
-                            arriveTime: formatTime(lastStop.arrival_time),
-                            date: 'Today',
-                            daysAway: 0,
-                            routeName: `Train ${trips[0]}`,
-                            intermediateStops: stopTimes.slice(1, -1).map(stop => ({
-                              time: formatTime(stop.departure_time),
-                              name: stop.stop_name,
-                              code: stop.stop_id,
-                            })),
-                          };
-                          saveTrain(trainObj);
-                          onTrainSelect(trainObj);
-                          setSearchQuery('');
-                          setIsSearchFocused(false);
-                        }
-                      }
+              <SearchResults
+                query={searchQuery}
+                onSelectResult={async (result) => {
+                  if (result.type === 'train') {
+                    // For trains, get train details from API
+                    const tripData = result.data as { trip_id: string };
+                    const trainObj = await TrainAPIService.getTrainDetails(tripData.trip_id);
+                    if (trainObj) {
+                      await saveTrain(trainObj);
+                      onTrainSelect(trainObj);
+                      setSearchQuery('');
+                      setIsSearchFocused(false);
                     }
-                  }}
-                >
-                  <View style={styles.frequentlyUsedIcon}>
-                    {result.type === 'train' && (
-                      <Ionicons name="train" size={24} color="#0A84FF" />
-                    )}
-                    {result.type === 'station' && (
-                      <Ionicons name="location" size={24} color="#0A84FF" />
-                    )}
-                    {result.type === 'route' && (
-                      <Ionicons name="train" size={24} color="#0A84FF" />
-                    )}
-                  </View>
-                  <View style={styles.frequentlyUsedText}>
-                    <Text style={styles.frequentlyUsedName}>{result.name}</Text>
-                    <Text style={styles.frequentlyUsedSubtitle}>{result.subtitle}</Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={20} color={COLORS.secondary} />
-                </TouchableOpacity>
-              ))
+                  } else if (result.type === 'station') {
+                    // For stations, get the first train that stops there
+                    const stopData = result.data as { stop_id: string };
+                    const trains = await TrainAPIService.getTrainsForStation(stopData.stop_id);
+                    if (trains.length > 0) {
+                      await saveTrain(trains[0]);
+                      onTrainSelect(trains[0]);
+                      setSearchQuery('');
+                      setIsSearchFocused(false);
+                    }
+                  }
+                }}
+              />
             ) : (
               frequentlyUsed.map((item) => (
                 <TouchableOpacity
@@ -266,13 +246,17 @@ function ModalContent({ onTrainSelect }: { onTrainSelect: (train: any) => void }
                   onPress={() => {
                     // Handle selection
                   }}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name}, ${item.subtitle}`}
+                  accessibilityHint={`Select ${item.type === 'train' ? 'train route' : 'station'} ${item.name}`}
                 >
                   <View style={styles.frequentlyUsedIcon}>
                     {item.type === 'train' && (
-                      <Ionicons name="train" size={24} color="#0A84FF" />
+                      <Ionicons name="train" size={24} color={COLORS.accentBlue} />
                     )}
                     {item.type === 'station' && (
-                      <Ionicons name="location" size={24} color="#0A84FF" />
+                      <Ionicons name="location" size={24} color={COLORS.accentBlue} />
                     )}
                   </View>
                   <View style={styles.frequentlyUsedText}>
@@ -300,6 +284,10 @@ function ModalContent({ onTrainSelect }: { onTrainSelect: (train: any) => void }
                   onTrainSelect(flight);
                 }}
                 activeOpacity={0.7}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={`Train ${flight.flightNumber} from ${flight.from} to ${flight.to}`}
+                accessibilityHint={`Departs at ${flight.departTime}, arrives at ${flight.arriveTime}. Tap to view details`}
               >
                 <View style={styles.flightLeft}>
                   <Text style={styles.daysAway}>{flight.daysAway}</Text>
@@ -453,12 +441,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.background.secondary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: COLORS.border.secondary,
   },
   searchInput: {
     flex: 1,
@@ -482,18 +470,18 @@ const styles = StyleSheet.create({
   frequentlyUsedItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: COLORS.background.primary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: COLORS.border.primary,
   },
   frequentlyUsedIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
@@ -527,12 +515,12 @@ const styles = StyleSheet.create({
   },
   flightCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: COLORS.background.primary,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: COLORS.border.primary,
   },
   flightLeft: {
     alignItems: 'center',

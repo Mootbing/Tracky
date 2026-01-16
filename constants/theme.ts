@@ -32,6 +32,16 @@ export const AppColors = {
   secondary: 'rgba(255, 255, 255, 0.5)',
   tertiary: 'rgba(255, 255, 255, 0.2)',
   accent: '#FF6B35',
+  accentBlue: '#0A84FF',
+  background: {
+    primary: 'rgba(255, 255, 255, 0.05)',
+    secondary: 'rgba(255, 255, 255, 0.1)',
+    tertiary: 'rgba(255, 255, 255, 0.15)',
+  },
+  border: {
+    primary: 'rgba(255, 255, 255, 0.1)',
+    secondary: 'rgba(255, 255, 255, 0.15)',
+  },
 };
 
 export const FontSizes = {

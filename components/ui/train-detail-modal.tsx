@@ -3,40 +3,20 @@ import React, { useContext } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { AppColors, Spacing } from '../../constants/theme';
+import type { Train } from '../../types/train';
 import { SlideUpModalContext } from './slide-up-modal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface Train {
-  id: number;
-  airline: string;
-  flightNumber: string;
-  from: string;
-  to: string;
-  fromCode: string;
-  toCode: string;
-  departTime: string;
-  arriveTime: string;
-  date: string;
-  daysAway: number;
-  arriveNext?: boolean;
-  intermediateStops?: Array<{
-    time: string;
-    name: string;
-    code: string;
-  }>;
-}
+const COLORS = AppColors;
+const FONTS = {
+  family: 'System',
+};
 
 interface TrainDetailModalProps {
   train: Train;
   onClose: () => void;
 }
-
-const COLORS = AppColors;
-
-const FONTS = {
-  family: 'System',
-};
 
 // Helper function to parse time string (HH:MM AM/PM) and return minutes since midnight
 const timeToMinutes = (timeStr: string): number => {
