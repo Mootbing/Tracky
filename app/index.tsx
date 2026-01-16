@@ -72,15 +72,16 @@ function ModalContent() {
         </View>
       </GestureDetector>
 
-      <ScrollView 
-        style={styles.scrollView} 
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={isFullscreen}
-        onScroll={(e) => {
-          scrollOffset.value = e.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-      >
+      <GestureDetector gesture={panGesture}>
+        <ScrollView 
+          style={styles.scrollView} 
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={isFullscreen}
+          onScroll={(e) => {
+            scrollOffset.value = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+        >
         {flights.map((flight, index) => (
         <TouchableOpacity 
           key={flight.id} 
@@ -140,6 +141,7 @@ function ModalContent() {
         </TouchableOpacity>
       ))}
     </ScrollView>
+    </GestureDetector>
       
     <TrainDetailModal 
       visible={showDetailModal}
