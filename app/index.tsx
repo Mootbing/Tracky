@@ -1,9 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import MapView from 'react-native-maps';
+import MapView, { UrlTile } from 'react-native-maps';
 import SlideUpModal, { SlideUpModalContext } from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { AppColors, BorderRadius, FontSizes, FontWeights, Spacing } from '../constants/theme';
@@ -18,11 +18,9 @@ const FONTS = {
   weight: FontWeights,
 };
 
-function ModalContent() {
+function ModalContent({ onSelectTrain }: { onSelectTrain: (train: any) => void }) {
   const { isFullscreen, scrollOffset, panGesture, isMinimized } = useContext(SlideUpModalContext);
   const [imageError, setImageError] = useState(false);
-  const [selectedTrain, setSelectedTrain] = useState<any>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const flights = [
     {
@@ -89,10 +87,7 @@ function ModalContent() {
             styles.flightCard,
             isMinimized && index > 0 && { display: 'none' }
           ]}
-          onPress={() => {
-            setSelectedTrain(flight);
-            setShowDetailModal(true);
-          }}
+          onPress={() => onSelectTrain(flight)}
           activeOpacity={0.7}
         >
           <View style={styles.flightLeft}>
@@ -143,17 +138,14 @@ function ModalContent() {
     </ScrollView>
     </GestureDetector>
       
-    <TrainDetailModal 
-      visible={showDetailModal}
-      train={selectedTrain}
-      onClose={() => setShowDetailModal(false)}
-    />
     </>
   );
 }
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
+  const [selectedTrain, setSelectedTrain] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -189,11 +181,33 @@ export default function MapScreen() {
         initialRegion={region}
         showsUserLocation={true}
         userLocationAnnotationTitle="Your Location"
-      />
+        showsTraffic
+      >
+        {/* Lightweight transit-ish overlay (public OSM transport tiles) */}
+        <UrlTile
+          urlTemplate="https://tile.memomaps.de/tilegen/{z}/{x}/{y}.png"
+          maximumZ={19}
+          flipY={false}
+          tileSize={256}
+          zIndex={1}
+        />
+      </MapView>
       
       <SlideUpModal>
-        <ModalContent />
+        <ModalContent onSelectTrain={(train) => {
+          setSelectedTrain(train);
+          setShowDetailModal(true);
+        }} />
       </SlideUpModal>
+
+      <TrainDetailModal
+        visible={showDetailModal}
+        train={selectedTrain}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedTrain(null);
+        }}
+      />
     </View>
   );
 }

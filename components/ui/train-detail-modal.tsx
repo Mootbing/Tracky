@@ -1,8 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import React from 'react';
-import { Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppColors, Spacing } from '../../constants/theme';
+import SlideUpModal from './slide-up-modal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -35,105 +35,100 @@ const FONTS = {
 
 export default function TrainDetailModal({ visible, train, onClose }: TrainDetailModalProps) {
   if (!train) return null;
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.blurOverlay}>
-          <BlurView intensity={25} style={styles.blurContainer}>
-            <View style={styles.modalContent}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerContent}>
-                <Image
-                  source={require('../../assets/images/amtrak.png')}
-                  style={styles.headerLogo}
-                />
-                <View style={styles.headerTextContainer}>
-                  <View style={styles.headerTop}>
-                    <Text style={styles.headerTitle}>
-                      {train.airline} {train.flightNumber} • {train.date}
-                    </Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.6}>
-                      <Ionicons name="close" size={24} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.routeTitle}>
-                    {train.from} to {train.to}
-                  </Text>
-                </View>
+    <SlideUpModal zIndex={2000} initialSnap="half" childrenContainerStyle={{ paddingHorizontal: 0 }}>
+      <View style={styles.modalContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Image
+              source={require('../../assets/images/amtrak.png')}
+              style={styles.headerLogo}
+            />
+            <View style={styles.headerTextContainer}>
+              <View style={styles.headerTop}>
+                <Text style={styles.headerTitle}>
+                  {train.airline} {train.flightNumber} • {train.date}
+                </Text>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.6}>
+                  <Ionicons name="close" size={24} color={COLORS.primary} />
+                </TouchableOpacity>
               </View>
-            </View>
-
-            {/* Departs in */}
-            <View style={styles.departsSection}>
-              <Text style={styles.departsText}>Departs in {train.daysAway} days</Text>
-            </View>
-            <View style={styles.fullWidthLine} />
-
-            {/* Departure Info */}
-            <View style={styles.infoSection}>
-              <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
-                <Text style={styles.locationCode}>{train.fromCode}</Text>
-                <Text style={styles.locationName}> • {train.from} Intl.</Text>
-              </View>
-              <Text style={styles.timeText}>{train.departTime}</Text>
-              <View style={styles.durationLineRow}>
-                <View style={styles.durationContent}>
-                  <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} />
-                  <Text style={styles.durationText}>6h 28m • 2,516 mi</Text>
-                </View>
-                <View style={styles.horizontalLine} />
-              </View>
-            </View>
-
-            {/* Intermediate Stops with Timeline */}
-            <View style={styles.timelineContainer}>
-              <View style={styles.dashedLineWrapper}>
-                <View style={styles.dashedLine} />
-              </View>
-              
-              <View style={styles.stopSection}>
-                <Text style={styles.stopTime}>5:45 PM</Text>
-                <Text style={styles.stopStation}>Harrisburg • HAR</Text>
-                <Text style={styles.stopMetrics}>1h 52m from {train.from} • 1h 52m after Philadelphia</Text>
-              </View>
-
-              <View style={styles.stopSection}>
-                <Text style={styles.stopTime}>7:12 PM</Text>
-                <Text style={styles.stopStation}>Pittsburgh • PIT</Text>
-                <Text style={styles.stopMetrics}>3h 19m from {train.from} • 1h 27m after Harrisburg</Text>
-              </View>
-
-              <View style={styles.stopSection}>
-                <Text style={styles.stopTime}>9:30 PM</Text>
-                <Text style={styles.stopStation}>Chicago • CHI</Text>
-                <Text style={styles.stopMetrics}>5h 37m from {train.from} • 2h 18m after Pittsburgh</Text>
-              </View>
-
-              <View style={styles.endLineRow}>
-                <View style={styles.horizontalLine} />
-              </View>
-            </View>
-
-            {/* Arrival Info */}
-            <View style={styles.infoSection}>
-              <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
-                <Text style={styles.locationCode}>{train.toCode}</Text>
-                <Text style={styles.locationName}> • {train.to} Intl.</Text>
-              </View>
-              <Text style={styles.timeText}>
-                {train.arriveTime}
-                {train.arriveNext ? ' +1' : ''}
+              <Text style={styles.routeTitle}>
+                {train.from} to {train.to}
               </Text>
             </View>
           </View>
-        </BlurView>
+        </View>
+
+        {/* Departs in */}
+        <View style={styles.departsSection}>
+          <Text style={styles.departsText}>Departs in {train.daysAway} days</Text>
+        </View>
+        <View style={styles.fullWidthLine} />
+
+        {/* Departure Info */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoHeader}>
+            <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
+            <Text style={styles.locationCode}>{train.fromCode}</Text>
+            <Text style={styles.locationName}> • {train.from} Intl.</Text>
+          </View>
+          <Text style={styles.timeText}>{train.departTime}</Text>
+          <View style={styles.durationLineRow}>
+            <View style={styles.durationContent}>
+              <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} />
+              <Text style={styles.durationText}>6h 28m • 2,516 mi</Text>
+            </View>
+            <View style={styles.horizontalLine} />
+          </View>
+        </View>
+
+        {/* Intermediate Stops with Timeline */}
+        <View style={styles.timelineContainer}>
+          <View style={styles.dashedLineWrapper}>
+            <View style={styles.dashedLine} />
+          </View>
+          
+          <View style={styles.stopSection}>
+            <Text style={styles.stopTime}>5:45 PM</Text>
+            <Text style={styles.stopStation}>Harrisburg • HAR</Text>
+            <Text style={styles.stopMetrics}>1h 52m from {train.from} • 1h 52m after Philadelphia</Text>
+          </View>
+
+          <View style={styles.stopSection}>
+            <Text style={styles.stopTime}>7:12 PM</Text>
+            <Text style={styles.stopStation}>Pittsburgh • PIT</Text>
+            <Text style={styles.stopMetrics}>3h 19m from {train.from} • 1h 27m after Harrisburg</Text>
+          </View>
+
+          <View style={styles.stopSection}>
+            <Text style={styles.stopTime}>9:30 PM</Text>
+            <Text style={styles.stopStation}>Chicago • CHI</Text>
+            <Text style={styles.stopMetrics}>5h 37m from {train.from} • 2h 18m after Pittsburgh</Text>
+          </View>
+
+          <View style={styles.endLineRow}>
+            <View style={styles.horizontalLine} />
+          </View>
+        </View>
+
+        {/* Arrival Info */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoHeader}>
+            <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+            <Text style={styles.locationCode}>{train.toCode}</Text>
+            <Text style={styles.locationName}> • {train.to} Intl.</Text>
+          </View>
+          <Text style={styles.timeText}>
+            {train.arriveTime}
+            {train.arriveNext ? ' +1' : ''}
+          </Text>
+        </View>
       </View>
-    </View>
-    </Modal>
+    </SlideUpModal>
   );
 }
 
@@ -152,13 +147,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
   },
   modalContent: {
-    backgroundColor: 'rgba(20, 20, 25, 0.85)',
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
+    backgroundColor: 'transparent',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     paddingBottom: Spacing.xxl,
     maxHeight: SCREEN_HEIGHT * 0.85,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 0,
+    borderColor: 'transparent',
     borderBottomWidth: 0,
   },
   header: {

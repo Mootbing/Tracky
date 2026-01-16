@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
-import React, { createContext, useEffect, useState } from 'react';
-import { Dimensions, Platform, StyleSheet, View } from 'react-native';
+import React, { createContext, useEffect, useMemo, useState } from 'react';
+import { Dimensions, Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     runOnJS,
@@ -36,24 +36,29 @@ interface SlideUpModalProps {
   children: React.ReactNode;
   onSnapChange?: (snapPoint: 'min' | 'half' | 'max') => void;
   onHeightChange?: (height: number) => void;
+  zIndex?: number;
+  childrenContainerStyle?: ViewStyle;
+  hideHandle?: boolean;
+  initialSnap?: 'min' | 'half' | 'max';
 }
 
-export default function SlideUpModal({ children, onSnapChange, onHeightChange }: SlideUpModalProps) {
-  const translateY = useSharedValue(SCREEN_HEIGHT - SNAP_POINTS.HALF);
+export default function SlideUpModal({ children, onSnapChange, onHeightChange, zIndex, childrenContainerStyle, hideHandle = false, initialSnap = 'half' }: SlideUpModalProps) {
+  const initialPoint = SNAP_POINTS[initialSnap];
+  const translateY = useSharedValue(SCREEN_HEIGHT - initialPoint);
   const context = useSharedValue({ y: 0 });
-  const currentSnap = useSharedValue<'min' | 'half' | 'max'>('half');
+  const currentSnap = useSharedValue<'min' | 'half' | 'max'>(initialSnap);
   const scrollOffset = useSharedValue(0);
-  const modalHeight = useSharedValue(SNAP_POINTS.HALF);
+  const modalHeight = useSharedValue(initialPoint);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
   useEffect(() => {
     // Animate in on mount
-    translateY.value = withSpring(SCREEN_HEIGHT - SNAP_POINTS.HALF, {
+    translateY.value = withSpring(SCREEN_HEIGHT - initialPoint, {
       damping: 50,
       stiffness: 200,
     });
-  }, []);
+  }, [initialPoint, translateY]);
 
   const snapToClosest = (currentY: number) => {
     'worklet';
@@ -119,23 +124,27 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange }:
     };
   });
 
+  const containerStyle = useMemo(() => [{ ...styles.container, zIndex: zIndex ?? 1000 }, animatedStyle], [animatedStyle, zIndex]);
+
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <Animated.View style={containerStyle}>
       <SlideUpModalContext.Provider value={{ isFullscreen, scrollOffset, panGesture, modalHeight, isMinimized }}>
         {Platform.OS === 'ios' || Platform.OS === 'android' ? (
           <BlurView intensity={40} style={styles.blurContainer}>
             {isFullscreen ? (
               <View style={styles.content}>
-                <GestureDetector gesture={panGesture}>
-                  <View style={styles.handleContainer} />
-                </GestureDetector>
-                <View style={styles.childrenContainer}>{children}</View>
+                {!hideHandle && (
+                  <GestureDetector gesture={panGesture}>
+                    <View style={styles.handleContainer} />
+                  </GestureDetector>
+                )}
+                <View style={[styles.childrenContainer, childrenContainerStyle]}>{children}</View>
               </View>
             ) : (
               <GestureDetector gesture={panGesture}>
                 <View style={styles.content}>
-                  <View style={styles.handleContainer} />
-                  <View style={styles.childrenContainer}>{children}</View>
+                  {!hideHandle && <View style={styles.handleContainer} />}
+                  <View style={[styles.childrenContainer, childrenContainerStyle]}>{children}</View>
                 </View>
               </GestureDetector>
             )}
@@ -144,16 +153,18 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange }:
           <View style={[styles.glassWeb, styles.content]}>
             {isFullscreen ? (
               <View style={styles.content}>
-                <GestureDetector gesture={panGesture}>
-                  <View style={styles.handleContainer} />
-                </GestureDetector>
-                <View style={styles.childrenContainer}>{children}</View>
+                {!hideHandle && (
+                  <GestureDetector gesture={panGesture}>
+                    <View style={styles.handleContainer} />
+                  </GestureDetector>
+                )}
+                <View style={[styles.childrenContainer, childrenContainerStyle]}>{children}</View>
               </View>
             ) : (
               <GestureDetector gesture={panGesture}>
                 <View style={{ flex: 1 }}>
-                  <View style={styles.handleContainer} />
-                  <View style={styles.childrenContainer}>{children}</View>
+                  {!hideHandle && <View style={styles.handleContainer} />}
+                  <View style={[styles.childrenContainer, childrenContainerStyle]}>{children}</View>
                 </View>
               </GestureDetector>
             )}
