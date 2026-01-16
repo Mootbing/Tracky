@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import MapView, { UrlTile } from 'react-native-maps';
+import MapView from 'react-native-maps';
 import SlideUpModal, { SlideUpModalContext } from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { AppColors, BorderRadius, FontSizes, FontWeights, Spacing } from '../constants/theme';
@@ -183,14 +183,6 @@ export default function MapScreen() {
         userLocationAnnotationTitle="Your Location"
         showsTraffic
       >
-        {/* Lightweight transit-ish overlay (public OSM transport tiles) */}
-        <UrlTile
-          urlTemplate="https://tile.memomaps.de/tilegen/{z}/{x}/{y}.png"
-          maximumZ={19}
-          flipY={false}
-          tileSize={256}
-          zIndex={1}
-        />
       </MapView>
       
       <SlideUpModal>
