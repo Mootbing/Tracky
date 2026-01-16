@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useContext } from 'react';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { AppColors, Spacing } from '../../constants/theme';
 import { SlideUpModalContext } from './slide-up-modal';
@@ -20,6 +20,11 @@ interface Train {
   date: string;
   daysAway: number;
   arriveNext?: boolean;
+  intermediateStops?: Array<{
+    time: string;
+    name: string;
+    code: string;
+  }>;
 }
 
 interface TrainDetailModalProps {
@@ -33,12 +38,62 @@ const FONTS = {
   family: 'System',
 };
 
+// Helper function to parse time string (HH:MM AM/PM) and return minutes since midnight
+const timeToMinutes = (timeStr: string): number => {
+  // Extract just the time part (before AM/PM)
+  const timePart = timeStr.split(' ')[0];
+  const [hoursStr, minutesStr] = timePart.split(':');
+  const hours = parseInt(hoursStr);
+  const minutes = parseInt(minutesStr);
+  const isPM = timeStr.includes('PM');
+  
+  let totalHours = hours;
+  if (isPM && hours !== 12) {
+    totalHours = hours + 12;
+  } else if (!isPM && hours === 12) {
+    totalHours = 0;
+  }
+  
+  return totalHours * 60 + minutes;
+};
+
+// Helper function to calculate duration between two times
+const calculateDuration = (startTime: string, endTime: string): string => {
+  const startMinutes = timeToMinutes(startTime);
+  let endMinutes = timeToMinutes(endTime);
+  
+  // If end time is earlier than start time, assume it's the next day
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60;
+  }
+  
+  const duration = endMinutes - startMinutes;
+  const hours = Math.floor(duration / 60);
+  const minutes = duration % 60;
+  
+  return `${hours}h ${minutes}m`;
+};
+
 export default function TrainDetailModal({ train, onClose }: TrainDetailModalProps) {
-  const { panGesture } = useContext(SlideUpModalContext);
+  const { panGesture, isFullscreen, scrollOffset } = useContext(SlideUpModalContext);
+  
+  // Calculate journey duration from departure to arrival
+  const duration = calculateDuration(train.departTime, train.arriveTime);
+  
+  // Estimate mileage based on number of stops (rough estimate: ~40-50 miles per stop segment)
+  const estimatedMiles = Math.round(((train.intermediateStops?.length || 0) + 1) * 45);
   
   return (
     <GestureDetector gesture={panGesture}>
-      <View style={styles.modalContent}>
+      <ScrollView 
+        style={styles.modalContent} 
+        scrollEnabled={isFullscreen} 
+        showsVerticalScrollIndicator={false}
+        onScroll={(e) => {
+          scrollOffset.value = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
@@ -80,40 +135,34 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
           <View style={styles.durationLineRow}>
             <View style={styles.durationContent}>
               <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} />
-              <Text style={styles.durationText}>6h 28m • 2,516 mi</Text>
+              <Text style={styles.durationText}>{duration}</Text>
+              {/* TODO: Fix mileage calculation */}
+              {/* <Text style={styles.durationText}>{duration} • {estimatedMiles} mi</Text> */}
             </View>
             <View style={styles.horizontalLine} />
           </View>
         </View>
 
         {/* Intermediate Stops with Timeline */}
-        <View style={styles.timelineContainer}>
-          <View style={styles.dashedLineWrapper}>
-            <View style={styles.dashedLine} />
-          </View>
-          
-          <View style={styles.stopSection}>
-            <Text style={styles.stopTime}>5:45 PM</Text>
-            <Text style={styles.stopStation}>Harrisburg • HAR</Text>
-            <Text style={styles.stopMetrics}>1h 52m from {train.from} • 1h 52m after Philadelphia</Text>
-          </View>
+        {train.intermediateStops && train.intermediateStops.length > 0 && (
+          <View style={styles.timelineContainer}>
+            <View style={styles.dashedLineWrapper}>
+              <View style={styles.dashedLine} />
+            </View>
+            
+            {train.intermediateStops.map((stop, index) => (
+              <View key={index} style={styles.stopSection}>
+                <Text style={styles.stopTime}>{stop.time}</Text>
+                <Text style={styles.stopStation}>{stop.name}</Text>
+                <Text style={styles.stopCode}>{stop.code}</Text>
+              </View>
+            ))}
 
-          <View style={styles.stopSection}>
-            <Text style={styles.stopTime}>7:12 PM</Text>
-            <Text style={styles.stopStation}>Pittsburgh • PIT</Text>
-            <Text style={styles.stopMetrics}>3h 19m from {train.from} • 1h 27m after Harrisburg</Text>
+            <View style={styles.endLineRow}>
+              <View style={styles.horizontalLine} />
+            </View>
           </View>
-
-          <View style={styles.stopSection}>
-            <Text style={styles.stopTime}>9:30 PM</Text>
-            <Text style={styles.stopStation}>Chicago • CHI</Text>
-            <Text style={styles.stopMetrics}>5h 37m from {train.from} • 2h 18m after Pittsburgh</Text>
-          </View>
-
-          <View style={styles.endLineRow}>
-            <View style={styles.horizontalLine} />
-          </View>
-        </View>
+        )}
 
         {/* Arrival Info */}
         <View style={styles.infoSection}>
@@ -127,7 +176,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             {train.arriveNext ? ' +1' : ''}
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </GestureDetector>
   );
 }
@@ -320,6 +369,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONTS.family,
     color: COLORS.primary,
+    marginBottom: 4,
+  },
+  stopCode: {
+    fontSize: 12,
+    fontFamily: FONTS.family,
+    color: COLORS.secondary,
     marginBottom: 6,
   },
   stopElapsed: {

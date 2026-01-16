@@ -3,10 +3,10 @@ import React, { createContext, useEffect, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 import { BorderRadius, Spacing } from '../../constants/theme';
 
@@ -24,6 +24,7 @@ export const SlideUpModalContext = createContext<{
   panGesture: any;
   modalHeight: any;
   isMinimized: boolean;
+  snapToPoint?: (point: 'min' | 'half' | 'max') => void;
 }>({
   isFullscreen: false,
   scrollOffset: { value: 0 } as any,
@@ -39,7 +40,8 @@ interface SlideUpModalProps {
   onDismiss?: () => void;
 }
 
-export default function SlideUpModal({ children, onSnapChange, onHeightChange, onDismiss }: SlideUpModalProps) {
+export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') => void }, SlideUpModalProps>(
+  function SlideUpModal({ children, onSnapChange, onHeightChange, onDismiss }: SlideUpModalProps, ref: React.Ref<any>) {
   const translateY = useSharedValue(SCREEN_HEIGHT - SNAP_POINTS.HALF);
   const context = useSharedValue({ y: 0 });
   const currentSnap = useSharedValue<'min' | 'half' | 'max'>('half');
@@ -47,6 +49,10 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange, o
   const modalHeight = useSharedValue(SNAP_POINTS.HALF);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+
+  React.useImperativeHandle(ref, () => ({
+    snapToPoint,
+  }), []);
 
   useEffect(() => {
     // Animate in on mount
@@ -89,14 +95,39 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange, o
     return SCREEN_HEIGHT - closest.point;
   };
 
+  const snapToPoint = (point: 'min' | 'half' | 'max') => {
+    const snapPoint = point === 'min' ? SNAP_POINTS.MIN : point === 'half' ? SNAP_POINTS.HALF : SNAP_POINTS.MAX;
+    const targetY = SCREEN_HEIGHT - snapPoint;
+    
+    currentSnap.value = point;
+    modalHeight.value = snapPoint;
+    
+    if (onSnapChange) {
+      runOnJS(onSnapChange)(point);
+    }
+    
+    if (onHeightChange) {
+      runOnJS(onHeightChange)(snapPoint);
+    }
+    
+    runOnJS(setIsFullscreen)(point === 'max');
+    runOnJS(setIsMinimized)(point === 'min');
+    
+    translateY.value = withSpring(targetY, {
+      damping: 50,
+      stiffness: 200,
+    });
+  };
+
   const panGesture = Gesture.Pan()
     .onStart(() => {
       context.value = { y: translateY.value };
     })
     .onUpdate((event) => {
-      // Allow dragging down when at top of scrollview in fullscreen
+      // Only prevent pan when scrollview is scrolled down AND trying to scroll up
+      // Allow pan when at top of scroll (scrollOffset === 0)
       if (currentSnap.value === 'max' && scrollOffset.value > 0 && event.translationY < 0) {
-        // Don't allow dragging up if not at top of scroll
+        // Don't allow dragging up if scrolled down - let scrollview handle it
         return;
       }
       // Limit dragging within bounds
@@ -111,6 +142,20 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange, o
       const currentModalHeight = SCREEN_HEIGHT - translateY.value;
       if (currentModalHeight < SNAP_POINTS.MIN && onDismiss) {
         runOnJS(onDismiss)();
+        return;
+      }
+      
+      // Auto-resize to 50% if scrolling down at top with velocity threshold
+      if (currentSnap.value === 'max' && scrollOffset.value < 150) {
+        const snapPoint = SCREEN_HEIGHT - SNAP_POINTS.HALF;
+        translateY.value = withSpring(snapPoint, {
+          damping: 50,
+          stiffness: 200,
+        });
+        currentSnap.value = 'half';
+        modalHeight.value = SNAP_POINTS.HALF;
+        runOnJS(setIsFullscreen)(false);
+        runOnJS(setIsMinimized)(false);
         return;
       }
       
@@ -129,9 +174,15 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange, o
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
-      <SlideUpModalContext.Provider value={{ isFullscreen, scrollOffset, panGesture, modalHeight, isMinimized }}>
+      <SlideUpModalContext.Provider value={{ isFullscreen, scrollOffset, panGesture, modalHeight, isMinimized, snapToPoint }}>
         {Platform.OS === 'ios' || Platform.OS === 'android' ? (
-          <BlurView intensity={40} style={styles.blurContainer}>
+          <BlurView intensity={40} style={[
+            styles.blurContainer,
+            !isFullscreen && {
+              borderTopLeftRadius: BorderRadius.xl,
+              borderTopRightRadius: BorderRadius.xl,
+            }
+          ]}>
             {isFullscreen ? (
               <View style={styles.content}>
                 <GestureDetector gesture={panGesture}>
@@ -149,7 +200,14 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange, o
             )}
           </BlurView>
         ) : (
-          <View style={[styles.glassWeb, styles.content]}>
+          <View style={[
+            styles.glassWeb,
+            styles.content,
+            !isFullscreen && {
+              borderTopLeftRadius: BorderRadius.xl,
+              borderTopRightRadius: BorderRadius.xl,
+            }
+          ]}>
             {isFullscreen ? (
               <View style={styles.content}>
                 <GestureDetector gesture={panGesture}>
@@ -171,6 +229,7 @@ export default function SlideUpModal({ children, onSnapChange, onHeightChange, o
     </Animated.View>
   );
 }
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -184,8 +243,6 @@ const styles = StyleSheet.create({
   blurContainer: {
     flex: 1,
     overflow: 'hidden',
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
     backgroundColor: Platform.select({
       ios: 'rgba(20, 20, 25, 0.75)',
       android: 'rgba(20, 20, 25, 0.8)',
@@ -208,8 +265,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(20, 20, 25, 0.8)',
     backdropFilter: 'blur(20px)',
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     borderBottomWidth: 0,
