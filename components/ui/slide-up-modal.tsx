@@ -13,7 +13,6 @@ import { BorderRadius, Spacing } from '../../constants/theme';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const SNAP_POINTS = {
-  MIN: SCREEN_HEIGHT * 0.25 + 50,
   HALF: SCREEN_HEIGHT * 0.5,
   MAX: SCREEN_HEIGHT * 0.95,
 };
@@ -23,32 +22,29 @@ export const SlideUpModalContext = createContext<{
   scrollOffset: any;
   panGesture: any;
   modalHeight: any;
-  isMinimized: boolean;
-  snapToPoint?: (point: 'min' | 'half' | 'max') => void;
+  snapToPoint?: (point: 'half' | 'max') => void;
 }>({
   isFullscreen: false,
   scrollOffset: { value: 0 } as any,
   panGesture: null,
   modalHeight: { value: SCREEN_HEIGHT * 0.5 } as any,
-  isMinimized: false,
 });
 
 interface SlideUpModalProps {
   children: React.ReactNode;
-  onSnapChange?: (snapPoint: 'min' | 'half' | 'max') => void;
+  onSnapChange?: (snapPoint: 'half' | 'max') => void;
   onHeightChange?: (height: number) => void;
   onDismiss?: () => void;
 }
 
-export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') => void }, SlideUpModalProps>(
+export default React.forwardRef<{ snapToPoint: (point: 'half' | 'max') => void }, SlideUpModalProps>(
   function SlideUpModal({ children, onSnapChange, onHeightChange, onDismiss }: SlideUpModalProps, ref: React.Ref<any>) {
   const translateY = useSharedValue(SCREEN_HEIGHT - SNAP_POINTS.HALF);
   const context = useSharedValue({ y: 0 });
-  const currentSnap = useSharedValue<'min' | 'half' | 'max'>('half');
+  const currentSnap = useSharedValue<'half' | 'max'>('half');
   const scrollOffset = useSharedValue(0);
   const modalHeight = useSharedValue(SNAP_POINTS.HALF);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   React.useImperativeHandle(ref, () => ({
     snapToPoint,
@@ -68,7 +64,6 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     
     // Calculate distances to each snap point
     const distances = [
-      { point: SNAP_POINTS.MIN, distance: Math.abs(modalHeightValue - SNAP_POINTS.MIN), key: 'min' as const },
       { point: SNAP_POINTS.HALF, distance: Math.abs(modalHeightValue - SNAP_POINTS.HALF), key: 'half' as const },
       { point: SNAP_POINTS.MAX, distance: Math.abs(modalHeightValue - SNAP_POINTS.MAX), key: 'max' as const },
     ];
@@ -90,13 +85,12 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     }
     
     runOnJS(setIsFullscreen)(closest.key === 'max');
-    runOnJS(setIsMinimized)(closest.key === 'min');
     
     return SCREEN_HEIGHT - closest.point;
   };
 
-  const snapToPoint = (point: 'min' | 'half' | 'max') => {
-    const snapPoint = point === 'min' ? SNAP_POINTS.MIN : point === 'half' ? SNAP_POINTS.HALF : SNAP_POINTS.MAX;
+  const snapToPoint = (point: 'half' | 'max') => {
+    const snapPoint = point === 'half' ? SNAP_POINTS.HALF : SNAP_POINTS.MAX;
     const targetY = SCREEN_HEIGHT - snapPoint;
     
     currentSnap.value = point;
@@ -111,7 +105,6 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     }
     
     runOnJS(setIsFullscreen)(point === 'max');
-    runOnJS(setIsMinimized)(point === 'min');
     
     translateY.value = withSpring(targetY, {
       damping: 50,
@@ -134,17 +127,10 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
       const newY = context.value.y + event.translationY;
       translateY.value = Math.max(
         SCREEN_HEIGHT - SNAP_POINTS.MAX,
-        Math.min(SCREEN_HEIGHT - SNAP_POINTS.MIN, newY)
+        Math.min(SCREEN_HEIGHT - SNAP_POINTS.HALF, newY)
       );
     })
     .onEnd(() => {
-      // Check if dragged below MIN threshold - dismiss if so
-      const currentModalHeight = SCREEN_HEIGHT - translateY.value;
-      if (currentModalHeight < SNAP_POINTS.MIN && onDismiss) {
-        runOnJS(onDismiss)();
-        return;
-      }
-      
       // Auto-resize to 50% if scrolling down at top with velocity threshold
       if (currentSnap.value === 'max' && scrollOffset.value < 150) {
         const snapPoint = SCREEN_HEIGHT - SNAP_POINTS.HALF;
@@ -155,7 +141,6 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
         currentSnap.value = 'half';
         modalHeight.value = SNAP_POINTS.HALF;
         runOnJS(setIsFullscreen)(false);
-        runOnJS(setIsMinimized)(false);
         return;
       }
       
@@ -174,7 +159,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
-      <SlideUpModalContext.Provider value={{ isFullscreen, scrollOffset, panGesture, modalHeight, isMinimized, snapToPoint }}>
+      <SlideUpModalContext.Provider value={{ isFullscreen, scrollOffset, panGesture, modalHeight, snapToPoint }}>
         {Platform.OS === 'ios' || Platform.OS === 'android' ? (
           <BlurView intensity={40} style={[
             styles.blurContainer,
@@ -183,21 +168,12 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
               borderTopRightRadius: BorderRadius.xl,
             }
           ]}>
-            {isFullscreen ? (
+            <GestureDetector gesture={panGesture}>
               <View style={styles.content}>
-                <GestureDetector gesture={panGesture}>
-                  <View style={styles.handleContainer} />
-                </GestureDetector>
+                <View style={styles.handleContainer} />
                 <View style={styles.childrenContainer}>{children}</View>
               </View>
-            ) : (
-              <GestureDetector gesture={panGesture}>
-                <View style={styles.content}>
-                  <View style={styles.handleContainer} />
-                  <View style={styles.childrenContainer}>{children}</View>
-                </View>
-              </GestureDetector>
-            )}
+            </GestureDetector>
           </BlurView>
         ) : (
           <View style={[
@@ -208,21 +184,12 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
               borderTopRightRadius: BorderRadius.xl,
             }
           ]}>
-            {isFullscreen ? (
-              <View style={styles.content}>
-                <GestureDetector gesture={panGesture}>
-                  <View style={styles.handleContainer} />
-                </GestureDetector>
+            <GestureDetector gesture={panGesture}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.handleContainer} />
                 <View style={styles.childrenContainer}>{children}</View>
               </View>
-            ) : (
-              <GestureDetector gesture={panGesture}>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.handleContainer} />
-                  <View style={styles.childrenContainer}>{children}</View>
-                </View>
-              </GestureDetector>
-            )}
+            </GestureDetector>
           </View>
         )}
       </SlideUpModalContext.Provider>

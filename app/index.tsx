@@ -85,7 +85,7 @@ function SearchResults({
 }
 
 function ModalContent({ onTrainSelect }: { onTrainSelect: (train: Train) => void }) {
-  const { isFullscreen, scrollOffset, panGesture, isMinimized, snapToPoint } = useContext(SlideUpModalContext);
+  const { isFullscreen, scrollOffset, panGesture, snapToPoint } = useContext(SlideUpModalContext);
   const [imageError, setImageError] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
