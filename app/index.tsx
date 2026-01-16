@@ -18,9 +18,11 @@ const FONTS = {
   weight: FontWeights,
 };
 
-function ModalContent({ onSelectTrain }: { onSelectTrain: (train: any) => void }) {
+function ModalContent() {
   const { isFullscreen, scrollOffset, panGesture, isMinimized } = useContext(SlideUpModalContext);
   const [imageError, setImageError] = useState(false);
+  const [selectedTrain, setSelectedTrain] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const flights = [
     {
@@ -87,7 +89,10 @@ function ModalContent({ onSelectTrain }: { onSelectTrain: (train: any) => void }
             styles.flightCard,
             isMinimized && index > 0 && { display: 'none' }
           ]}
-          onPress={() => onSelectTrain(flight)}
+          onPress={() => {
+            setSelectedTrain(flight);
+            setShowDetailModal(true);
+          }}
           activeOpacity={0.7}
         >
           <View style={styles.flightLeft}>
@@ -138,14 +143,17 @@ function ModalContent({ onSelectTrain }: { onSelectTrain: (train: any) => void }
     </ScrollView>
     </GestureDetector>
       
+    <TrainDetailModal 
+      visible={showDetailModal}
+      train={selectedTrain}
+      onClose={() => setShowDetailModal(false)}
+    />
     </>
   );
 }
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
-  const [selectedTrain, setSelectedTrain] = useState<any>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -180,26 +188,14 @@ export default function MapScreen() {
         style={styles.map}
         initialRegion={region}
         showsUserLocation={true}
+        showsTraffic={false}
+        showsIndoors={true}
         userLocationAnnotationTitle="Your Location"
-        showsTraffic
-      >
-      </MapView>
+      />
       
       <SlideUpModal>
-        <ModalContent onSelectTrain={(train) => {
-          setSelectedTrain(train);
-          setShowDetailModal(true);
-        }} />
+        <ModalContent />
       </SlideUpModal>
-
-      <TrainDetailModal
-        visible={showDetailModal}
-        train={selectedTrain}
-        onClose={() => {
-          setShowDetailModal(false);
-          setSelectedTrain(null);
-        }}
-      />
     </View>
   );
 }

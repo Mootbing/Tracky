@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AppColors, Spacing } from '../../constants/theme';
+import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
 import SlideUpModal from './slide-up-modal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -38,7 +38,7 @@ export default function TrainDetailModal({ visible, train, onClose }: TrainDetai
   if (!visible) return null;
 
   return (
-    <SlideUpModal zIndex={2000} initialSnap="half" childrenContainerStyle={{ paddingHorizontal: 0 }}>
+    <SlideUpModal>
       <View style={styles.modalContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -147,13 +147,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
   },
   modalContent: {
-    backgroundColor: 'transparent',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    backgroundColor: 'rgba(20, 20, 25, 0.85)',
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
     paddingBottom: Spacing.xxl,
     maxHeight: SCREEN_HEIGHT * 0.85,
-    borderWidth: 0,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderBottomWidth: 0,
   },
   header: {
