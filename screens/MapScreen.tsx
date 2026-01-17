@@ -1,11 +1,12 @@
 import React, { useRef, useMemo } from 'react';
-import { Animated, TouchableOpacity, View, Text } from 'react-native';
+import { Animated, View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
+import MapSettingsPill, { RouteMode, StationMode, TrainMode, MapType } from '../components/map/MapSettingsPill';
 import { AppColors } from '../constants/theme';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
 import { useRealtime } from '../hooks/useRealtime';
@@ -13,7 +14,7 @@ import { useShapes } from '../hooks/useShapes';
 import { TrainAPIService } from '../services/api';
 import { TrainStorageService } from '../services/storage';
 import { gtfsParser } from '../utils/gtfs-parser';
-import { getRouteColor, getColoredRouteColor, getStrokeWidthForZoom } from '../utils/route-colors';
+import { getRouteColor, getColoredRouteColor, getStrokeWidthForZoom, getColoredRouteColor as getTrainMarkerColor } from '../utils/route-colors';
 import { clusterStations, getStationAbbreviation } from '../utils/station-clustering';
 import { ModalContent } from './ModalContent';
 import { styles } from './styles';
@@ -30,8 +31,10 @@ function MapScreenInner() {
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
-  const [mapType, setMapType] = React.useState<'standard' | 'satellite'>('standard');
-  const [routeMode, setRouteMode] = React.useState<'hidden' | 'secondary' | 'colored'>('secondary');
+  const [mapType, setMapType] = React.useState<MapType>('standard');
+  const [routeMode, setRouteMode] = React.useState<RouteMode>('secondary');
+  const [stationMode, setStationMode] = React.useState<StationMode>('auto');
+  const [trainMode, setTrainMode] = React.useState<TrainMode>('white');
   const { savedTrains, setSavedTrains, selectedTrain, setSelectedTrain } = useTrainContext();
   const [selectedStation, setSelectedStation] = React.useState<string | null>(null);
   const markerScale = useRef(new Animated.Value(1)).current;
@@ -97,16 +100,22 @@ function MapScreenInner() {
     });
   };
 
-  const toggleMapType = () => {
-    setMapType((prev) => (prev === 'standard' ? 'satellite' : 'standard'));
-  };
-
-  const toggleRouteMode = () => {
-    setRouteMode((prev) => {
-      if (prev === 'hidden') return 'secondary';
-      if (prev === 'secondary') return 'colored';
-      return 'hidden';
-    });
+  const handleRecenter = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({});
+      mapRef.current?.animateToRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 500);
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
   };
 
   // Calculate dynamic stroke width based on zoom level
@@ -114,10 +123,22 @@ function MapScreenInner() {
     return getStrokeWidthForZoom(region.latitudeDelta);
   }, [region.latitudeDelta]);
 
-  // Cluster stations based on zoom level
+  // Cluster stations based on zoom level and station mode
   const stationClusters = useMemo(() => {
+    if (stationMode === 'hidden') return [];
+    if (stationMode === 'all') {
+      // Return all stations without clustering
+      return stations.map(s => ({
+        id: s.id,
+        lat: s.lat,
+        lon: s.lon,
+        isCluster: false,
+        stations: [s],
+      }));
+    }
+    // 'auto' mode - use clustering
     return clusterStations(stations, region.latitudeDelta);
-  }, [stations, region.latitudeDelta]);
+  }, [stations, region.latitudeDelta, stationMode]);
 
   return (
     <View style={styles.container}>
@@ -205,57 +226,42 @@ function MapScreenInner() {
           );
         })}
 
-        {savedTrains.map((train) => (
-          train.realtime?.position && (
-            <Marker
-              key={`train-${train.id}`}
-              coordinate={{ latitude: train.realtime.position.lat, longitude: train.realtime.position.lon }}
-              title={`Train ${train.trainNumber}`}
-              description={train.routeName}
-            >
-              <View style={styles.liveTrainMarker}>
-                <Ionicons name="train" size={16} color={AppColors.primary} />
-              </View>
-            </Marker>
-          )
-        ))}
+        {trainMode !== 'hidden' && savedTrains.map((train) => {
+          const markerColor = trainMode === 'colored' && train.routeName
+            ? getTrainMarkerColor(train.routeName).stroke
+            : AppColors.primary;
+          return (
+            train.realtime?.position && (
+              <Marker
+                key={`train-${train.id}`}
+                coordinate={{ latitude: train.realtime.position.lat, longitude: train.realtime.position.lon }}
+                title={`Train ${train.trainNumber}`}
+                description={train.routeName}
+              >
+                <View style={[
+                  styles.liveTrainMarker,
+                  trainMode === 'colored' && { backgroundColor: markerColor }
+                ]}>
+                  <Ionicons name="train" size={16} color={AppColors.primary} />
+                </View>
+              </Marker>
+            )
+          );
+        })}
       </MapView>
 
-      <TouchableOpacity
-        style={[styles.mapTypeButton, { top: insets.top + 16 }]}
-        onPress={toggleMapType}
-        activeOpacity={0.7}
-      >
-        {mapType === 'standard' ? (
-          <MaterialIcons
-            name="satellite-alt"
-            size={24}
-            color={AppColors.primary}
-          />
-        ) : (
-          <Ionicons
-            name="map"
-            size={24}
-            color={AppColors.primary}
-          />
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.routeToggleButton, { top: insets.top + 16 }]}
-        onPress={toggleRouteMode}
-        activeOpacity={0.7}
-      >
-        {routeMode === 'hidden' && (
-          <MaterialIcons name="route" size={24} color={AppColors.tertiary} />
-        )}
-        {routeMode === 'secondary' && (
-          <MaterialIcons name="route" size={24} color={AppColors.primary} />
-        )}
-        {routeMode === 'colored' && (
-          <MaterialIcons name="route" size={24} color={AppColors.accentBlue} />
-        )}
-      </TouchableOpacity>
+      <MapSettingsPill
+        top={insets.top + 16}
+        routeMode={routeMode}
+        setRouteMode={setRouteMode}
+        stationMode={stationMode}
+        setStationMode={setStationMode}
+        mapType={mapType}
+        setMapType={setMapType}
+        trainMode={trainMode}
+        setTrainMode={setTrainMode}
+        onRecenter={handleRecenter}
+      />
 
       <SlideUpModal ref={mainModalRef}>
         <ModalContent
