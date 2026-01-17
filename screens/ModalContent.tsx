@@ -9,7 +9,7 @@ import { SlideUpModalContext } from '../components/ui/slide-up-modal';
 import { useTrainContext } from '../context/TrainContext';
 import { useFrequentlyUsed } from '../hooks/useFrequentlyUsed';
 import { TrainAPIService } from '../services/api';
-import { ensureFreshGTFS } from '../services/gtfs-sync';
+import { ensureFreshGTFS, hasCachedGTFS, isCacheStale } from '../services/gtfs-sync';
 import { TrainStorageService } from '../services/storage';
 import type { Train } from '../types/train';
 import { COLORS, styles } from './styles';
@@ -98,6 +98,49 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     };
     loadSavedTrains();
   }, [setSavedTrains]);
+
+  // Check if GTFS needs refresh on mount (weekly refresh)
+  useEffect(() => {
+    const checkAndRefreshGTFS = async () => {
+      const hasCache = await hasCachedGTFS();
+      const stale = await isCacheStale();
+
+      if (!hasCache || stale) {
+        // Automatically trigger refresh if no cache or stale
+        setIsRefreshing(true);
+        setRefreshProgress(0.05);
+        setRefreshStep('Checking GTFS cache');
+        setIsSearchFocused(false);
+        snapToPoint?.('min');
+
+        try {
+          setRefreshPhases([]);
+          await ensureFreshGTFS((update) => {
+            setRefreshProgress(update.progress);
+            setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
+            setRefreshPhases(prev => {
+              if (prev.length === 0 || prev[prev.length - 1] !== update.step) {
+                return [...prev, update.step];
+              }
+              return prev;
+            });
+          });
+          await refreshFrequentlyUsed();
+          setRefreshProgress(1);
+          setRefreshStep('Refresh complete');
+          setRefreshPhases(prev => prev[prev.length - 1] === 'Refresh complete' ? prev : [...prev, 'Refresh complete']);
+        } catch (error) {
+          console.error('Auto refresh failed:', error);
+          setRefreshStep('Refresh failed');
+          setRefreshPhases(prev => prev[prev.length - 1] === 'Refresh failed' ? prev : [...prev, 'Refresh failed']);
+        } finally {
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    checkAndRefreshGTFS();
+  }, [snapToPoint, refreshFrequentlyUsed]);
 
   // Store valid tripIds in memory and AsyncStorage
   const [validTripIds, setValidTripIds] = useState<string[]>([]);
