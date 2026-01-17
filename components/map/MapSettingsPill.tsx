@@ -18,7 +18,7 @@ const STRIP_WIDTH = SCREEN_WIDTH - 32;
 const STRIP_HEIGHT = 56;
 
 const SPRING_CONFIG = {
-  damping: 20,
+  damping: 28,
   stiffness: 200,
   overshootClamping: false,
 };

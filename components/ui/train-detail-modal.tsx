@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, Spacing } from '../../constants/theme';
+import { formatTimeWithDayOffset } from '../../services/api';
 
 import { useTrainContext } from '../../context/TrainContext';
 import type { Train } from '../../types/train';
@@ -11,6 +11,7 @@ import { haversineDistance } from '../../utils/distance';
 import { gtfsParser } from '../../utils/gtfs-parser';
 import { getCountdownForTrain } from '../TrainList';
 import { SlideUpModalContext } from './slide-up-modal';
+import TimeDisplay from './TimeDisplay';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,19 +28,12 @@ interface TrainDetailModalProps {
 }
 
 /**
- * Format 24-hour GTFS time to 12-hour AM/PM format
- * Handles times like "13:12:00" -> "1:12 PM"
+ * Format 24-hour GTFS time to 12-hour AM/PM format with day offset
+ * Handles times like "13:12:00" -> { time: "1:12 PM", dayOffset: 0 }
+ * Handles times like "25:30:00" -> { time: "1:30 AM", dayOffset: 1 }
  */
-function formatTime24to12(time24: string): string {
-  const [hours, minutes] = time24.substring(0, 5).split(':');
-  let h = parseInt(hours);
-  // Handle times > 24:00 (next day in GTFS)
-  if (h >= 24) h -= 24;
-  const m = minutes;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  if (h > 12) h -= 12;
-  if (h === 0) h = 12;
-  return `${h}:${m} ${ampm}`;
+function formatTime24to12(time24: string): { time: string; dayOffset: number } {
+  return formatTimeWithDayOffset(time24);
 }
 
 // Helper function to parse time string (HH:MM AM/PM) and return minutes since midnight
@@ -82,7 +76,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
   const { selectedTrain } = useTrainContext();
   const trainData = train || selectedTrain;
   const [intermediateStops, setIntermediateStops] = React.useState<
-    { time: string; name: string; code: string }[]
+    { time: string; dayOffset: number; name: string; code: string }[]
   >([]);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -100,20 +94,28 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
             // Only show stops between from and to (exclusive of endpoints)
             const segmentStops = stops.slice(fromIdx + 1, toIdx);
             setIntermediateStops(
-              segmentStops.map(stop => ({
-                time: stop.departure_time ? formatTime24to12(stop.departure_time) : '',
-                name: stop.stop_name,
-                code: stop.stop_id,
-              }))
+              segmentStops.map(stop => {
+                const formatted = stop.departure_time ? formatTime24to12(stop.departure_time) : { time: '', dayOffset: 0 };
+                return {
+                  time: formatted.time,
+                  dayOffset: formatted.dayOffset,
+                  name: stop.stop_name,
+                  code: stop.stop_id,
+                };
+              })
             );
           } else {
             // Fallback: show all intermediate stops if segment not found
             setIntermediateStops(
-              stops.slice(1, -1).map(stop => ({
-                time: stop.departure_time ? formatTime24to12(stop.departure_time) : '',
-                name: stop.stop_name,
-                code: stop.stop_id,
-              }))
+              stops.slice(1, -1).map(stop => {
+                const formatted = stop.departure_time ? formatTime24to12(stop.departure_time) : { time: '', dayOffset: 0 };
+                return {
+                  time: formatted.time,
+                  dayOffset: formatted.dayOffset,
+                  name: stop.stop_name,
+                  code: stop.stop_id,
+                };
+              })
             );
           }
         } else {
@@ -136,8 +138,8 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
   }, [error, onClose]);
 
   // Use context from SlideUpModal for proper scroll/gesture coordination
-  const { isFullscreen, isCollapsed, scrollOffset, panGesture } = React.useContext(SlideUpModalContext);
-  const [isHeaderStuck, setIsHeaderStuck] = React.useState(false);
+  const { isCollapsed, scrollOffset } = React.useContext(SlideUpModalContext);
+  const [isScrolled, setIsScrolled] = React.useState(false);
   // Calculate journey duration from departure to arrival
   const duration = trainData ? calculateDuration(trainData.departTime, trainData.arriveTime) : '';
 
@@ -174,145 +176,147 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
   }
 
   return (
-    <ScrollView
-      style={styles.modalContent}
-      scrollEnabled={true}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
-      showsVerticalScrollIndicator={true}
-      stickyHeaderIndices={[0]}
-      onScroll={(e) => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        if (scrollOffset) scrollOffset.value = offsetY;
-        setIsHeaderStuck(offsetY > 0);
-      }}
-      scrollEventThrottle={16}
-      bounces={true}
-      nestedScrollEnabled={true}
-    >
-        {/* Header */}
-        <View style={[
-          styles.header
-          // styles.headerStuck
-        ]}>
-          {/* BlurView removed: solid background only */}
-          <View style={styles.headerContent}>
-            <Image
-              source={require('../../assets/images/amtrak.png')}
-              style={styles.headerLogo}
-              fadeDuration={0}
-            />
-            <View style={styles.headerTextContainer}>
-              <View style={styles.headerTop}>
-                <Text style={styles.headerTitle}>
-                  {(trainData.routeName ? trainData.routeName : trainData.operator)} {trainData.trainNumber} • {trainData.date}
-                </Text>
-              </View>
-              <Text style={styles.routeTitle}>
-                {trainData.from} to {trainData.to}
+    <View style={styles.modalContent}>
+      {/* Header - Fixed outside ScrollView */}
+      <View style={[styles.header, isScrolled && styles.headerScrolled]}>
+        <View style={styles.headerContent}>
+          <Image
+            source={require('../../assets/images/amtrak.png')}
+            style={styles.headerLogo}
+            fadeDuration={0}
+          />
+          <View style={styles.headerTextContainer}>
+            <View style={styles.headerTop}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {(trainData.routeName ? trainData.routeName : trainData.operator)} {trainData.trainNumber} • {trainData.date}
               </Text>
             </View>
+            <Text style={styles.routeTitle} numberOfLines={1}>
+              {trainData.from} to {trainData.to}
+            </Text>
           </View>
-          {/* Absolutely positioned close button */}
-          <TouchableOpacity onPress={onClose} style={styles.absoluteCloseButton} activeOpacity={0.6}>
-            <Ionicons name="close" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
         </View>
+        {/* Absolutely positioned close button */}
+        <TouchableOpacity onPress={onClose} style={styles.absoluteCloseButton} activeOpacity={0.6}>
+          <Ionicons name="close" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
 
-        {/* Collapsed: only header visible */}
-        {!isCollapsed && (
-          <>
-            {/* Departs in (granular, like card) */}
-            {countdown &&  <View style={styles.fullWidthLine} />}
-            {countdown && (
-              <View style={styles.departsSection}>
-                <Text style={[styles.departsText, { color: COLORS.secondary }]}>
-                  {countdown.past ? 'Departed ' : 'Departs in '}
-                  <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{countdown.value}</Text>
-                  {' '}
-                  <Text style={{ color: COLORS.secondary }}>{unitLabel.toLowerCase()}</Text>
-                </Text>
+      {/* Collapsed: only header visible */}
+      {!isCollapsed && (
+        <ScrollView
+          style={styles.scrollContent}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={true}
+          onScroll={(e) => {
+            const offsetY = e.nativeEvent.contentOffset.y;
+            if (scrollOffset) scrollOffset.value = offsetY;
+            setIsScrolled(offsetY > 0);
+          }}
+          scrollEventThrottle={16}
+          bounces={true}
+          nestedScrollEnabled={true}
+        >
+          {/* Departs in (granular, like card) */}
+          {countdown && <View style={styles.fullWidthLine} />}
+          {countdown && (
+            <View style={styles.departsSection}>
+              <Text style={[styles.departsText, { color: COLORS.secondary }]}>
+                {countdown.past ? 'Departed ' : 'Departs in '}
+                <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{countdown.value}</Text>
+                {' '}
+                <Text style={{ color: COLORS.secondary }}>{unitLabel.toLowerCase()}</Text>
+              </Text>
+            </View>
+          )}
+          <View style={styles.fullWidthLine} />
+
+          {/* Departure Info */}
+          <View style={styles.infoSection}>
+            <View style={styles.infoHeader}>
+              <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
+              <TouchableOpacity
+                style={styles.stationTouchable}
+                onPress={() => handleStationPress(trainData.fromCode)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.locationCode}>{trainData.fromCode}</Text>
+                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
+              </TouchableOpacity>
+            </View>
+            <TimeDisplay
+              time={trainData.departTime}
+              dayOffset={trainData.departDayOffset}
+              style={styles.timeText}
+              superscriptStyle={styles.timeSuperscript}
+            />
+            <View style={styles.durationLineRow}>
+              <View style={styles.durationContentRow}>
+                <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
+                <Text style={styles.durationText}>{duration}</Text>
+                {distanceMiles !== null && (
+                  <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
+                )}
+                {distanceMiles !== null && intermediateStops && (
+                  <Text style={[styles.durationText, { marginLeft: 0 }]}> • {intermediateStops.length} stops</Text>
+                )}
               </View>
-            )}
-            <View style={styles.fullWidthLine} />
+              <View style={styles.horizontalLine} />
+            </View>
+          </View>
 
-            {/* Departure Info */}
-            <View style={styles.infoSection}>
-              <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
+          {/* Intermediate Stops with Timeline */}
+          {intermediateStops && intermediateStops.length > 0 && (
+            <View style={styles.timelineContainer}>
+              <View style={styles.dashedLineWrapper}>
+                <View style={styles.dashedLine} />
+              </View>
+              {intermediateStops.map((stop, index) => (
                 <TouchableOpacity
-                  style={styles.stationTouchable}
-                  onPress={() => handleStationPress(trainData.fromCode)}
+                  key={index}
+                  style={styles.stopSection}
+                  onPress={() => handleStationPress(stop.code)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                  <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
+                  <TimeDisplay
+                    time={stop.time}
+                    dayOffset={stop.dayOffset}
+                    style={styles.stopTime}
+                    superscriptStyle={styles.stopTimeSuperscript}
+                  />
+                  <Text style={styles.stopStation}>{stop.name}</Text>
+                  <Text style={styles.stopCode}>{stop.code}</Text>
                 </TouchableOpacity>
-              </View>
-              <Text style={styles.timeText}>{trainData.departTime}</Text>
-              <View style={styles.durationLineRow}>
-                <View style={styles.durationContentRow}>
-                  <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
-                  <Text style={styles.durationText}>{duration}</Text>
-                  {distanceMiles !== null && (
-                    <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
-                  )}
-                  {distanceMiles !== null && intermediateStops && (
-                    <Text style={[styles.durationText, { marginLeft: 0 }]}> • {intermediateStops.length} stops</Text>
-                  )}
-                </View>
+              ))}
+              <View style={styles.endLineRow}>
                 <View style={styles.horizontalLine} />
               </View>
             </View>
+          )}
 
-            {/* Intermediate Stops with Timeline */}
-            {intermediateStops && intermediateStops.length > 0 && (
-              <View style={styles.timelineContainer}>
-                <View style={styles.dashedLineWrapper}>
-                  <View style={styles.dashedLine} />
-                </View>
-                {intermediateStops.map((stop, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.stopSection}
-                    onPress={() => handleStationPress(stop.code)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.stopTime}>{stop.time}</Text>
-                    <View style={styles.stopStationRow}>
-                      <Ionicons name="location-outline" size={14} color={COLORS.primary} style={styles.stopLocationPin} />
-                      <Text style={styles.stopStation}>{stop.name}</Text>
-                    </View>
-                    <Text style={styles.stopCode}>{stop.code}</Text>
-                  </TouchableOpacity>
-                ))}
-                <View style={styles.endLineRow}>
-                  <View style={styles.horizontalLine} />
-                </View>
-              </View>
-            )}
-
-            {/* Arrival Info */}
-            <View style={styles.infoSection}>
-              <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
-                <TouchableOpacity
-                  style={styles.stationTouchable}
-                  onPress={() => handleStationPress(trainData.toCode)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="location-outline" size={16} color={COLORS.primary} style={styles.locationPin} />
-                  <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                  <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.timeText}>
-                {trainData.arriveTime}
-                {trainData.arriveNext ? ' +1' : ''}
-              </Text>
+          {/* Arrival Info */}
+          <View style={styles.infoSection}>
+            <View style={styles.infoHeader}>
+              <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+              <TouchableOpacity
+                style={styles.stationTouchable}
+                onPress={() => handleStationPress(trainData.toCode)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.locationCode}>{trainData.toCode}</Text>
+                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
+              </TouchableOpacity>
             </View>
-          </>
-        )}
-    </ScrollView>
+            <TimeDisplay
+              time={trainData.arriveTime}
+              dayOffset={trainData.arriveDayOffset}
+              style={styles.timeText}
+              superscriptStyle={styles.timeSuperscript}
+            />
+          </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -335,12 +339,20 @@ const styles = StyleSheet.create({
     marginHorizontal: -Spacing.xl,
   },
   header: {
-    padding: Spacing.xl,
-    paddingTop: -Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 0,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 0,
     borderBottomColor: 'transparent',
     backgroundColor: 'transparent',
     zIndex: 10,
+  },
+  headerScrolled: {
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border.primary,
+  },
+  scrollContent: {
+    flex: 1,
   },
   headerContent: {
     flexDirection: 'row',
@@ -354,6 +366,7 @@ const styles = StyleSheet.create({
   },
   headerTextContainer: {
     flex: 1,
+    marginRight: 48 + Spacing.md,
   },
   headerTop: {
     flexDirection: 'row',
@@ -377,7 +390,7 @@ const styles = StyleSheet.create({
   absoluteCloseButton: {
     position: 'absolute',
     top: 0,
-    right: 0,
+    right: Spacing.xl,
     zIndex: 20,
     width: 48,
     height: 48,
@@ -398,8 +411,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: FONTS.family,
     color: COLORS.primary,
-    marginRight: 75,
-    marginTop: 0,
   },
   departsSection: {
     paddingBottom: 12,
@@ -431,9 +442,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 4,
   },
-  locationPin: {
-    marginRight: 4,
-  },
   locationCode: {
     fontSize: 16,
     fontWeight: '600',
@@ -451,6 +459,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.family,
     color: COLORS.primary,
     marginBottom: 16,
+  },
+  timeSuperscript: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.secondary,
+    marginLeft: 4,
+    marginTop: 0,
   },
   statusText: {
     fontSize: 14,
@@ -535,13 +550,12 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: 4,
   },
-  stopStationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  stopLocationPin: {
-    marginRight: 4,
+  stopTimeSuperscript: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.secondary,
+    marginLeft: 2,
+    marginTop: -2,
   },
   stopStation: {
     fontSize: 14,

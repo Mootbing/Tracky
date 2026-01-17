@@ -16,6 +16,7 @@ import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
 import { TrainAPIService } from '../../services/api';
 import type { Stop, Train } from '../../types/train';
 import { SlideUpModalContext } from './slide-up-modal';
+import TimeDisplay from './TimeDisplay';
 
 interface DepartureBoardModalProps {
   station: Stop;
@@ -88,6 +89,7 @@ export default function DepartureBoardModal({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const { isCollapsed, scrollOffset } = React.useContext(SlideUpModalContext);
 
@@ -194,79 +196,74 @@ export default function DepartureBoardModal({
   );
 
   return (
-    <ScrollView
-      style={styles.modalContent}
-      scrollEnabled={true}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
-      showsVerticalScrollIndicator={true}
-      stickyHeaderIndices={[0]}
-      onScroll={(e) => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        if (scrollOffset) scrollOffset.value = offsetY;
-      }}
-      scrollEventThrottle={16}
-      bounces={true}
-      nestedScrollEnabled={true}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerSubtitle}>{station.stop_id}</Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {station.stop_name}
-          </Text>
+    <View style={styles.modalContent}>
+      {/* Fixed Header Area */}
+      <View style={[styles.fixedHeader, isScrolled && styles.fixedHeaderScrolled]}>
+        {/* Header - Title and close button */}
+        <View style={styles.header}>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerSubtitle}>{station.stop_id}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {station.stop_name}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.6}>
+            <Ionicons name="close" size={24} color={AppColors.primary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.6}>
-          <Ionicons name="close" size={24} color={AppColors.primary} />
-        </TouchableOpacity>
+
+        {!isCollapsed && (
+          <>
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={18} color={AppColors.secondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by destination or train..."
+                placeholderTextColor={AppColors.tertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={AppColors.secondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Date Selector */}
+            <View style={styles.dateSelector}>
+              <TouchableOpacity
+                style={[styles.dateArrow, !canGoBack && styles.dateArrowDisabled]}
+                onPress={() => canGoBack && navigateDate('prev')}
+                disabled={!canGoBack}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={20}
+                  color={canGoBack ? AppColors.primary : AppColors.tertiary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dateDisplay}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={16} color={AppColors.secondary} />
+                <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dateArrow} onPress={() => navigateDate('next')}>
+                <Ionicons name="chevron-forward" size={20} color={AppColors.primary} />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
 
       {!isCollapsed && (
         <>
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={18} color={AppColors.secondary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by destination or train..."
-              placeholderTextColor={AppColors.tertiary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={AppColors.secondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Date Selector */}
-          <View style={styles.dateSelector}>
-            <TouchableOpacity
-              style={[styles.dateArrow, !canGoBack && styles.dateArrowDisabled]}
-              onPress={() => canGoBack && navigateDate('prev')}
-              disabled={!canGoBack}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={20}
-                color={canGoBack ? AppColors.primary : AppColors.tertiary}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dateDisplay}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar-outline" size={16} color={AppColors.secondary} />
-              <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dateArrow} onPress={() => navigateDate('next')}>
-              <Ionicons name="chevron-forward" size={20} color={AppColors.primary} />
-            </TouchableOpacity>
-          </View>
 
           {/* Date Picker */}
           {showDatePicker && (
@@ -290,86 +287,113 @@ export default function DepartureBoardModal({
             </View>
           )}
 
-          {/* Departures List */}
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-              <Text style={styles.loadingText}>Loading departures...</Text>
-            </View>
-          ) : filteredDepartures.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="train-outline" size={48} color={AppColors.tertiary} />
-              <Text style={styles.emptyText}>
-                {searchQuery
-                  ? 'No trains match your search'
-                  : 'No departures found for this station'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.departuresList}>
-              <Text style={styles.sectionTitle}>
-                Departures ({filteredDepartures.length})
-              </Text>
-              {filteredDepartures.map((train, index) => {
-                if (!train || !train.departTime) return null;
-                return (
-                  <TouchableOpacity
-                    key={`${train.tripId || train.id}-${index}`}
-                    style={styles.departureItem}
-                    onPress={() => handleTrainPress(train)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.departureTime}>
-                      <Text style={styles.timeText}>{train.departTime}</Text>
-                      {train.realtime?.delay && train.realtime.delay > 0 && (
-                        <Text style={styles.delayText}>+{train.realtime.delay}m</Text>
-                      )}
-                    </View>
-                    <View style={styles.departureInfo}>
-                      <View style={styles.trainHeader}>
-                        <Text style={styles.trainNumber}>
-                          {train.routeName || 'Amtrak'} {train.trainNumber || ''}
-                        </Text>
-                        {train.realtime?.status && (
-                          <View
-                            style={[
-                              styles.statusBadge,
-                              train.realtime.delay && train.realtime.delay > 0
-                                ? styles.statusDelayed
-                                : styles.statusOnTime,
-                            ]}
-                          >
-                            <Text style={styles.statusText}>
-                              {train.realtime.delay && train.realtime.delay > 0
-                                ? 'Delayed'
-                                : 'On Time'}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.destinationRow}>
-                        <MaterialCommunityIcons
-                          name="arrow-right"
-                          size={14}
-                          color={AppColors.secondary}
+          <ScrollView
+            style={styles.scrollContent}
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+            showsVerticalScrollIndicator={true}
+            onScroll={(e) => {
+              const offsetY = e.nativeEvent.contentOffset.y;
+              if (scrollOffset) scrollOffset.value = offsetY;
+              setIsScrolled(offsetY > 0);
+            }}
+            scrollEventThrottle={16}
+            bounces={true}
+            nestedScrollEnabled={true}
+          >
+            {/* Departures List */}
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={AppColors.primary} />
+                <Text style={styles.loadingText}>Loading departures...</Text>
+              </View>
+            ) : filteredDepartures.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="train-outline" size={48} color={AppColors.tertiary} />
+                <Text style={styles.emptyText}>
+                  {searchQuery
+                    ? 'No trains match your search'
+                    : 'No departures found for this station'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.departuresList}>
+                <Text style={styles.sectionTitle}>
+                  Departures ({filteredDepartures.length})
+                </Text>
+                {filteredDepartures.map((train, index) => {
+                  if (!train || !train.departTime) return null;
+                  return (
+                    <TouchableOpacity
+                      key={`${train.tripId || train.id}-${index}`}
+                      style={styles.departureItem}
+                      onPress={() => handleTrainPress(train)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.departureTime}>
+                        <TimeDisplay
+                          time={train.departTime}
+                          dayOffset={train.departDayOffset}
+                          style={styles.timeText}
+                          superscriptStyle={styles.timeSuperscript}
                         />
-                        <Text style={styles.destinationText}>
-                          {train.to || 'Unknown'} {train.toCode ? `(${train.toCode})` : ''}
-                        </Text>
+                        {train.realtime?.delay != null && train.realtime.delay > 0 ? (
+                          <Text style={styles.delayText}>+{train.realtime.delay}m</Text>
+                        ) : null}
                       </View>
-                      <Text style={styles.arrivalText}>
-                        {train.arriveTime ? `Arrives ${train.arriveTime}` : ''}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={AppColors.tertiary} />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+                      <View style={styles.departureInfo}>
+                        <View style={styles.trainHeader}>
+                          <Text style={styles.trainNumber}>
+                            {train.routeName || 'Amtrak'}{train.trainNumber ? ` ${train.trainNumber}` : ''}
+                          </Text>
+                          {train.realtime?.status ? (
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                train.realtime.delay != null && train.realtime.delay > 0
+                                  ? styles.statusDelayed
+                                  : styles.statusOnTime,
+                              ]}
+                            >
+                              <Text style={styles.statusText}>
+                                {train.realtime.delay != null && train.realtime.delay > 0
+                                  ? 'Delayed'
+                                  : 'On Time'}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={styles.destinationRow}>
+                          <MaterialCommunityIcons
+                            name="arrow-right"
+                            size={14}
+                            color={AppColors.secondary}
+                          />
+                          <Text style={styles.destinationText}>
+                            {train.to || 'Unknown'}{train.toCode ? ` (${train.toCode})` : ''}
+                          </Text>
+                        </View>
+                        {train.arriveTime ? (
+                          <View style={styles.arrivalRow}>
+                            <Text style={styles.arrivalText}>Arrives </Text>
+                            <TimeDisplay
+                              time={train.arriveTime}
+                              dayOffset={train.arriveDayOffset}
+                              style={styles.arrivalText}
+                              superscriptStyle={styles.arrivalSuperscript}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={AppColors.tertiary} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
         </>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -378,20 +402,28 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: -Spacing.xl,
   },
-  header: {
-    paddingLeft: Spacing.xl,
-    paddingRight: Spacing.xl,
-    paddingTop: 0,
-    paddingBottom: Spacing.xl,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  fixedHeader: {
     backgroundColor: 'transparent',
     zIndex: 10,
   },
+  fixedHeaderScrolled: {
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border.primary,
+  },
+  header: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 0,
+    paddingBottom: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  scrollContent: {
+    flex: 1,
+  },
   headerTextContainer: {
     flex: 1,
-    marginRight: Spacing.md,
+    marginRight: 48 + Spacing.md,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -406,7 +438,8 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     zIndex: 20,
-    right:0,
+    right: Spacing.xl,
+    top: -Spacing.sm,
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -539,6 +572,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.primary,
   },
+  timeSuperscript: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: AppColors.secondary,
+    marginLeft: 2,
+    marginTop: -2,
+  },
   delayText: {
     fontSize: 12,
     color: AppColors.error,
@@ -586,8 +626,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.secondary,
   },
+  arrivalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   arrivalText: {
     fontSize: 12,
     color: AppColors.tertiary,
+  },
+  arrivalSuperscript: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: AppColors.tertiary,
+    marginLeft: 1,
+    marginTop: -2,
   },
 });

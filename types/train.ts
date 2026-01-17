@@ -13,6 +13,8 @@ export interface Train {
   toCode: string;
   departTime: string;
   arriveTime: string;
+  departDayOffset?: number; // 0 = same day, 1 = next day, etc.
+  arriveDayOffset?: number; // 0 = same day, 1 = next day, etc.
   date: string;
   daysAway: number;
   routeName: string;

@@ -82,7 +82,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
   // Dismiss function to animate out and call onDismiss
   const dismiss = () => {
     translateY.value = withSpring(SCREEN_HEIGHT, {
-      damping: 40,
+      damping: 50,
       stiffness: 280,
       overshootClamping: true,
     }, (finished) => {
@@ -104,7 +104,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     runOnJS(setIsCollapsed)(targetSnap === 'min');
 
     translateY.value = withSpring(targetY, {
-      damping: 40,
+      damping: 50,
       stiffness: 280,
       overshootClamping: false,
     });
@@ -119,7 +119,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
   useEffect(() => {
     // Animate in on mount from bottom of screen
     translateY.value = withSpring(SCREEN_HEIGHT - getInitialHeight(), {
-      damping: 40,
+      damping: 50,
       stiffness: 280,
       overshootClamping: false,
     });
@@ -144,7 +144,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     runOnJS(setIsCollapsed)(point === 'min');
 
     translateY.value = withSpring(targetY, {
-      damping: 40,
+      damping: 50,
       stiffness: 280,
       overshootClamping: false,
     });
@@ -232,7 +232,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
       }
 
       translateY.value = withSpring(targetY, {
-        damping: 28,
+        damping: 38,
         stiffness: 400,
         overshootClamping: false,
       });

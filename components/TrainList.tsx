@@ -16,6 +16,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { AppColors, BorderRadius, Spacing } from '../constants/theme';
 import { COLORS, styles } from '../screens/styles';
 import type { Train } from '../types/train';
+import TimeDisplay from './ui/TimeDisplay';
 
 // First threshold - shows delete button
 const FIRST_THRESHOLD = -80;
@@ -114,13 +115,13 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
       } else if (translateX.value <= FIRST_THRESHOLD) {
         // Snap to show delete button
         translateX.value = withSpring(FIRST_THRESHOLD, {
-          damping: 20,
+          damping: 28,
           stiffness: 200,
         });
       } else {
         // Snap back
         translateX.value = withSpring(0, {
-          damping: 20,
+          damping: 28,
           stiffness: 200,
         });
       }
@@ -134,7 +135,7 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
       if (translateX.value < -10) {
         // If swiped, tap closes it
         translateX.value = withSpring(0, {
-          damping: 20,
+          damping: 28,
           stiffness: 200,
         });
       } else {
@@ -205,7 +206,7 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
 
       {/* The actual card */}
       <GestureDetector gesture={composedGesture}>
-        <Animated.View style={[styles.flightCard, cardAnimatedStyle]}>
+        <Animated.View style={[styles.flightCard, { marginBottom: 0 }, cardAnimatedStyle]}>
           <View style={styles.flightLeft}>
             <Text style={[styles.daysAway, isPast && { color: COLORS.secondary }]}>{countdown.value}</Text>
             <Text style={[styles.daysLabel, isPast && { color: COLORS.secondary }]}>{unitLabel}</Text>
@@ -232,7 +233,12 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
                   <MaterialCommunityIcons name="arrow-top-right" size={8} color="rgba(255, 255, 255, 0.5)" />
                 </View>
                 <Text style={styles.timeCode}>{train.fromCode}</Text>
-                <Text style={styles.timeValue}>{train.departTime}</Text>
+                <TimeDisplay
+                  time={train.departTime}
+                  dayOffset={train.departDayOffset}
+                  style={styles.timeValue}
+                  superscriptStyle={swipeStyles.timeSuperscript}
+                />
               </View>
 
               <View style={styles.timeInfo}>
@@ -240,7 +246,12 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
                   <MaterialCommunityIcons name="arrow-bottom-left" size={8} color="rgba(255, 255, 255, 0.5)" />
                 </View>
                 <Text style={styles.timeCode}>{train.toCode}</Text>
-                <Text style={styles.timeValue}>{train.arriveTime}</Text>
+                <TimeDisplay
+                  time={train.arriveTime}
+                  dayOffset={train.arriveDayOffset}
+                  style={styles.timeValue}
+                  superscriptStyle={swipeStyles.timeSuperscript}
+                />
               </View>
             </View>
           </View>
@@ -307,5 +318,12 @@ const swipeStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
+  },
+  timeSuperscript: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: COLORS.secondary,
+    marginLeft: 2,
+    marginTop: -2,
   },
 });

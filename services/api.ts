@@ -9,15 +9,37 @@ import { RealtimeService } from './realtime';
 
 /**
  * Format 24-hour time to 12-hour AM/PM format
+ * Handles overnight trains where hours >= 24 (GTFS standard)
+ * Returns object with formatted time and day offset indicator
  */
+export interface FormattedTime {
+  time: string;
+  dayOffset: number; // 0 = same day, 1 = next day, 2 = two days later, etc.
+}
+
 export function formatTime(time24: string): string {
+  const result = formatTimeWithDayOffset(time24);
+  return result.dayOffset > 0 ? `${result.time} +${result.dayOffset}` : result.time;
+}
+
+export function formatTimeWithDayOffset(time24: string): FormattedTime {
   const [hours, minutes] = time24.substring(0, 5).split(':');
   let h = parseInt(hours);
   const m = minutes;
+
+  // Handle overnight trains (hours >= 24 means next day in GTFS)
+  // Can be 24-47 for +1 day, 48-71 for +2 days, etc.
+  const dayOffset = Math.floor(h / 24);
+  h = h % 24;
+
   const ampm = h >= 12 ? 'PM' : 'AM';
   if (h > 12) h -= 12;
   if (h === 0) h = 12;
-  return `${h}:${m} ${ampm}`;
+
+  return {
+    time: `${h}:${m} ${ampm}`,
+    dayOffset,
+  };
 }
 
 /**
@@ -234,6 +256,10 @@ export class TrainAPIService {
       // Get proper train number and route name
       const { routeName, trainNumber } = getTrainDisplayName(tripId);
 
+      // Format times with day offset info
+      const departFormatted = formatTimeWithDayOffset(firstStop.departure_time);
+      const arriveFormatted = formatTimeWithDayOffset(lastStop.arrival_time);
+
       const train: Train = {
         id: parseInt(tripId) || Date.now(),
         operator: 'Amtrak',
@@ -242,17 +268,22 @@ export class TrainAPIService {
         to: lastStop.stop_name,
         fromCode: firstStop.stop_id,
         toCode: lastStop.stop_id,
-        departTime: formatTime(firstStop.departure_time),
-        arriveTime: formatTime(lastStop.arrival_time),
+        departTime: departFormatted.time,
+        arriveTime: arriveFormatted.time,
+        departDayOffset: departFormatted.dayOffset,
+        arriveDayOffset: arriveFormatted.dayOffset,
         date: 'Today',
         daysAway: 0,
         routeName: routeName || '',
         tripId: tripId,
-        intermediateStops: stopTimes.slice(1, -1).map(stop => ({
-          time: formatTime(stop.departure_time),
-          name: stop.stop_name,
-          code: stop.stop_id,
-        })),
+        intermediateStops: stopTimes.slice(1, -1).map(stop => {
+          const formatted = formatTimeWithDayOffset(stop.departure_time);
+          return {
+            time: formatted.time,
+            name: stop.stop_name,
+            code: stop.stop_id,
+          };
+        }),
       };
 
       // Fetch real-time data - try both trip ID and extracted train number
