@@ -191,6 +191,12 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
   try {
     const report = (step: string, progress: number, detail?: string) => {
       onProgress?.({ step, progress: Math.min(1, Math.max(0, progress)), detail });
+      // Progressive console logging
+      if (detail) {
+        console.log(`[GTFS Refresh] ${step} (${Math.round(progress * 100)}%): ${detail}`);
+      } else {
+        console.log(`[GTFS Refresh] ${step} (${Math.round(progress * 100)}%)`);
+      }
     };
 
     report('Checking GTFS cache', 0.05);
@@ -226,6 +232,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     const shapesTxt = files['shapes.txt'] ? strFromU8(files['shapes.txt']) : '';
 
     if (!routesTxt || !stopsTxt || !stopTimesTxt) {
+      console.error('[GTFS Refresh] Missing expected GTFS files (routes/stops/stop_times)');
       throw new Error('Missing expected GTFS files (routes/stops/stop_times)');
     }
 
@@ -253,6 +260,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
   } catch (err) {
     console.warn('GTFS sync failed; falling back to bundled assets.', err);
     onProgress?.({ step: 'GTFS refresh failed', progress: 1, detail: 'Using bundled assets' });
+    console.error('[GTFS Refresh] GTFS sync failed; using bundled assets.', err);
     return { usedCache: true };
   }
 }

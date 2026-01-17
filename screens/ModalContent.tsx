@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import React, { useContext, useEffect, useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { FrequentlyUsedList } from '../components/FrequentlyUsedList';
@@ -93,22 +94,28 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
 
   // Load saved trains from storage service
   useEffect(() => {
-    const { DEFAULT_TRAIN, SAMPLE_TRAINS } = require('../fixtures/trains');
     const loadSavedTrains = async () => {
       const trains = await TrainStorageService.getSavedTrains();
-      if (trains.length === 0) {
-        // Initialize with several default trains
-        await TrainStorageService.initializeWithDefaults(SAMPLE_TRAINS);
-        setSavedTrains(SAMPLE_TRAINS);
-      } else {
-        setSavedTrains(trains);
-      }
+      setSavedTrains(trains);
     };
     loadSavedTrains();
   }, [setSavedTrains]);
 
-  // Save train using storage service
+  // Store valid tripIds in memory and AsyncStorage
+  const [validTripIds, setValidTripIds] = useState<string[]>([]);
+
   const saveTrain = async (train: Train) => {
+    if (!train.tripId) return;
+    // Add tripId to memory and AsyncStorage
+    setValidTripIds((prev) => {
+      if (!prev.includes(train.tripId!)) {
+        const updated = [...prev, train.tripId!];
+        AsyncStorage.setItem('validTripIds', JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
+    // Save train as before
     const saved = await TrainStorageService.saveTrain(train);
     if (saved) {
       const updatedTrains = await TrainStorageService.getSavedTrains();
@@ -124,6 +131,44 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     setIsSearchFocused(false); // Hide search bar
     snapToPoint?.('min'); // Collapse to 35%
     try {
+      const result = await ensureFreshGTFS((update) => {
+        setRefreshProgress(update.progress);
+        setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
+      });
+      if (result.usedCache) {
+        setIsRefreshing(false);
+        Alert.alert(
+          'Use Cached GTFS?',
+          'Cached GTFS is being used. Do you want to force a full refresh and fetch the latest GTFS data?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Refresh Anyway', style: 'destructive', onPress: handleForceRefresh }
+          ]
+        );
+        return;
+      }
+      await refreshFrequentlyUsed();
+      setRefreshProgress(1);
+      setRefreshStep('Refresh complete');
+      Alert.alert('Refresh Complete', 'GTFS data has been refreshed successfully.');
+    } catch (error) {
+      console.error('Manual refresh failed:', error);
+      setRefreshStep('Refresh failed');
+      Alert.alert('Refresh Failed', 'An error occurred while refreshing GTFS data.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleForceRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshProgress(0.05);
+    setRefreshStep('Forcing GTFS refresh');
+    setIsSearchFocused(false);
+    snapToPoint?.('min');
+    try {
+      // Force refresh by clearing last fetch
+      await AsyncStorage.removeItem('GTFS_LAST_FETCH');
       await ensureFreshGTFS((update) => {
         setRefreshProgress(update.progress);
         setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
@@ -131,9 +176,11 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
       await refreshFrequentlyUsed();
       setRefreshProgress(1);
       setRefreshStep('Refresh complete');
+      Alert.alert('Refresh Complete', 'GTFS data has been refreshed successfully.');
     } catch (error) {
       console.error('Manual refresh failed:', error);
       setRefreshStep('Refresh failed');
+      Alert.alert('Refresh Failed', 'An error occurred while refreshing GTFS data.');
     } finally {
       setIsRefreshing(false);
     }
@@ -173,13 +220,14 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
           ]}
         >
           <View style={styles.titleRow}>
-            <Text style={[styles.title, isCollapsed && styles.titleCollapsed]}>{isSearchFocused ? 'Add Train' : 'My Trains'}</Text>
+            <Text style={[styles.title, isCollapsed && styles.titleCollapsed]}>
+              {isRefreshing ? 'Fetching' : (isSearchFocused ? 'Add Train' : 'My Trains')}
+            </Text>
           </View>
           {/* Absolutely positioned refresh button */}
-          {!isSearchFocused && (
+          {!isSearchFocused && !isRefreshing && (
             <TouchableOpacity
               onPress={handleRefresh}
-              disabled={isRefreshing}
               style={styles.refreshButton}
               activeOpacity={0.7}
               accessible={true}
@@ -197,15 +245,15 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
         </BlurView>
         <View>
           {isRefreshing && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Refreshing schedules</Text>
-                <Text style={styles.progressValue}>{Math.round(refreshProgress * 100)}%</Text>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
+              <Ionicons name="train" size={40} color={COLORS.secondary} style={{ marginBottom: 16 }} />
+              <View style={{ width: 220, alignItems: 'center' }}>
+                <Text style={[styles.noTrainsText, { marginBottom: 8 }]}>Refreshing schedules</Text>
+                <View style={{ width: '100%', height: 5, backgroundColor: COLORS.border.secondary, borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
+                  <View style={{ height: '100%', backgroundColor: COLORS.accentBlue, borderRadius: 999, width: `${Math.max(5, refreshProgress * 100)}%` }} />
+                </View>
+                <Text style={[styles.progressValue, { marginBottom: 2 }]}>{Math.round(refreshProgress * 100)}%</Text>
               </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressBar, { width: `${Math.max(5, refreshProgress * 100)}%` }]} />
-              </View>
-              <Text style={styles.progressStep}>{refreshStep || 'Working...'}</Text>
             </View>
           )}
           {isSearchFocused && (
