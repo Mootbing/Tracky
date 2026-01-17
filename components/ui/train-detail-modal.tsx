@@ -106,7 +106,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   const [isHeaderStuck, setIsHeaderStuck] = React.useState(false);
   const scrollOffset = { value: 0 } as any;
   const panGesture = null;
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={COLORS.primary} />
   // Calculate journey duration from departure to arrival
   const duration = trainData ? calculateDuration(trainData.departTime, trainData.arriveTime) : '';
 
@@ -121,7 +121,8 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   }
 
   // Countdown logic (shared with TrainList)
-  const unitLabel = `${countdown.unit}${countdown.past ? ' AGO' : ''}`;
+  const countdown = trainData ? getCountdownForTrain(trainData) : null;
+  const unitLabel = countdown ? `${countdown.unit}${countdown.past ? ' AGO' : ''}` : '';
 
   // Instead of returning early, render null or error in JSX
   if (!trainData || error) {
@@ -136,7 +137,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
       stickyHeaderIndices={[0]}
       onScroll={(e) => {
         const offsetY = e.nativeEvent.contentOffset.y;
-                    <MaterialCommunityIcons name="arrow-bottom-left" size={16} color="#fff" />
+                    <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
         setIsHeaderStuck(offsetY > 0);
       }}
       scrollEventThrottle={16}
@@ -175,20 +176,22 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
         {!isCollapsed && (
           <>
             {/* Departs in (granular, like card) */}
-            <View style={styles.departsSection}>
-              <Text style={[styles.departsText, { color: COLORS.secondary }]}> 
-                {countdown.past ? 'Departed ' : 'Departs in '}
-                <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{countdown.value}</Text>
-                {' '}
-                <Text style={{ color: COLORS.secondary }}>{unitLabel.toLowerCase()}</Text>
-              </Text>
-            </View>
+            {countdown && (
+              <View style={styles.departsSection}>
+                <Text style={[styles.departsText, { color: COLORS.secondary }]}>
+                  {countdown.past ? 'Departed ' : 'Departs in '}
+                  <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{countdown.value}</Text>
+                  {' '}
+                  <Text style={{ color: COLORS.secondary }}>{unitLabel.toLowerCase()}</Text>
+                </Text>
+              </View>
+            )}
             <View style={styles.fullWidthLine} />
 
             {/* Departure Info */}
             <View style={styles.infoSection}>
               <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-top-right" size={16} color="#fff" />
+                <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
                 <Text style={styles.locationCode}>{trainData.fromCode}</Text>
                 <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
               </View>
@@ -230,7 +233,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             {/* Arrival Info */}
             <View style={styles.infoSection}>
               <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color="#fff" />
+                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
                 <Text style={styles.locationCode}>{trainData.toCode}</Text>
                 <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
               </View>

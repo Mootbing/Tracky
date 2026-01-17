@@ -30,16 +30,16 @@ export function FrequentlyUsedList({ items, onSelect }: { items: FrequentlyUsedI
           <View style={styles.frequentlyUsedIcon}>
             {item.type === 'train' && (
               item.name.toLowerCase().includes('acela') ? (
-                <Ionicons name="train" size={24} color="#fff" />
+                <Ionicons name="train" size={24} color={COLORS.primary} />
               ) : (
-                <MaterialIcons name="train" size={24} color="#fff" />
+                <MaterialIcons name="train" size={24} color={COLORS.primary} />
               )
             )}
             {item.type === 'station' && (
-              <Ionicons name="location" size={24} color="#fff" />
+              <Ionicons name="location" size={24} color={COLORS.primary} />
             )}
             {item.type === 'route' && (
-              <MaterialCommunityIcons name="train-track" size={24} color="#fff" />
+              <MaterialCommunityIcons name="train-track" size={24} color={COLORS.primary} />
             )}
           </View>
           <View style={styles.frequentlyUsedText}>

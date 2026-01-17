@@ -43,7 +43,7 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
   if (flights.length === 0) {
     return (
       <View style={styles.noTrainsContainer}>
-        <Ionicons name="train" size={48} color="#fff" />
+        <Ionicons name="train" size={48} color={COLORS.primary} />
         <Text style={styles.noTrainsText}>no trains yet...</Text>
       </View>
     );
@@ -95,9 +95,9 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
               {/*
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
                 {flight.routeName && flight.routeName.toLowerCase().includes('acela') ? (
-                  <TrainFront size={18} color="#fff" style={{ marginRight: 6 }} />
+                  <TrainFront size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
                 ) : (
-                  <FontAwesome6 name="train" size={18} color="#fff" style={{ marginRight: 6 }} />
+                  <FontAwesome6 name="train" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
                 )}
                 <Text style={[styles.route, { fontSize: 18 }]}>{flight.from} to {flight.to}</Text>
               </View>

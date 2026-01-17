@@ -33,6 +33,9 @@ export const AppColors = {
   tertiary: 'rgba(255, 255, 255, 0.2)',
   accent: '#FF6B35',
   accentBlue: '#0A84FF',
+  success: '#10B981',
+  error: '#EF4444',
+  shadow: '#000',
   background: {
     primary: 'rgba(255, 255, 255, 0.05)',
     secondary: 'rgba(255, 255, 255, 0.1)',

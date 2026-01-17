@@ -8,7 +8,7 @@ import Animated, {
     useSharedValue,
     withSpring,
 } from 'react-native-reanimated';
-import { BorderRadius, Spacing } from '../../constants/theme';
+import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -226,9 +226,9 @@ const styles = StyleSheet.create({
       default: 'rgba(20, 20, 25, 0.75)',
     }),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: AppColors.border.secondary,
     borderBottomWidth: 0,
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: {
       width: 0,
       height: -4,

@@ -59,13 +59,13 @@ function SearchResults({
         >
           <View style={styles.frequentlyUsedIcon}>
             {result.type === 'train' && (
-              <Ionicons name="train" size={24} color="#0066CC" />
+              <Ionicons name="train" size={24} color={COLORS.primary} />
             )}
             {result.type === 'station' && (
-              <Ionicons name="location" size={24} color="#10B981" />
+              <Ionicons name="location" size={24} color={COLORS.primary} />
             )}
             {result.type === 'route' && (
-              <Ionicons name="train" size={24} color="#8B5CF6" />
+              <Ionicons name="train" size={24} color={COLORS.primary} />
             )}
           </View>
           <View style={styles.frequentlyUsedText}>
@@ -261,10 +261,10 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
               accessibilityRole="button"
               accessibilityLabel="Refresh train schedules"
             >
-              <Ionicons 
-                name="refresh" 
-                size={24} 
-                color={'#fff'}
+              <Ionicons
+                name="refresh"
+                size={24}
+                color={COLORS.primary}
                 style={isRefreshing ? styles.refreshIconSpinning : undefined}
               />
             </TouchableOpacity>

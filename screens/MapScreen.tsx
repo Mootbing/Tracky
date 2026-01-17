@@ -5,6 +5,7 @@ import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
+import { AppColors } from '../constants/theme';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
 import { useRealtime } from '../hooks/useRealtime';
 import { useShapes } from '../hooks/useShapes';
@@ -77,7 +78,7 @@ function MapScreenInner() {
           <Polyline
             key={shape.id}
             coordinates={shape.coordinates}
-            strokeColor="#FFFFFF"
+            strokeColor="{AppColors.primary}"
             strokeWidth={2}
             lineCap="round"
             lineJoin="round"
@@ -95,7 +96,7 @@ function MapScreenInner() {
             <Ionicons
               name="location"
               size={selectedStation === station.id ? 36 : 24}
-              color={selectedStation === station.id ? '#2196F3' : '#FFFFFF'}
+              color={selectedStation === station.id ? '#2196F3' : '{AppColors.primary}'}
               style={selectedStation === station.id ? { transform: [{ scale: 1.5 }] } : undefined}
             />
           </Marker>
@@ -110,7 +111,7 @@ function MapScreenInner() {
               description={train.routeName}
             >
               <View style={styles.liveTrainMarker}>
-                <Ionicons name="train" size={16} color="#FFFFFF" />
+                <Ionicons name="train" size={16} color="{AppColors.primary}" />
               </View>
             </Marker>
           )

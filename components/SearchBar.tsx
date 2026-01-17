@@ -22,7 +22,7 @@ export function SearchBar({
   if (isSearchFocused) {
     return (
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#888" />
+        <Ionicons name="search" size={20} color={COLORS.secondary} />
         <TextInput
           ref={searchInputRef}
           style={styles.searchInput}
@@ -50,7 +50,7 @@ export function SearchBar({
           accessibilityRole="button"
           accessibilityLabel="Close search"
         >
-          <Ionicons name="close-circle" size={20} color="#888" />
+          <Ionicons name="close-circle" size={20} color={COLORS.secondary} />
         </TouchableOpacity>
       </View>
     );
@@ -73,7 +73,7 @@ export function SearchBar({
       accessibilityLabel="Search for trains"
       accessibilityHint="Tap to start searching"
     >
-      <Ionicons name="search" size={20} color="#888" />
+      <Ionicons name="search" size={20} color={COLORS.secondary} />
       <Text style={styles.searchButtonText}>Train name, station name/code...</Text>
     </TouchableOpacity>
   );
