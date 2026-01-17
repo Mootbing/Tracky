@@ -158,7 +158,17 @@ function MapScreenInner() {
               coordinate={{ latitude: cluster.lat, longitude: cluster.lon }}
               title={cluster.isCluster ? `${cluster.stations.length} stations` : cluster.stations[0].name}
               description={cluster.isCluster ? cluster.stations.map(s => s.name).join(', ') : cluster.stations[0].id}
-              onPress={() => !cluster.isCluster && setSelectedStation(cluster.id)}
+              onPress={() => {
+                if (!cluster.isCluster) {
+                  setSelectedStation(cluster.id);
+                  mapRef.current?.animateToRegion({
+                    latitude: cluster.lat,
+                    longitude: cluster.lon,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  }, 500);
+                }
+              }}
               anchor={{ x: 0.5, y: 0.5 }}
             >
               <Animated.View
