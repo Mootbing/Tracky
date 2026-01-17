@@ -20,6 +20,164 @@ export function formatTime(time24: string): string {
   return `${h}:${m} ${ampm}`;
 }
 
+/**
+ * Extract the actual train number from a tripId
+ * tripId format: "2026-01-16_AMTK_543" -> returns "543"
+ */
+export function extractTrainNumber(tripId: string): string {
+  // Try to match pattern: YYYY-MM-DD_AMTK_NNN or similar
+  const match = tripId.match(/_(\d+)$/);
+  if (match) {
+    return match[1];
+  }
+  // Fallback: return the tripId if no pattern match
+  return tripId;
+}
+
+/**
+ * Amtrak train number to route name mapping
+ * Common named trains and their number ranges
+ */
+const AMTRAK_ROUTE_NAMES: Record<string, string> = {
+  // Northeast Corridor
+  '2100': 'Acela', '2101': 'Acela', '2103': 'Acela', '2105': 'Acela', '2107': 'Acela', '2109': 'Acela',
+  '2111': 'Acela', '2113': 'Acela', '2115': 'Acela', '2117': 'Acela', '2119': 'Acela', '2121': 'Acela',
+  '2123': 'Acela', '2125': 'Acela', '2127': 'Acela', '2129': 'Acela', '2131': 'Acela', '2133': 'Acela',
+  '2150': 'Acela', '2151': 'Acela', '2153': 'Acela', '2155': 'Acela', '2157': 'Acela', '2159': 'Acela',
+  '2161': 'Acela', '2163': 'Acela', '2165': 'Acela', '2167': 'Acela', '2169': 'Acela', '2171': 'Acela',
+  '2173': 'Acela', '2175': 'Acela', '2200': 'Acela', '2201': 'Acela', '2203': 'Acela', '2205': 'Acela',
+  '2207': 'Acela', '2209': 'Acela', '2211': 'Acela', '2213': 'Acela', '2215': 'Acela', '2217': 'Acela',
+  '2219': 'Acela', '2221': 'Acela', '2223': 'Acela', '2225': 'Acela', '2227': 'Acela', '2229': 'Acela',
+  '2231': 'Acela', '2233': 'Acela', '2235': 'Acela', '2237': 'Acela', '2239': 'Acela', '2241': 'Acela',
+  '2243': 'Acela', '2245': 'Acela', '2247': 'Acela', '2249': 'Acela', '2250': 'Acela', '2251': 'Acela',
+  '2253': 'Acela', '2255': 'Acela', '2257': 'Acela',
+  // Long-distance trains
+  '1': 'Sunset Limited', '2': 'Sunset Limited',
+  '3': 'Southwest Chief', '4': 'Southwest Chief',
+  '5': 'California Zephyr', '6': 'California Zephyr',
+  '7': 'Empire Builder', '8': 'Empire Builder', '27': 'Empire Builder', '28': 'Empire Builder',
+  '11': 'Coast Starlight', '14': 'Coast Starlight',
+  '19': 'Crescent', '20': 'Crescent',
+  '21': 'Texas Eagle', '22': 'Texas Eagle', '421': 'Texas Eagle', '422': 'Texas Eagle',
+  '29': 'Capitol Limited', '30': 'Capitol Limited',
+  '48': 'Lake Shore Limited', '49': 'Lake Shore Limited', '448': 'Lake Shore Limited', '449': 'Lake Shore Limited',
+  '50': 'Cardinal', '51': 'Cardinal',
+  '52': 'Auto Train', '53': 'Auto Train',
+  '58': 'City of New Orleans', '59': 'City of New Orleans',
+  '66': 'Palmetto', '67': 'Northeast Regional',
+  '79': 'Carolinian', '80': 'Carolinian',
+  '89': 'Palmetto', '90': 'Palmetto',
+  '91': 'Silver Star', '92': 'Silver Star',
+  '97': 'Silver Meteor', '98': 'Silver Meteor',
+  // Keystone/Pennsylvanian
+  '42': 'Pennsylvanian', '43': 'Pennsylvanian',
+  '600': 'Keystone', '601': 'Keystone', '602': 'Keystone', '603': 'Keystone',
+  '604': 'Keystone', '605': 'Keystone', '606': 'Keystone', '607': 'Keystone',
+  '608': 'Keystone', '609': 'Keystone', '610': 'Keystone', '611': 'Keystone',
+  '612': 'Keystone', '613': 'Keystone', '614': 'Keystone', '615': 'Keystone',
+  '616': 'Keystone', '617': 'Keystone', '618': 'Keystone', '619': 'Keystone',
+  '620': 'Keystone', '621': 'Keystone', '622': 'Keystone', '623': 'Keystone',
+  '624': 'Keystone', '625': 'Keystone', '626': 'Keystone', '627': 'Keystone',
+  '628': 'Keystone', '629': 'Keystone', '630': 'Keystone', '631': 'Keystone',
+  '640': 'Keystone', '641': 'Keystone', '642': 'Keystone', '643': 'Keystone',
+  '644': 'Keystone', '645': 'Keystone', '646': 'Keystone', '647': 'Keystone',
+  '648': 'Keystone', '649': 'Keystone', '650': 'Keystone', '651': 'Keystone',
+  '660': 'Keystone', '661': 'Keystone', '662': 'Keystone', '663': 'Keystone',
+  // Pacific Surfliner
+  '761': 'Pacific Surfliner', '762': 'Pacific Surfliner', '763': 'Pacific Surfliner',
+  '764': 'Pacific Surfliner', '765': 'Pacific Surfliner', '766': 'Pacific Surfliner',
+  '767': 'Pacific Surfliner', '768': 'Pacific Surfliner', '769': 'Pacific Surfliner',
+  '770': 'Pacific Surfliner', '771': 'Pacific Surfliner', '772': 'Pacific Surfliner',
+  '773': 'Pacific Surfliner', '774': 'Pacific Surfliner', '775': 'Pacific Surfliner',
+  '776': 'Pacific Surfliner', '777': 'Pacific Surfliner', '778': 'Pacific Surfliner',
+  '779': 'Pacific Surfliner', '780': 'Pacific Surfliner', '781': 'Pacific Surfliner',
+  '782': 'Pacific Surfliner', '783': 'Pacific Surfliner', '784': 'Pacific Surfliner',
+  '785': 'Pacific Surfliner', '786': 'Pacific Surfliner', '787': 'Pacific Surfliner',
+  '788': 'Pacific Surfliner', '789': 'Pacific Surfliner', '790': 'Pacific Surfliner',
+  '791': 'Pacific Surfliner', '792': 'Pacific Surfliner', '793': 'Pacific Surfliner',
+  '794': 'Pacific Surfliner', '795': 'Pacific Surfliner', '796': 'Pacific Surfliner',
+  // Cascades
+  '500': 'Cascades', '501': 'Cascades', '502': 'Cascades', '503': 'Cascades',
+  '504': 'Cascades', '505': 'Cascades', '506': 'Cascades', '507': 'Cascades',
+  '508': 'Cascades', '509': 'Cascades', '510': 'Cascades', '511': 'Cascades',
+  '512': 'Cascades', '513': 'Cascades', '514': 'Cascades', '515': 'Cascades',
+  '516': 'Cascades', '517': 'Cascades', '518': 'Cascades', '519': 'Cascades',
+  // Hiawatha
+  '329': 'Hiawatha', '330': 'Hiawatha', '331': 'Hiawatha', '332': 'Hiawatha',
+  '333': 'Hiawatha', '334': 'Hiawatha', '335': 'Hiawatha', '336': 'Hiawatha',
+  '337': 'Hiawatha', '338': 'Hiawatha', '339': 'Hiawatha', '340': 'Hiawatha',
+  '341': 'Hiawatha', '342': 'Hiawatha', '343': 'Hiawatha', '344': 'Hiawatha',
+  // San Joaquins
+  '701': 'San Joaquins', '702': 'San Joaquins', '703': 'San Joaquins', '704': 'San Joaquins',
+  '705': 'San Joaquins', '706': 'San Joaquins', '707': 'San Joaquins', '708': 'San Joaquins',
+  '709': 'San Joaquins', '710': 'San Joaquins', '711': 'San Joaquins', '712': 'San Joaquins',
+  '713': 'San Joaquins', '714': 'San Joaquins', '715': 'San Joaquins', '716': 'San Joaquins',
+  '717': 'San Joaquins', '718': 'San Joaquins', '719': 'San Joaquins', '720': 'San Joaquins',
+  // Capitol Corridor
+  '521': 'Capitol Corridor', '522': 'Capitol Corridor', '523': 'Capitol Corridor', '524': 'Capitol Corridor',
+  '525': 'Capitol Corridor', '526': 'Capitol Corridor', '527': 'Capitol Corridor', '528': 'Capitol Corridor',
+  '529': 'Capitol Corridor', '530': 'Capitol Corridor', '531': 'Capitol Corridor', '532': 'Capitol Corridor',
+  '533': 'Capitol Corridor', '534': 'Capitol Corridor', '535': 'Capitol Corridor', '536': 'Capitol Corridor',
+  '537': 'Capitol Corridor', '538': 'Capitol Corridor', '539': 'Capitol Corridor', '540': 'Capitol Corridor',
+  '541': 'Capitol Corridor', '542': 'Capitol Corridor', '543': 'Capitol Corridor', '544': 'Capitol Corridor',
+  '545': 'Capitol Corridor', '546': 'Capitol Corridor', '547': 'Capitol Corridor', '548': 'Capitol Corridor',
+  '549': 'Capitol Corridor', '550': 'Capitol Corridor', '551': 'Capitol Corridor', '552': 'Capitol Corridor',
+  // Vermonter
+  '54': 'Vermonter', '55': 'Vermonter', '56': 'Vermonter', '57': 'Vermonter',
+  // Ethan Allen Express
+  '290': 'Ethan Allen Express', '291': 'Ethan Allen Express', '292': 'Ethan Allen Express', '293': 'Ethan Allen Express',
+  // Downeaster
+  '680': 'Downeaster', '681': 'Downeaster', '682': 'Downeaster', '683': 'Downeaster',
+  '684': 'Downeaster', '685': 'Downeaster', '686': 'Downeaster', '687': 'Downeaster',
+  '688': 'Downeaster', '689': 'Downeaster', '690': 'Downeaster', '691': 'Downeaster',
+  '692': 'Downeaster', '693': 'Downeaster', '694': 'Downeaster', '695': 'Downeaster',
+  // Adirondack
+  '68': 'Adirondack', '69': 'Adirondack',
+  // Maple Leaf
+  '63': 'Maple Leaf', '64': 'Maple Leaf',
+  // Wolverines
+  '350': 'Wolverine', '351': 'Wolverine', '352': 'Wolverine', '353': 'Wolverine',
+  '354': 'Wolverine', '355': 'Wolverine', '364': 'Wolverine', '365': 'Wolverine',
+  // Blue Water
+  '364': 'Blue Water', '365': 'Blue Water',
+  // Pere Marquette
+  '370': 'Pere Marquette', '371': 'Pere Marquette',
+  // Illini/Saluki
+  '390': 'Saluki', '391': 'Saluki', '392': 'Illini', '393': 'Illini',
+  // Lincoln Service
+  '300': 'Lincoln Service', '301': 'Lincoln Service', '302': 'Lincoln Service', '303': 'Lincoln Service',
+  '304': 'Lincoln Service', '305': 'Lincoln Service', '306': 'Lincoln Service', '307': 'Lincoln Service',
+  '308': 'Lincoln Service', '309': 'Lincoln Service', '310': 'Lincoln Service', '311': 'Lincoln Service',
+  '312': 'Lincoln Service', '313': 'Lincoln Service', '314': 'Lincoln Service', '315': 'Lincoln Service',
+  // Missouri River Runner
+  '311': 'Missouri River Runner', '313': 'Missouri River Runner', '314': 'Missouri River Runner', '316': 'Missouri River Runner',
+  // Heartland Flyer
+  '821': 'Heartland Flyer', '822': 'Heartland Flyer',
+};
+
+/**
+ * Get the route name for a train number
+ * Returns the named route (e.g., "Pennsylvanian") or null if not a named train
+ */
+export function getRouteNameForTrainNumber(trainNumber: string): string | null {
+  return AMTRAK_ROUTE_NAMES[trainNumber] || null;
+}
+
+/**
+ * Get display info for a train (route name and number formatted for display)
+ * Examples: "Pennsylvanian 43", "Acela 2151", "Amtrak 171"
+ */
+export function getTrainDisplayName(tripId: string): { routeName: string | null; trainNumber: string; displayName: string } {
+  const trainNumber = extractTrainNumber(tripId);
+  const routeName = getRouteNameForTrainNumber(trainNumber);
+
+  const displayName = routeName
+    ? `${routeName} ${trainNumber}`
+    : `Amtrak ${trainNumber}`;
+
+  return { routeName, trainNumber, displayName };
+}
+
 export class TrainAPIService {
   /**
    * Search for trains, routes, and stations
@@ -65,7 +223,7 @@ export class TrainAPIService {
   static async getTrainDetails(tripId: string): Promise<Train | null> {
     try {
       const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
-      
+
       if (stopTimes.length === 0) {
         return null;
       }
@@ -73,10 +231,13 @@ export class TrainAPIService {
       const firstStop = stopTimes[0];
       const lastStop = stopTimes[stopTimes.length - 1];
 
+      // Get proper train number and route name
+      const { routeName, trainNumber } = getTrainDisplayName(tripId);
+
       const train: Train = {
-        id: parseInt(tripId),
-        operator: 'AMTK',
-        trainNumber: tripId,
+        id: parseInt(tripId) || Date.now(),
+        operator: 'Amtrak',
+        trainNumber: trainNumber,
         from: firstStop.stop_name,
         to: lastStop.stop_name,
         fromCode: firstStop.stop_id,
@@ -85,7 +246,7 @@ export class TrainAPIService {
         arriveTime: formatTime(lastStop.arrival_time),
         date: 'Today',
         daysAway: 0,
-        routeName: `Train ${tripId}`,
+        routeName: routeName || '',
         tripId: tripId,
         intermediateStops: stopTimes.slice(1, -1).map(stop => ({
           time: formatTime(stop.departure_time),

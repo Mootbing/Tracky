@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { gtfsParser } from '../utils/gtfs-parser';
-import type { Stop, EnrichedStopTime } from '../types/train';
 import { AppColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { getTrainDisplayName } from '../services/api';
+import type { Stop, EnrichedStopTime } from '../types/train';
+import { gtfsParser } from '../utils/gtfs-parser';
 
 interface TripResult {
   tripId: string;
@@ -236,7 +237,9 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           {tripResults.length === 0 ? (
             <Text style={styles.noResults}>No direct trains between these stations</Text>
           ) : (
-            tripResults.map((trip) => (
+            tripResults.map((trip) => {
+              const { displayName } = getTrainDisplayName(trip.tripId);
+              return (
               <TouchableOpacity
                 key={trip.tripId}
                 style={styles.tripItem}
@@ -246,7 +249,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   <Ionicons name="train" size={20} color={AppColors.primary} />
                 </View>
                 <View style={styles.tripInfo}>
-                  <Text style={styles.tripName}>Train {trip.tripId}</Text>
+                  <Text style={styles.tripName}>{displayName}</Text>
                   <View style={styles.tripTimes}>
                     <Text style={styles.tripTime}>
                       {formatTime(trip.fromStop.departure_time)}
@@ -264,7 +267,8 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 </View>
                 <Ionicons name="add-circle" size={24} color={AppColors.accentBlue} />
               </TouchableOpacity>
-            ))
+              );
+            })
           )}
         </View>
       )}

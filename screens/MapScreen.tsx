@@ -1,5 +1,5 @@
 import React, { useRef, useMemo } from 'react';
-import { Animated, View, Text } from 'react-native';
+import { View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,27 +36,8 @@ function MapScreenInner() {
   const [stationMode, setStationMode] = React.useState<StationMode>('auto');
   const [trainMode, setTrainMode] = React.useState<TrainMode>('white');
   const { savedTrains, setSavedTrains, selectedTrain, setSelectedTrain } = useTrainContext();
-  const [selectedStation, setSelectedStation] = React.useState<string | null>(null);
-  const markerScale = useRef(new Animated.Value(1)).current;
   const insets = useSafeAreaInsets();
 
-  React.useEffect(() => {
-    if (selectedStation) {
-      Animated.spring(markerScale, {
-        toValue: 1.2,
-        useNativeDriver: true,
-        friction: 6,
-        tension: 100,
-      }).start();
-    } else {
-      Animated.spring(markerScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 6,
-        tension: 100,
-      }).start();
-    }
-  }, [selectedStation, markerScale]);
 
   // Animate detail modal to 50% when it opens
   React.useEffect(() => {
@@ -204,36 +185,27 @@ function MapScreenInner() {
         })}
 
         {stationClusters.map((cluster) => {
-          const isSelected = !cluster.isCluster && selectedStation === cluster.id;
+          // Show full name when zoomed in enough (latitudeDelta < 0.1)
+          const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < 0.1;
+          const displayName = cluster.isCluster
+            ? `${cluster.stations.length}+`
+            : showFullName
+              ? cluster.stations[0].name
+              : getStationAbbreviation(cluster.stations[0].id, cluster.stations[0].name);
           return (
             <Marker
               key={cluster.id}
               coordinate={{ latitude: cluster.lat, longitude: cluster.lon }}
               title={cluster.isCluster ? `${cluster.stations.length} stations` : cluster.stations[0].name}
               description={cluster.isCluster ? cluster.stations.map(s => s.name).join(', ') : cluster.stations[0].id}
-              onPress={() => {
-                if (!cluster.isCluster) {
-                  setSelectedStation(cluster.id);
-                  mapRef.current?.animateToRegion({
-                    latitude: cluster.lat,
-                    longitude: cluster.lon,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                  }, 500);
-                }
-              }}
               anchor={{ x: 0.5, y: 0.5 }}
+              tappable={false}
             >
-              <Animated.View
-                style={{
-                  transform: [{ scale: isSelected ? markerScale : 1 }],
-                  alignItems: 'center',
-                }}
-              >
+              <View style={{ alignItems: 'center' }}>
                 <Ionicons
                   name="location"
                   size={24}
-                  color={isSelected ? AppColors.accentBlue : AppColors.primary}
+                  color={AppColors.primary}
                 />
                 <Text
                   style={{
@@ -249,11 +221,9 @@ function MapScreenInner() {
                   }}
                   numberOfLines={1}
                 >
-                  {cluster.isCluster
-                    ? `${cluster.stations.length}+`
-                    : getStationAbbreviation(cluster.stations[0].id, cluster.stations[0].name)}
+                  {displayName}
                 </Text>
-              </Animated.View>
+              </View>
             </Marker>
           );
         })}
@@ -304,9 +274,6 @@ function MapScreenInner() {
               setShowDetailModal(true);
             } else if (trainOrStation && trainOrStation.lat && trainOrStation.lon) {
               // If it's a station, center map and collapse modal to 25%
-              // Find the station id by lat/lon
-              const found = stations.find(s => Math.abs(s.lat - trainOrStation.lat) < 1e-6 && Math.abs(s.lon - trainOrStation.lon) < 1e-6);
-              if (found) setSelectedStation(found.id);
               mapRef.current?.animateToRegion({
                 latitude: trainOrStation.lat,
                 longitude: trainOrStation.lon,
