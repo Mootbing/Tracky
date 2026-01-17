@@ -10,6 +10,7 @@ import type { Train } from '../../types/train';
 import { haversineDistance } from '../../utils/distance';
 import { gtfsParser } from '../../utils/gtfs-parser';
 import { getCountdownForTrain } from '../TrainList';
+import { SlideUpModalContext } from './slide-up-modal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -22,6 +23,22 @@ const FONTS = {
 interface TrainDetailModalProps {
   train?: Train;
   onClose: () => void;
+}
+
+/**
+ * Format 24-hour GTFS time to 12-hour AM/PM format
+ * Handles times like "13:12:00" -> "1:12 PM"
+ */
+function formatTime24to12(time24: string): string {
+  const [hours, minutes] = time24.substring(0, 5).split(':');
+  let h = parseInt(hours);
+  // Handle times > 24:00 (next day in GTFS)
+  if (h >= 24) h -= 24;
+  const m = minutes;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  if (h > 12) h -= 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
 }
 
 // Helper function to parse time string (HH:MM AM/PM) and return minutes since midnight
@@ -73,14 +90,31 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
     if (trainData.tripId) {
       try {
         const stops = gtfsParser.getStopTimesForTrip(trainData.tripId);
-        if (stops && stops.length > 2) {
-          setIntermediateStops(
-            stops.slice(1, -1).map(stop => ({
-              time: stop.departure_time ? stop.departure_time : '',
-              name: stop.stop_name,
-              code: stop.stop_id,
-            }))
-          );
+        if (stops && stops.length > 0) {
+          // Find the indices of the user's selected segment
+          const fromIdx = stops.findIndex(s => s.stop_id === trainData.fromCode);
+          const toIdx = stops.findIndex(s => s.stop_id === trainData.toCode);
+
+          if (fromIdx !== -1 && toIdx !== -1 && fromIdx < toIdx) {
+            // Only show stops between from and to (exclusive of endpoints)
+            const segmentStops = stops.slice(fromIdx + 1, toIdx);
+            setIntermediateStops(
+              segmentStops.map(stop => ({
+                time: stop.departure_time ? formatTime24to12(stop.departure_time) : '',
+                name: stop.stop_name,
+                code: stop.stop_id,
+              }))
+            );
+          } else {
+            // Fallback: show all intermediate stops if segment not found
+            setIntermediateStops(
+              stops.slice(1, -1).map(stop => ({
+                time: stop.departure_time ? formatTime24to12(stop.departure_time) : '',
+                name: stop.stop_name,
+                code: stop.stop_id,
+              }))
+            );
+          }
         } else {
           setError('No intermediate stops found in GTFS data for this train.');
         }
@@ -100,13 +134,9 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
     }
   }, [error, onClose]);
 
-  // Detail modal is rendered outside SlideUpModal; use a simple scroll container without gestures.
-  const isFullscreen = true;
-  const isCollapsed = false;
+  // Use context from SlideUpModal for proper scroll/gesture coordination
+  const { isFullscreen, isCollapsed, scrollOffset, panGesture } = React.useContext(SlideUpModalContext);
   const [isHeaderStuck, setIsHeaderStuck] = React.useState(false);
-  const scrollOffset = { value: 0 } as any;
-  const panGesture = null;
-                <Ionicons name="close" size={24} color={COLORS.primary} />
   // Calculate journey duration from departure to arrival
   const duration = trainData ? calculateDuration(trainData.departTime, trainData.arriveTime) : '';
 
@@ -130,17 +160,20 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   }
 
   return (
-    <ScrollView 
-      style={styles.modalContent} 
-      scrollEnabled={isFullscreen} 
+    <ScrollView
+      style={styles.modalContent}
+      scrollEnabled={isFullscreen}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[0]}
       onScroll={(e) => {
         const offsetY = e.nativeEvent.contentOffset.y;
-                    <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+        scrollOffset.value = offsetY;
         setIsHeaderStuck(offsetY > 0);
       }}
       scrollEventThrottle={16}
+      bounces={true}
+      simultaneousHandlers={panGesture}
     >
         {/* Header */}
         <View style={[
@@ -263,7 +296,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
   },
   modalContent: {
-    paddingBottom: Spacing.xxl,
+    flex: 1,
     marginHorizontal: -Spacing.xl,
   },
   header: {

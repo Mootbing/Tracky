@@ -39,11 +39,11 @@ function MapScreenInner() {
   const insets = useSafeAreaInsets();
 
 
-  // Animate detail modal to 50% when it opens
+  // Animate detail modal to fullscreen when it opens (enables scrolling)
   React.useEffect(() => {
     if (showDetailModal) {
       setTimeout(() => {
-        detailModalRef.current?.snapToPoint?.('half');
+        detailModalRef.current?.snapToPoint?.('max');
       }, 100);
     }
   }, [showDetailModal]);

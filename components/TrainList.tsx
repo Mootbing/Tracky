@@ -20,7 +20,7 @@ import type { Train } from '../types/train';
 // First threshold - shows delete button
 const FIRST_THRESHOLD = -80;
 // Second threshold - triggers auto-delete on release
-const SECOND_THRESHOLD = -140;
+const SECOND_THRESHOLD = -200;
 
 export function parseTimeToDate(timeStr: string, baseDate: Date): Date {
   const [time, meridian] = timeStr.split(' ');
@@ -88,8 +88,8 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
   };
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-5, 5])
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-10, 10])
     .onUpdate((event) => {
       if (isDeleting.value) return;
 
@@ -194,11 +194,13 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
     <View style={swipeStyles.container}>
       {/* Delete button behind the card */}
       <Animated.View style={[swipeStyles.deleteButtonContainer, deleteContainerAnimatedStyle]}>
-        <GestureDetector gesture={Gesture.Tap().onEnd(() => runOnJS(handleDeletePress)())}>
-          <Animated.View style={[swipeStyles.deleteButton, deleteButtonAnimatedStyle]}>
-            <Ionicons name="trash" size={22} color="#fff" />
-          </Animated.View>
-        </GestureDetector>
+        <View style={swipeStyles.deleteButtonWrapper}>
+          <GestureDetector gesture={Gesture.Tap().onEnd(() => runOnJS(handleDeletePress)())}>
+            <Animated.View style={[swipeStyles.deleteButton, deleteButtonAnimatedStyle]}>
+              <Ionicons name="trash" size={22} color="#fff" />
+            </Animated.View>
+          </GestureDetector>
+        </View>
       </Animated.View>
 
       {/* The actual card */}
@@ -291,11 +293,16 @@ const swipeStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'stretch',
     paddingRight: 4,
-    paddingVertical: 4,
+    paddingLeft: 12,
+  },
+  deleteButtonWrapper: {
+    height: 44,
+    flex: 1,
+    justifyContent: 'center',
   },
   deleteButton: {
     flex: 1,
-    borderRadius: 26,
+    borderRadius: 22,
     backgroundColor: AppColors.error,
     justifyContent: 'center',
     alignItems: 'center',
