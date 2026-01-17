@@ -146,9 +146,9 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             {/* Departure Info */}
             <View style={styles.infoSection}>
               <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-top-right" size={16} color="rgba(255,255,255,0.1)" />
+                <MaterialCommunityIcons name="arrow-top-right" size={16} color="#fff" />
                 <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                <Text style={styles.locationName}> • {trainData.from} Intl.</Text>
+                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
               </View>
               <Text style={styles.timeText}>{trainData.departTime}</Text>
               <View style={styles.durationLineRow}>
@@ -185,9 +185,9 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             {/* Arrival Info */}
             <View style={styles.infoSection}>
               <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color="rgba(255,255,255,0.1)" />
+                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color="#fff" />
                 <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                <Text style={styles.locationName}> • {trainData.to} Intl.</Text>
+                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
               </View>
               <Text style={styles.timeText}>
                 {trainData.arriveTime}
