@@ -229,8 +229,8 @@ function MapScreenInner() {
         })}
 
         {stationClusters.map((cluster) => {
-          // Show full name when zoomed in enough (latitudeDelta < 0.1)
-          const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < 0.1;
+          // Show full name when zoomed in enough (latitudeDelta < 0.25)
+          const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < 1;
           const displayName = cluster.isCluster
             ? `${cluster.stations.length}+`
             : showFullName
