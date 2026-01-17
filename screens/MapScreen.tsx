@@ -26,6 +26,7 @@ function MapScreenInner() {
     longitudeDelta: 0.0421,
   });
   const { savedTrains, setSavedTrains, selectedTrain, setSelectedTrain } = useTrainContext();
+  const [selectedStation, setSelectedStation] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -89,8 +90,14 @@ function MapScreenInner() {
             coordinate={{ latitude: station.lat, longitude: station.lon }}
             title={station.name}
             description={station.id}
+            onPress={() => setSelectedStation(station.id)}
           >
-            <Ionicons name="location" size={24} color="#FFFFFF" />
+            <Ionicons
+              name="location"
+              size={selectedStation === station.id ? 36 : 24}
+              color={selectedStation === station.id ? '#2196F3' : '#FFFFFF'}
+              style={selectedStation === station.id ? { transform: [{ scale: 1.5 }] } : undefined}
+            />
           </Marker>
         ))}
 
@@ -111,10 +118,27 @@ function MapScreenInner() {
       </MapView>
 
       <SlideUpModal ref={mainModalRef}>
-        <ModalContent onTrainSelect={(train) => {
-          setSelectedTrain(train);
-          setShowDetailModal(true);
-        }} />
+        <ModalContent
+          onTrainSelect={(trainOrStation) => {
+            // If it's a train, show details as before
+            if (trainOrStation && trainOrStation.departTime) {
+              setSelectedTrain(trainOrStation);
+              setShowDetailModal(true);
+            } else if (trainOrStation && trainOrStation.lat && trainOrStation.lon) {
+              // If it's a station, center map and collapse modal to 25%
+              // Find the station id by lat/lon
+              const found = stations.find(s => Math.abs(s.lat - trainOrStation.lat) < 1e-6 && Math.abs(s.lon - trainOrStation.lon) < 1e-6);
+              if (found) setSelectedStation(found.id);
+              mapRef.current?.animateToRegion({
+                latitude: trainOrStation.lat,
+                longitude: trainOrStation.lon,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }, 500);
+              mainModalRef.current?.snapToPoint?.('25%');
+            }
+          }}
+        />
       </SlideUpModal>
 
       <Modal

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove test data and fix syntax errors\n\n- Delete Example Amtrak GTFS directory \\(example test data\\)\n- Delete fixtures directory \\(test data\\)\n- Delete test-realtime.ts \\(test file\\)\n- Remove Zone.Identifier files \\(Windows metadata\\)\n- Fix syntax error in train-detail-modal.tsx \\(stray JSX fragments and extra brace\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

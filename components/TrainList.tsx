@@ -43,7 +43,7 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
   if (flights.length === 0) {
     return (
       <View style={styles.noTrainsContainer}>
-        <Ionicons name="train" size={48} color={COLORS.secondary} />
+        <Ionicons name="train" size={48} color="#fff" />
         <Text style={styles.noTrainsText}>no trains yet...</Text>
       </View>
     );

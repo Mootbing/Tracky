@@ -106,7 +106,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   const [isHeaderStuck, setIsHeaderStuck] = React.useState(false);
   const scrollOffset = { value: 0 } as any;
   const panGesture = null;
-
+                <Ionicons name="close" size={24} color="#fff" />
   // Calculate journey duration from departure to arrival
   const duration = trainData ? calculateDuration(trainData.departTime, trainData.arriveTime) : '';
 
@@ -116,14 +116,11 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
     try {
       const fromStop = gtfsParser.getStop(trainData.fromCode);
       const toStop = gtfsParser.getStop(trainData.toCode);
-      if (fromStop && toStop) {
-        distanceMiles = haversineDistance(fromStop.stop_lat, fromStop.stop_lon, toStop.stop_lat, toStop.stop_lon);
-      }
+      distanceMiles = haversineDistance(fromStop.stop_lat, fromStop.stop_lon, toStop.stop_lat, toStop.stop_lon);
     } catch {}
   }
 
   // Countdown logic (shared with TrainList)
-  const countdown = trainData ? getCountdownForTrain(trainData) : { value: '', unit: '', past: false };
   const unitLabel = `${countdown.unit}${countdown.past ? ' AGO' : ''}`;
 
   // Instead of returning early, render null or error in JSX
@@ -139,7 +136,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
       stickyHeaderIndices={[0]}
       onScroll={(e) => {
         const offsetY = e.nativeEvent.contentOffset.y;
-        scrollOffset.value = offsetY;
+                    <MaterialCommunityIcons name="arrow-bottom-left" size={16} color="#fff" />
         setIsHeaderStuck(offsetY > 0);
       }}
       scrollEventThrottle={16}

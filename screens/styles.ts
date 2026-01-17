@@ -32,13 +32,13 @@ export const styles = StyleSheet.create({
   titleCollapsed: { marginBottom: Spacing.sm },
   refreshButton: {
     position: 'absolute',
-    top: 0,
+    top: -10,
     right: 0,
     zIndex: 20,
     padding: 4,
     width: 40,
     height: 40,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // match close button
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',

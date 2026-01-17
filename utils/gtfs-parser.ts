@@ -8,12 +8,12 @@ import shapesData from '../assets/gtfs-data/shapes.json';
 import stopTimesData from '../assets/gtfs-data/stop-times.json';
 import stopsData from '../assets/gtfs-data/stops.json';
 import type {
-    EnrichedStopTime,
-    Route,
-    SearchResult,
-    Shape,
-    Stop,
-    StopTime,
+  EnrichedStopTime,
+  Route,
+  SearchResult,
+  Shape,
+  Stop,
+  StopTime,
 } from '../types/train';
 
 export class GTFSParser {
@@ -174,7 +174,7 @@ export class GTFSParser {
         results.push({
           id: `stop-id-${stop.stop_id}`,
           name: stop.stop_name,
-          subtitle: `station abbreviation matches "${stop.stop_id}"`,
+          subtitle: `Station matches "${stop.stop_id}"`,
           type: 'station',
           data: stop,
         });

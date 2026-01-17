@@ -18,8 +18,9 @@ export function SearchBar({
   snapToPoint?: (p: 'min'|'half'|'max') => void;
   searchInputRef: React.RefObject<TextInput | null>;
 }) {
-  return (
-    isSearchFocused ? (
+  // Always render as a button, but show different UI when search is active
+  if (isSearchFocused) {
+    return (
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#888" />
         <TextInput
@@ -31,18 +32,19 @@ export function SearchBar({
           onChangeText={setSearchQuery}
           onBlur={() => {
             setIsSearchFocused(false);
-            snapToPoint?.('half');
+            snapToPoint?.('min');
           }}
           accessible={true}
           accessibilityLabel="Search for trains or stations"
           accessibilityHint="Enter train name, station name, or route to search"
           autoFocus
         />
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             setIsSearchFocused(false);
-            snapToPoint?.('half');
-          }} 
+            setSearchQuery('');
+            snapToPoint?.('min');
+          }}
           activeOpacity={0.7}
           accessible={true}
           accessibilityRole="button"
@@ -51,25 +53,28 @@ export function SearchBar({
           <Ionicons name="close-circle" size={20} color="#888" />
         </TouchableOpacity>
       </View>
-    ) : (
-      <TouchableOpacity
-        style={styles.searchContainer}
-        activeOpacity={0.7}
-        onPress={() => {
-          setIsSearchFocused(true);
-          snapToPoint?.('max');
-          setTimeout(() => {
-            searchInputRef.current?.focus();
-          }, 300);
-        }}
-        accessible={true}
-        accessibilityRole="button"
-        accessibilityLabel="Search to add trains"
-        accessibilityHint="Tap to start searching"
-      >
-        <Ionicons name="search" size={20} color="#888" />
-        <Text style={styles.searchButtonText}>Search to add trains</Text>
-      </TouchableOpacity>
-    )
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.searchContainer}
+      activeOpacity={0.7}
+      onPress={() => {
+        snapToPoint?.('max');
+        setIsSearchFocused(true);
+        // Immediate focus without delay
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 100);
+      }}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel="Search for trains"
+      accessibilityHint="Tap to start searching"
+    >
+      <Ionicons name="search" size={20} color="#888" />
+      <Text style={styles.searchButtonText}>Train name, station name/code...</Text>
+    </TouchableOpacity>
   );
 }

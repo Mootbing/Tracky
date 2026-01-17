@@ -216,6 +216,13 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     }
   }, [isCollapsed, isSearchFocused]);
 
+  // When search is deactivated, ensure we're at min (collapsed) state
+  useEffect(() => {
+    if (!isSearchFocused && !isCollapsed && searchQuery === '') {
+      snapToPoint?.('min');
+    }
+  }, [isSearchFocused, searchQuery, isCollapsed, snapToPoint]);
+
   return (
     <GestureDetector gesture={panGesture}>
       <ScrollView 
@@ -320,12 +327,18 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
                       setIsSearchFocused(false);
                     }
                   } else if (result.type === 'station') {
-                    // For stations, get the first train that stops there
-                    const stopData = result.data as { stop_id: string };
-                    const trains = await TrainAPIService.getTrainsForStation(stopData.stop_id);
-                    if (trains.length > 0) {
-                      await saveTrain(trains[0]);
-                      onTrainSelect && onTrainSelect(trains[0]);
+                    // For stations, center map and collapse modal
+                    const stopData = result.data as { stop_id: string, lat?: number, lon?: number };
+                    // Find station lat/lon from search result or context
+                    let lat = result.lat, lon = result.lon;
+                    if (lat == null || lon == null) {
+                      // fallback: try to get from gtfsParser
+                      const stop = (typeof stopData.stop_id === 'string') ? (require('../utils/gtfs-parser').gtfsParser.getStop(stopData.stop_id)) : null;
+                      lat = stop?.stop_lat;
+                      lon = stop?.stop_lon;
+                    }
+                    if (lat != null && lon != null) {
+                      onTrainSelect && onTrainSelect({ lat, lon });
                       setSearchQuery('');
                       setIsSearchFocused(false);
                     }
