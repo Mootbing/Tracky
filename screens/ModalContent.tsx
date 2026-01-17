@@ -118,7 +118,8 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
     setIsRefreshing(true);
     setRefreshProgress(0.05);
     setRefreshStep('Checking GTFS cache');
-    snapToPoint?.('max'); // Expand to fullscreen loading screen
+    setIsSearchFocused(false); // Hide search bar
+    snapToPoint?.('min'); // Collapse to 35%
     try {
       await ensureFreshGTFS((update) => {
         setRefreshProgress(update.progress);
@@ -196,14 +197,16 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
             <Text style={styles.subtitle}>Add any amtrak train (for now)</Text>
           )}
           
-          <SearchBar
-            isSearchFocused={isSearchFocused}
-            searchQuery={searchQuery}
-            setIsSearchFocused={setIsSearchFocused}
-            setSearchQuery={setSearchQuery}
-            snapToPoint={snapToPoint}
-            searchInputRef={searchInputRef}
-          />
+          {!isRefreshing && (
+            <SearchBar
+              isSearchFocused={isSearchFocused}
+              searchQuery={searchQuery}
+              setIsSearchFocused={setIsSearchFocused}
+              setSearchQuery={setSearchQuery}
+              snapToPoint={snapToPoint}
+              searchInputRef={searchInputRef}
+            />
+          )}
         </View>
         {isSearchFocused && !isCollapsed && (
           <View style={styles.frequentlyUsedSection}>
@@ -247,7 +250,7 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
             )}
           </View>
         )}
-        {!isSearchFocused && (
+        {!isSearchFocused && !isRefreshing && (
           <TrainList flights={flights} onTrainSelect={onTrainSelect} />
         )}
       </ScrollView>

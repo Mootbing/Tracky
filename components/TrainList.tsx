@@ -53,6 +53,7 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
       {flights.map((flight) => {
         const countdown = getCountdownForTrain(flight);
         const unitLabel = `${countdown.unit}${countdown.past ? ' AGO' : ''}`;
+        const isPast = countdown.past;
         return (
           <TouchableOpacity
             key={flight.id}
@@ -65,8 +66,8 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
             accessibilityHint={`Departs at ${flight.departTime} (${countdown.value} ${countdown.unit.toLowerCase()} ${countdown.past ? 'ago' : 'from now'}), arrives at ${flight.arriveTime}. Tap to view details`}
           >
             <View style={styles.flightLeft}>
-              <Text style={styles.daysAway}>{countdown.value}</Text>
-              <Text style={styles.daysLabel}>{unitLabel}</Text>
+              <Text style={[styles.daysAway, isPast && { color: COLORS.secondary }]}>{countdown.value}</Text>
+              <Text style={[styles.daysLabel, isPast && { color: COLORS.secondary }]}>{unitLabel}</Text>
             </View>
 
             <View style={styles.flightCenter}>
