@@ -113,7 +113,7 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
         runOnJS(performDelete)();
       } else if (translateX.value <= FIRST_THRESHOLD) {
         // Snap to show delete button
-        translateX.value = withSpring(-FIRST_THRESHOLD, {
+        translateX.value = withSpring(FIRST_THRESHOLD, {
           damping: 20,
           stiffness: 200,
         });

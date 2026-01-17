@@ -13,7 +13,7 @@ import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const SNAP_POINTS = {
+const DEFAULT_SNAP_POINTS = {
   MIN: SCREEN_HEIGHT * 0.35,
   HALF: SCREEN_HEIGHT * 0.5,
   MAX: SCREEN_HEIGHT * 0.95,
@@ -32,7 +32,7 @@ export const SlideUpModalContext = createContext<{
   isCollapsed: false,
   scrollOffset: { value: 0 } as any,
   panGesture: null,
-  modalHeight: { value: SCREEN_HEIGHT * 0.5 } as any,
+  modalHeight: { value: DEFAULT_SNAP_POINTS.HALF } as any,
 });
 
 interface SlideUpModalProps {
@@ -40,34 +40,85 @@ interface SlideUpModalProps {
   onSnapChange?: (snapPoint: 'min' | 'half' | 'max') => void;
   onHeightChange?: (height: number) => void;
   onDismiss?: () => void;
+  /** Custom minimum snap point as percentage (e.g., 0.25 for 25%). Defaults to 0.35 */
+  minSnapPercent?: number;
+  /** Initial snap point. Defaults to 'half' */
+  initialSnap?: 'min' | 'half' | 'max';
 }
 
-export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') => void }, SlideUpModalProps>(
-  function SlideUpModal({ children, onSnapChange, onHeightChange, onDismiss }: SlideUpModalProps, ref: React.Ref<any>) {
+export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') => void; dismiss: () => void; slideIn: (targetSnap?: 'min' | 'half' | 'max') => void }, SlideUpModalProps>(
+  function SlideUpModal({ children, onSnapChange, onHeightChange, onDismiss, minSnapPercent = 0.35, initialSnap = 'half' }: SlideUpModalProps, ref: React.Ref<any>) {
   // Get safe area insets dynamically
   const screenHeight = Dimensions.get('screen').height;
   const windowHeight = Dimensions.get('window').height;
   const safeAreaBottomInset = screenHeight - windowHeight;
   // Get status bar height to extend modal to true top of screen
   const statusBarHeight = StatusBar.currentHeight || 0;
-  
-  const translateY = useSharedValue(SCREEN_HEIGHT - SNAP_POINTS.HALF);
+
+  // Calculate snap points with customizable min
+  const SNAP_POINTS = React.useMemo(() => ({
+    MIN: SCREEN_HEIGHT * minSnapPercent,
+    HALF: DEFAULT_SNAP_POINTS.HALF,
+    MAX: DEFAULT_SNAP_POINTS.MAX,
+  }), [minSnapPercent]);
+
+  const getInitialHeight = () => {
+    if (initialSnap === 'min') return SNAP_POINTS.MIN;
+    if (initialSnap === 'max') return SNAP_POINTS.MAX;
+    return SNAP_POINTS.HALF;
+  };
+
+  // Start off-screen (at bottom)
+  const translateY = useSharedValue(SCREEN_HEIGHT);
   const context = useSharedValue({ y: 0 });
-  const currentSnap = useSharedValue<'min' | 'half' | 'max'>('half');
+  const currentSnap = useSharedValue<'min' | 'half' | 'max'>(initialSnap);
   const scrollOffset = useSharedValue(0);
-  const modalHeight = useSharedValue(SNAP_POINTS.HALF);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const modalHeight = useSharedValue(getInitialHeight());
+  const [isFullscreen, setIsFullscreen] = useState(initialSnap === 'max');
+  const [isCollapsed, setIsCollapsed] = useState(initialSnap === 'min');
   const [gestureEnabled, setGestureEnabled] = useState(true);
   const glowOpacity = useSharedValue(0);
 
+  // Dismiss function to animate out and call onDismiss
+  const dismiss = () => {
+    translateY.value = withSpring(SCREEN_HEIGHT, {
+      damping: 40,
+      stiffness: 280,
+      overshootClamping: true,
+    }, (finished) => {
+      if (finished && onDismiss) {
+        runOnJS(onDismiss)();
+      }
+    });
+  };
+
+  // Slide in function to animate modal back into view
+  const slideIn = (targetSnap: 'min' | 'half' | 'max' = 'half') => {
+    const snapPoint = targetSnap === 'min' ? SNAP_POINTS.MIN : targetSnap === 'half' ? SNAP_POINTS.HALF : SNAP_POINTS.MAX;
+    const targetY = SCREEN_HEIGHT - snapPoint;
+
+    currentSnap.value = targetSnap;
+    modalHeight.value = snapPoint;
+
+    runOnJS(setIsFullscreen)(targetSnap === 'max');
+    runOnJS(setIsCollapsed)(targetSnap === 'min');
+
+    translateY.value = withSpring(targetY, {
+      damping: 40,
+      stiffness: 280,
+      overshootClamping: false,
+    });
+  };
+
   React.useImperativeHandle(ref, () => ({
     snapToPoint,
+    dismiss,
+    slideIn,
   }), []);
 
   useEffect(() => {
-    // Animate in on mount with subtle overshoot
-    translateY.value = withSpring(SCREEN_HEIGHT - SNAP_POINTS.HALF, {
+    // Animate in on mount from bottom of screen
+    translateY.value = withSpring(SCREEN_HEIGHT - getInitialHeight(), {
       damping: 40,
       stiffness: 280,
       overshootClamping: false,
@@ -103,13 +154,23 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     .enableTrackpadTwoFingerGesture(true)
     .maxPointers(1)
     .enabled(gestureEnabled)
+    .activeOffsetY([-15, 15])
+    .failOffsetX([-20, 20])
     .onStart(() => {
       context.value = { y: translateY.value };
     })
     .onUpdate((event) => {
-      // At fullscreen, only handle gesture if scrolled to top
-      if (currentSnap.value === 'max' && scrollOffset.value > 0) {
-        return;
+      // At fullscreen, only handle downward gesture if scrolled to top
+      // This allows upward scrolling in the content
+      if (currentSnap.value === 'max') {
+        // If scrolled down in content, don't intercept any gestures
+        if (scrollOffset.value > 0) {
+          return;
+        }
+        // If at top but swiping up (trying to scroll content), don't intercept
+        if (event.translationY < 0) {
+          return;
+        }
       }
 
       // Update position within bounds

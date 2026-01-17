@@ -13,6 +13,7 @@ import { useRealtime } from '../hooks/useRealtime';
 import { useShapes } from '../hooks/useShapes';
 import { TrainAPIService } from '../services/api';
 import { TrainStorageService } from '../services/storage';
+import type { Train } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { getRouteColor, getColoredRouteColor, getStrokeWidthForZoom, getColoredRouteColor as getTrainMarkerColor } from '../utils/route-colors';
 import { clusterStations, getStationAbbreviation } from '../utils/station-clustering';
@@ -38,15 +39,39 @@ function MapScreenInner() {
   const { savedTrains, setSavedTrains, selectedTrain, setSelectedTrain } = useTrainContext();
   const insets = useSafeAreaInsets();
 
+  // Track pending train for animation sequencing (ref to avoid async state issues)
+  const pendingTrainRef = React.useRef<Train | null>(null);
 
-  // Animate detail modal to fullscreen when it opens (enables scrolling)
-  React.useEffect(() => {
-    if (showDetailModal) {
-      setTimeout(() => {
-        detailModalRef.current?.snapToPoint?.('max');
-      }, 100);
+  // Handle train selection: dismiss main modal first, then show detail modal
+  const handleTrainSelect = (train: Train) => {
+    pendingTrainRef.current = train;
+    setSelectedTrain(train);
+    // Dismiss main modal - when animation completes, show detail modal
+    mainModalRef.current?.dismiss?.();
+  };
+
+  // When main modal finishes sliding out, show the detail modal
+  const handleMainModalDismissed = () => {
+    if (pendingTrainRef.current) {
+      setShowDetailModal(true);
     }
-  }, [showDetailModal]);
+  };
+
+  // When detail modal closes, slide main modal back in
+  const handleDetailModalClose = () => {
+    detailModalRef.current?.dismiss?.();
+  };
+
+  // When detail modal finishes sliding out, slide main modal back in
+  const handleDetailModalDismissed = () => {
+    pendingTrainRef.current = null;
+    setShowDetailModal(false);
+    setSelectedTrain(null);
+    // Slide main modal back in
+    setTimeout(() => {
+      mainModalRef.current?.slideIn?.();
+    }, 50);
+  };
 
   // Get user location on mount
   React.useEffect(() => {
@@ -265,13 +290,13 @@ function MapScreenInner() {
         onRecenter={handleRecenter}
       />
 
-      <SlideUpModal ref={mainModalRef}>
+      {/* Main modal - My Trains list (always rendered, slides in/out) */}
+      <SlideUpModal ref={mainModalRef} onDismiss={handleMainModalDismissed}>
         <ModalContent
           onTrainSelect={(trainOrStation) => {
-            // If it's a train, show details as before
+            // If it's a train, animate out main modal then show details
             if (trainOrStation && trainOrStation.departTime) {
-              setSelectedTrain(trainOrStation);
-              setShowDetailModal(true);
+              handleTrainSelect(trainOrStation);
             } else if (trainOrStation && trainOrStation.lat && trainOrStation.lon) {
               // If it's a station, center map and collapse modal to 25%
               mapRef.current?.animateToRegion({
@@ -280,15 +305,24 @@ function MapScreenInner() {
                 latitudeDelta: 0.05,
                 longitudeDelta: 0.05,
               }, 500);
-              mainModalRef.current?.snapToPoint?.('25%');
+              mainModalRef.current?.snapToPoint?.('min');
             }
           }}
         />
       </SlideUpModal>
 
+      {/* Detail modal - Train details */}
       {showDetailModal && selectedTrain && (
-        <SlideUpModal ref={detailModalRef}>
-          <TrainDetailModal train={selectedTrain} onClose={() => setShowDetailModal(false)} />
+        <SlideUpModal
+          ref={detailModalRef}
+          minSnapPercent={0.25}
+          initialSnap="max"
+          onDismiss={handleDetailModalDismissed}
+        >
+          <TrainDetailModal
+            train={selectedTrain}
+            onClose={handleDetailModalClose}
+          />
         </SlideUpModal>
       )}
     </View>

@@ -162,18 +162,18 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   return (
     <ScrollView
       style={styles.modalContent}
-      scrollEnabled={isFullscreen}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}
+      scrollEnabled={true}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+      showsVerticalScrollIndicator={true}
       stickyHeaderIndices={[0]}
       onScroll={(e) => {
         const offsetY = e.nativeEvent.contentOffset.y;
-        scrollOffset.value = offsetY;
+        if (scrollOffset) scrollOffset.value = offsetY;
         setIsHeaderStuck(offsetY > 0);
       }}
       scrollEventThrottle={16}
       bounces={true}
-      simultaneousHandlers={panGesture}
+      nestedScrollEnabled={true}
     >
         {/* Header */}
         <View style={[
