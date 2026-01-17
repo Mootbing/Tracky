@@ -25,7 +25,7 @@ export function SearchBar({
         <TextInput
           ref={searchInputRef}
           style={styles.searchInput}
-          placeholder={"Northeast Regional, BOS, or NER123"}
+          placeholder={"Train name, station name/code, or route number"}
           placeholderTextColor={COLORS.secondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
