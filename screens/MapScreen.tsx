@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import React, { useRef } from 'react';
 import { Modal, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
@@ -99,7 +99,7 @@ function MapScreenInner() {
             <Marker
               key={`train-${train.id}`}
               coordinate={{ latitude: train.realtime.position.lat, longitude: train.realtime.position.lon }}
-              title={`Train ${train.flightNumber}`}
+              title={`Train ${train.trainNumber}`}
               description={train.routeName}
             >
               <View style={styles.liveTrainMarker}>

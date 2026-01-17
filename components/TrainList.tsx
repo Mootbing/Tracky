@@ -1,6 +1,7 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, styles } from '../screens/styles';
 import type { Train } from '../types/train';
 
@@ -62,7 +63,7 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
             activeOpacity={0.7}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel={`Train ${flight.flightNumber} from ${flight.from} to ${flight.to}`}
+            accessibilityLabel={`Train ${flight.trainNumber} from ${flight.from} to ${flight.to}`}
             accessibilityHint={`Departs at ${flight.departTime} (${countdown.value} ${countdown.unit.toLowerCase()} ${countdown.past ? 'ago' : 'from now'}), arrives at ${flight.arriveTime}. Tap to view details`}
           >
             <View style={styles.flightLeft}>
@@ -77,8 +78,8 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
                   style={styles.amtrakLogo}
                   fadeDuration={0}
                 />
-                <Text style={[styles.flightNumber, { color: COLORS.secondary, fontWeight: '400' }]}> 
-                  {flight.routeName ? flight.routeName : flight.airline} {flight.flightNumber}
+                <Text style={[styles.trainNumber, { color: COLORS.secondary, fontWeight: '400' }]}> 
+                  {flight.routeName ? flight.routeName : flight.operator} {flight.trainNumber}
                 </Text>
                 <Text style={styles.flightDate}>{flight.date}</Text>
                 {flight.realtime?.status && (
@@ -91,6 +92,16 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
                 )}
               </View>
 
+              {/*
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                {flight.routeName && flight.routeName.toLowerCase().includes('acela') ? (
+                  <TrainFront size={18} color="#fff" style={{ marginRight: 6 }} />
+                ) : (
+                  <FontAwesome6 name="train" size={18} color="#fff" style={{ marginRight: 6 }} />
+                )}
+                <Text style={[styles.route, { fontSize: 18 }]}>{flight.from} to {flight.to}</Text>
+              </View>
+              */}
               <Text style={[styles.route, { fontSize: 18 }]}>{flight.from} to {flight.to}</Text>
 
               <View style={styles.timeRow}>

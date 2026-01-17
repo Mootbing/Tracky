@@ -5,8 +5,8 @@ import { Train } from '../types/train';
 
 export const DEFAULT_TRAIN: Train = {
   id: 43,
-  airline: 'AMTK',
-  flightNumber: '43',
+  operator: 'AMTK',
+  trainNumber: '43',
   from: 'New York',
   to: 'Pittsburgh',
   fromCode: 'NYP',
@@ -28,8 +28,8 @@ export const SAMPLE_TRAINS: Train[] = [
   DEFAULT_TRAIN,
   {
     id: 2150,
-    airline: 'AMTK',
-    flightNumber: '2150',
+    operator: 'AMTK',
+    trainNumber: '2150',
     from: 'Boston',
     to: 'Washington',
     fromCode: 'BOS',
@@ -47,8 +47,8 @@ export const SAMPLE_TRAINS: Train[] = [
   },
   {
     id: 171,
-    airline: 'AMTK',
-    flightNumber: '171',
+    operator: 'AMTK',
+    trainNumber: '171',
     from: 'Boston',
     to: 'Newport News',
     fromCode: 'BOS',
@@ -67,8 +67,8 @@ export const SAMPLE_TRAINS: Train[] = [
   },
   {
     id: 19,
-    airline: 'AMTK',
-    flightNumber: '19',
+    operator: 'AMTK',
+    trainNumber: '19',
     from: 'New York',
     to: 'New Orleans',
     fromCode: 'NYP',
@@ -86,8 +86,8 @@ export const SAMPLE_TRAINS: Train[] = [
   },
   {
     id: 97,
-    airline: 'AMTK',
-    flightNumber: '97',
+    operator: 'AMTK',
+    trainNumber: '97',
     from: 'Chicago',
     to: 'Miami',
     fromCode: 'CHI',

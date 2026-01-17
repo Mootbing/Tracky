@@ -2,10 +2,11 @@
  * Core type definitions for the Raily train tracking app
  */
 
+
 export interface Train {
   id: number;
-  airline: string;
-  flightNumber: string;
+  operator: string;
+  trainNumber: string;
   from: string;
   to: string;
   fromCode: string;

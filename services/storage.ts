@@ -31,7 +31,7 @@ export class TrainStorageService {
       const trains = await this.getSavedTrains();
       
       // Check if train already exists
-      const exists = trains.some(t => t.flightNumber === train.flightNumber);
+      const exists = trains.some(t => t.trainNumber === train.trainNumber);
       if (exists) {
         return false;
       }

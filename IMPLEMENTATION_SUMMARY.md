@@ -77,7 +77,7 @@ interface RealtimePosition {
         latitude: train.realtime!.position!.lat, 
         longitude: train.realtime!.position!.lon 
       }}
-      title={`Train ${train.flightNumber}`}
+      title={`Train ${train.trainNumber}`}
     />
   ))}
 ```

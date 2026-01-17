@@ -75,8 +75,8 @@ export class TrainAPIService {
 
       const train: Train = {
         id: parseInt(tripId),
-        airline: 'AMTK',
-        flightNumber: tripId,
+        operator: 'AMTK',
+        trainNumber: tripId,
         from: firstStop.stop_name,
         to: lastStop.stop_name,
         fromCode: firstStop.stop_id,
@@ -109,8 +109,8 @@ export class TrainAPIService {
    */
   private static async enrichWithRealtimeData(train: Train): Promise<void> {
     try {
-      const position = await RealtimeService.getPositionForTrip(train.tripId || train.flightNumber);
-      const delay = await RealtimeService.getDelayForStop(train.tripId || train.flightNumber, train.fromCode);
+      const position = await RealtimeService.getPositionForTrip(train.tripId || train.trainNumber);
+      const delay = await RealtimeService.getDelayForStop(train.tripId || train.trainNumber, train.fromCode);
       
       train.realtime = {
         position: position ? { lat: position.latitude, lon: position.longitude } : undefined,
@@ -155,7 +155,7 @@ export class TrainAPIService {
    * Refresh real-time data for a train
    */
   static async refreshRealtimeData(train: Train): Promise<Train> {
-    if (!train.tripId && !train.flightNumber) return train;
+    if (!train.tripId && !train.trainNumber) return train;
 
     const updatedTrain = { ...train };
     await this.enrichWithRealtimeData(updatedTrain);
@@ -179,8 +179,8 @@ export class TrainAPIService {
         if (!train) {
           train = {
             id: parseInt(trainNumber) || 0,
-            airline: 'AMTK',
-            flightNumber: trainNumber,
+            operator: 'AMTK',
+            trainNumber: trainNumber,
             from: 'Unknown',
             to: 'Unknown',
             fromCode: '',

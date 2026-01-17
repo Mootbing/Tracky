@@ -1,6 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { COLORS, styles } from '../screens/styles';
 
 export interface FrequentlyUsedItemProps {
@@ -27,15 +29,36 @@ export function FrequentlyUsedList({ items, onSelect }: { items: FrequentlyUsedI
         >
           <View style={styles.frequentlyUsedIcon}>
             {item.type === 'train' && (
-              <Ionicons name="train" size={24} color="#8B5CF6" />
+              item.name.toLowerCase().includes('acela') ? (
+                <Ionicons name="train" size={24} color="#fff" />
+              ) : (
+                <MaterialIcons name="train" size={24} color="#fff" />
+              )
             )}
             {item.type === 'station' && (
-              <Ionicons name="location" size={24} color="#10B981" />
+              <Ionicons name="location" size={24} color="#fff" />
+            )}
+            {item.type === 'route' && (
+              <MaterialCommunityIcons name="train-track" size={24} color="#fff" />
             )}
           </View>
           <View style={styles.frequentlyUsedText}>
-            <Text style={styles.frequentlyUsedName}>{item.name}</Text>
-            <Text style={styles.frequentlyUsedSubtitle}>{item.subtitle}</Text>
+            {item.type === 'train' ? (
+              <>
+                <Text style={styles.frequentlyUsedName}>{item.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                  <Text style={styles.frequentlyUsedSubtitle}>{item.code.split('-')[0]}</Text>
+                  <Text style={styles.frequentlyUsedSubtitle}> • </Text>
+                  <MaterialCommunityIcons name="arrow-right" size={16} color={COLORS.secondary} style={{ marginHorizontal: 2 }} />
+                  <Text style={styles.frequentlyUsedSubtitle}> • {item.code.split('-')[1]}</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.frequentlyUsedName}>{item.name}</Text>
+                <Text style={styles.frequentlyUsedSubtitle}>{item.subtitle}</Text>
+              </>
+            )}
           </View>
           <Ionicons name="arrow-forward" size={20} color={COLORS.secondary} />
         </TouchableOpacity>

@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import React, { useContext, useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { FrequentlyUsedList } from '../components/FrequentlyUsedList';
 import { SearchBar } from '../components/SearchBar';
 import { TrainList } from '../components/TrainList';

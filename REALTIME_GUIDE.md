@@ -121,7 +121,7 @@ Get all active trains with full details (schedule + real-time).
 ```typescript
 const trains = await TrainAPIService.getActiveTrains();
 trains.forEach(train => {
-  console.log(`${train.flightNumber}: ${train.from} → ${train.to}`);
+  console.log(`${train.trainNumber}: ${train.from} → ${train.to}`);
   if (train.realtime?.position) {
     console.log(`  Position: ${train.realtime.position.lat}, ${train.realtime.position.lon}`);
   }
@@ -135,7 +135,7 @@ Get schedule and real-time data for a specific train.
 ```typescript
 const train = await TrainAPIService.getTrainDetails('543');
 if (train?.realtime?.position) {
-  console.log(`Train ${train.flightNumber} is at ${train.realtime.position.lat}, ${train.realtime.position.lon}`);
+  console.log(`Train ${train.trainNumber} is at ${train.realtime.position.lat}, ${train.realtime.position.lon}`);
   console.log(`Status: ${train.realtime.status}`);
 }
 ```
@@ -188,7 +188,7 @@ The map automatically displays live train positions:
         latitude: train.realtime!.position!.lat, 
         longitude: train.realtime!.position!.lon 
       }}
-      title={`Train ${train.flightNumber}`}
+      title={`Train ${train.trainNumber}`}
       description={train.realtime?.status || 'Live'}
     />
   ))}

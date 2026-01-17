@@ -65,7 +65,7 @@ export const styles = StyleSheet.create({
   flightCenter: { flex: 1 },
   flightHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
   amtrakLogo: { width: 16, height: 16, marginRight: 3, resizeMode: 'contain' },
-  flightNumber: { fontSize: FontSizes.flightNumber, fontFamily: FONTS.family, color: COLORS.primary, fontWeight: '600', marginLeft: 3, marginRight: Spacing.md },
+  trainNumber: { fontSize: FontSizes.trainNumber, fontFamily: FONTS.family, color: COLORS.primary, fontWeight: '600', marginLeft: 3, marginRight: Spacing.md },
   flightDate: { fontSize: FontSizes.flightDate, fontFamily: FONTS.family, color: COLORS.secondary, marginLeft: 'auto' },
   route: { fontSize: FontSizes.route, fontWeight: '600', fontFamily: FONTS.family, color: COLORS.primary, marginBottom: Spacing.sm },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between' },

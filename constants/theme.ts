@@ -49,7 +49,7 @@ export const FontSizes = {
   searchLabel: 16,
   daysAway: 32,
   daysLabel: 12,
-  flightNumber: 14,
+  trainNumber: 14,
   flightDate: 13,
   route: 13,
   timeCode: 12,
