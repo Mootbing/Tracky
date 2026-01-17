@@ -91,7 +91,7 @@ export function TrainList({ flights, onTrainSelect }: { flights: Train[]; onTrai
                 )}
               </View>
 
-              <Text style={styles.route}>{flight.from} to {flight.to}</Text>
+              <Text style={[styles.route, { fontSize: 18 }]}>{flight.from} to {flight.to}</Text>
 
               <View style={styles.timeRow}>
                 <View style={styles.timeInfo}>
