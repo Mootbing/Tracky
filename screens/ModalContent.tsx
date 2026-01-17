@@ -264,7 +264,7 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
       {/* Fixed Header */}
       <View>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, isCollapsed && styles.titleCollapsed]}>
+          <Text style={styles.title}>
             {isRefreshing ? 'Fetching' : (isSearchFocused ? 'Add Train' : 'My Trains')}
           </Text>
         </View>

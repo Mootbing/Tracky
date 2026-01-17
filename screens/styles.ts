@@ -24,9 +24,8 @@ export const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
   },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   title: { fontSize: FontSizes.title, fontWeight: 'bold', fontFamily: FONTS.family, color: COLORS.primary },
-  titleCollapsed: { marginBottom: Spacing.sm },
   refreshButton: {
     position: 'absolute',
     top: -10,
