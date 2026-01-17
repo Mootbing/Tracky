@@ -1,17 +1,18 @@
 import * as Location from 'expo-location';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AnimatedRoute } from '../components/map/AnimatedRoute';
 import { AnimatedStationMarker } from '../components/map/AnimatedStationMarker';
+import { LiveTrainMarker } from '../components/map/LiveTrainMarker';
 import MapSettingsPill, { MapType, RouteMode, StationMode, TrainMode } from '../components/map/MapSettingsPill';
 import DepartureBoardModal from '../components/ui/departure-board-modal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { AppColors } from '../constants/theme';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
+import { useLiveTrains } from '../hooks/useLiveTrains';
 import { useRealtime } from '../hooks/useRealtime';
 import { useShapes } from '../hooks/useShapes';
 import { useStations } from '../hooks/useStations';
@@ -20,7 +21,7 @@ import type { ViewportBounds } from '../services/shape-loader';
 import { TrainStorageService } from '../services/storage';
 import type { Stop, Train } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
-import { getColoredRouteColor, getRouteColor, getStrokeWidthForZoom, getColoredRouteColor as getTrainMarkerColor } from '../utils/route-colors';
+import { getColoredRouteColor, getRouteColor, getStrokeWidthForZoom } from '../utils/route-colors';
 import { clusterStations, getStationAbbreviation } from '../utils/station-clustering';
 import { ModalContent } from './ModalContent';
 import { styles } from './styles';
@@ -82,7 +83,7 @@ function MapScreenInner() {
   const [mapType, setMapType] = useState<MapType>('standard');
   const [routeMode, setRouteMode] = useState<RouteMode>('secondary');
   const [stationMode, setStationMode] = useState<StationMode>('auto');
-  const [trainMode, setTrainMode] = useState<TrainMode>('white');
+  const [trainMode, setTrainMode] = useState<TrainMode>('saved');
   // Track current modal snap point for map centering calculations
   // 'half' = 50% modal, 'max' = fullscreen, 'min' = collapsed, null = no modal
   const [currentModalSnap, setCurrentModalSnap] = useState<'min' | 'half' | 'max' | null>(null);
@@ -93,6 +94,9 @@ function MapScreenInner() {
   const stations = useStations(viewportBounds ?? undefined);
   const { visibleShapes } = useShapes(viewportBounds ?? undefined);
 
+  // Fetch all live trains from GTFS-RT (only when trainMode is 'all')
+  const { liveTrains } = useLiveTrains(15000, trainMode === 'all');
+
   // Track pending train for animation sequencing (ref to avoid async state issues)
   const pendingTrainRef = React.useRef<Train | null>(null);
 
@@ -100,14 +104,72 @@ function MapScreenInner() {
   const handleTrainSelect = (train: Train) => {
     pendingTrainRef.current = train;
     setSelectedTrain(train);
+
+    // If train has realtime position, animate map to that location and open modal at 50%
+    if (train.realtime?.position) {
+      trainMarkerPressRef.current = true; // Use half modal for live trains
+      const latitudeDelta = 0.05;
+      const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+      mapRef.current?.animateToRegion({
+        latitude: train.realtime.position.lat - latitudeOffset,
+        longitude: train.realtime.position.lon,
+        latitudeDelta: latitudeDelta,
+        longitudeDelta: 0.05,
+      }, 500);
+    }
+    // If no realtime position, trainMarkerPressRef stays false -> modal opens at max
+
     // Dismiss main modal - when animation completes, show detail modal
     mainModalRef.current?.dismiss?.();
+  };
+
+  // Track whether train marker was pressed (for half vs max modal)
+  const trainMarkerPressRef = useRef(false);
+
+  // Handle train marker press on the map - center map on train and show detail at 50%
+  const handleTrainMarkerPress = (train: Train, lat: number, lon: number) => {
+    // Mark this as a marker press for half modal
+    trainMarkerPressRef.current = true;
+
+    // Center map on train position with offset for 50% modal
+    const latitudeDelta = 0.05;
+    const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+    mapRef.current?.animateToRegion({
+      latitude: lat - latitudeOffset,
+      longitude: lon,
+      latitudeDelta: latitudeDelta,
+      longitudeDelta: 0.05,
+    }, 500);
+
+    // Set the train and show modal at half
+    pendingTrainRef.current = train;
+    setSelectedTrain(train);
+    // Dismiss main modal - when animation completes, show detail modal at half
+    mainModalRef.current?.dismiss?.();
+  };
+
+  // Handle live train marker press - fetch train details then show modal
+  const handleLiveTrainMarkerPress = async (tripId: string, lat: number, lon: number) => {
+    try {
+      const train = await TrainAPIService.getTrainDetails(tripId);
+      if (train) {
+        handleTrainMarkerPress(train, lat, lon);
+      }
+    } catch (error) {
+      console.error('Error fetching train details:', error);
+    }
   };
 
   // When main modal finishes sliding out, show the detail modal or departure board
   const handleMainModalDismissed = () => {
     if (pendingTrainRef.current) {
-      setCurrentModalSnap('max'); // Detail modal opens at max
+      // Check if this was a marker press (half) or list selection (max)
+      if (trainMarkerPressRef.current) {
+        setCurrentModalSnap('half'); // Train marker press opens at half
+        trainMarkerPressRef.current = false;
+      } else {
+        setCurrentModalSnap('max'); // List selection opens at max
+      }
       setShowDetailModal(true);
     } else if (pendingStationRef.current) {
       setCurrentModalSnap('half'); // Departure board opens at half
@@ -406,26 +468,63 @@ function MapScreenInner() {
           );
         })}
 
-        {trainMode !== 'hidden' && savedTrains.map((train) => {
-          const markerColor = trainMode === 'colored' && train.routeName
-            ? getTrainMarkerColor(train.routeName).stroke
-            : AppColors.primary;
+        {/* Render saved trains when mode is 'saved' */}
+        {trainMode === 'saved' && savedTrains.map((train) => (
+          train.realtime?.position && (
+            <LiveTrainMarker
+              key={`saved-train-${train.id}`}
+              trainNumber={train.trainNumber}
+              routeName={train.routeName}
+              coordinate={{
+                latitude: train.realtime.position.lat,
+                longitude: train.realtime.position.lon,
+              }}
+              isSaved={true}
+              onPress={() => handleTrainMarkerPress(
+                train,
+                train.realtime!.position!.lat,
+                train.realtime!.position!.lon
+              )}
+            />
+          )
+        ))}
+
+        {/* Render all live trains when mode is 'all' */}
+        {trainMode === 'all' && liveTrains.map((train) => {
+          // Check if this train is saved
+          const savedTrain = savedTrains.find(
+            saved => saved.trainNumber === train.trainNumber ||
+            (saved.tripId && saved.tripId.includes(train.trainNumber))
+          );
           return (
-            train.realtime?.position && (
-              <Marker
-                key={`train-${train.id}`}
-                coordinate={{ latitude: train.realtime.position.lat, longitude: train.realtime.position.lon }}
-                title={`Train ${train.trainNumber}`}
-                description={train.routeName}
-              >
-                <View style={[
-                  styles.liveTrainMarker,
-                  trainMode === 'colored' && { backgroundColor: markerColor }
-                ]}>
-                  <Ionicons name="train" size={16} color={AppColors.primary} />
-                </View>
-              </Marker>
-            )
+            <LiveTrainMarker
+              key={`live-train-${train.tripId}`}
+              trainNumber={train.trainNumber}
+              routeName={train.routeName}
+              coordinate={{
+                latitude: train.position.lat,
+                longitude: train.position.lon,
+              }}
+              bearing={train.position.bearing}
+              isSaved={!!savedTrain}
+              onPress={() => {
+                // If it's a saved train, use its data directly
+                if (savedTrain && savedTrain.realtime?.position) {
+                  handleTrainMarkerPress(
+                    savedTrain,
+                    train.position.lat,
+                    train.position.lon
+                  );
+                } else {
+                  // Fetch train details for non-saved trains
+                  handleLiveTrainMarkerPress(
+                    train.tripId,
+                    train.position.lat,
+                    train.position.lon
+                  );
+                }
+              }}
+            />
           );
         })}
       </MapView>
@@ -474,7 +573,7 @@ function MapScreenInner() {
         <SlideUpModal
           ref={detailModalRef}
           minSnapPercent={0.15}
-          initialSnap="max"
+          initialSnap={currentModalSnap === 'half' ? 'half' : 'max'}
           onDismiss={handleDetailModalDismissed}
           onSnapChange={(snap) => setCurrentModalSnap(snap)}
         >

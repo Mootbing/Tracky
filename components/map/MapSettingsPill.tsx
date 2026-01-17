@@ -25,7 +25,7 @@ const SPRING_CONFIG = {
 
 export type RouteMode = 'hidden' | 'secondary' | 'colored';
 export type StationMode = 'hidden' | 'auto' | 'all';
-export type TrainMode = 'hidden' | 'white' | 'colored';
+export type TrainMode = 'hidden' | 'saved' | 'all';
 export type MapType = 'standard' | 'satellite';
 
 interface MapSettingsPillProps {
@@ -54,8 +54,8 @@ function getNextStationMode(current: StationMode): StationMode {
 }
 
 function getNextTrainMode(current: TrainMode): TrainMode {
-  if (current === 'hidden') return 'white';
-  if (current === 'white') return 'colored';
+  if (current === 'hidden') return 'saved';
+  if (current === 'saved') return 'all';
   return 'hidden';
 }
 
@@ -73,13 +73,13 @@ function getStationModeLabel(mode: StationMode): string {
 
 function getTrainModeLabel(mode: TrainMode): string {
   if (mode === 'hidden') return 'Off';
-  if (mode === 'white') return 'On';
-  return 'Color';
+  if (mode === 'saved') return 'Saved';
+  return 'All';
 }
 
 function getModeColor(mode: string): string {
   if (mode === 'hidden') return AppColors.tertiary;
-  if (mode === 'secondary' || mode === 'auto' || mode === 'white' || mode === 'standard') return AppColors.primary;
+  if (mode === 'secondary' || mode === 'auto' || mode === 'saved' || mode === 'standard') return AppColors.primary;
   return AppColors.accentBlue;
 }
 
