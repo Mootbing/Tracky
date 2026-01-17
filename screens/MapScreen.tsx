@@ -40,6 +40,25 @@ function regionToViewportBounds(region: {
   };
 }
 
+/**
+ * Calculate latitude offset for map centering based on modal state.
+ * When modal is at 50%, center point at 20% from top (40% of visible area).
+ * When no modal or fullscreen, center normally (no offset).
+ */
+function getLatitudeOffsetForModal(
+  latitudeDelta: number,
+  modalSnap: 'min' | 'half' | 'max' | null
+): number {
+  if (modalSnap === 'half') {
+    // Modal covers 50% of screen, visible map is top 50%
+    // To place point at 20% from top of screen = 40% of visible area
+    // Offset = 30% of latitudeDelta (move center down so point appears higher)
+    return latitudeDelta * 0.30;
+  }
+  // No offset for fullscreen modal, collapsed modal, or no modal
+  return 0;
+}
+
 function MapScreenInner() {
   const mapRef = useRef<MapView>(null);
   const mainModalRef = useRef<any>(null);
@@ -64,6 +83,9 @@ function MapScreenInner() {
   const [routeMode, setRouteMode] = useState<RouteMode>('secondary');
   const [stationMode, setStationMode] = useState<StationMode>('auto');
   const [trainMode, setTrainMode] = useState<TrainMode>('white');
+  // Track current modal snap point for map centering calculations
+  // 'half' = 50% modal, 'max' = fullscreen, 'min' = collapsed, null = no modal
+  const [currentModalSnap, setCurrentModalSnap] = useState<'min' | 'half' | 'max' | null>(null);
   const { savedTrains, setSavedTrains, selectedTrain, setSelectedTrain } = useTrainContext();
   const insets = useSafeAreaInsets();
 
@@ -85,8 +107,10 @@ function MapScreenInner() {
   // When main modal finishes sliding out, show the detail modal or departure board
   const handleMainModalDismissed = () => {
     if (pendingTrainRef.current) {
+      setCurrentModalSnap('max'); // Detail modal opens at max
       setShowDetailModal(true);
     } else if (pendingStationRef.current) {
+      setCurrentModalSnap('half'); // Departure board opens at half
       setShowDepartureBoard(true);
     }
   };
@@ -105,8 +129,10 @@ function MapScreenInner() {
     setTimeout(() => {
       if (pendingStationRef.current) {
         // Re-show the departure board
+        setCurrentModalSnap('half');
         setShowDepartureBoard(true);
       } else {
+        setCurrentModalSnap('half'); // Main modal default
         mainModalRef.current?.slideIn?.();
       }
     }, 50);
@@ -152,6 +178,7 @@ function MapScreenInner() {
   // When departure board dismisses after selecting a train
   const handleDepartureBoardDismissed = () => {
     if (pendingTrainRef.current) {
+      setCurrentModalSnap('max'); // Detail modal opens at max
       setShowDepartureBoard(false);
       setShowDetailModal(true);
     } else {
@@ -160,6 +187,7 @@ function MapScreenInner() {
       setSelectedStation(null);
       pendingStationRef.current = null;
       setTimeout(() => {
+        setCurrentModalSnap('half'); // Main modal default
         mainModalRef.current?.slideIn?.();
       }, 50);
     }
@@ -274,10 +302,12 @@ function MapScreenInner() {
         return;
       }
       const location = await Location.getCurrentPositionAsync({});
+      const latitudeDelta = 0.05;
+      const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, currentModalSnap);
       mapRef.current?.animateToRegion({
-        latitude: location.coords.latitude,
+        latitude: location.coords.latitude - latitudeOffset,
         longitude: location.coords.longitude,
-        latitudeDelta: 0.05,
+        latitudeDelta: latitudeDelta,
         longitudeDelta: 0.05,
       }, 500);
     } catch (error) {
@@ -360,11 +390,13 @@ function MapScreenInner() {
               showFullName={showFullName}
               displayName={displayName}
               onPress={() => {
-                // Center map on station
+                // Center map on station with offset for 50% modal (departure board opens at half)
+                const latitudeDelta = 0.02;
+                const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
                 mapRef.current?.animateToRegion({
-                  latitude: cluster.lat,
+                  latitude: cluster.lat - latitudeOffset,
                   longitude: cluster.lon,
-                  latitudeDelta: 0.02,
+                  latitudeDelta: latitudeDelta,
                   longitudeDelta: 0.02,
                 }, 500);
                 // Show departure board
@@ -412,7 +444,12 @@ function MapScreenInner() {
       />
 
       {/* Main modal - My Trains list (always rendered, slides in/out) */}
-      <SlideUpModal ref={mainModalRef} minSnapPercent={0.35} onDismiss={handleMainModalDismissed}>
+      <SlideUpModal
+        ref={mainModalRef}
+        minSnapPercent={0.35}
+        onDismiss={handleMainModalDismissed}
+        onSnapChange={(snap) => setCurrentModalSnap(snap)}
+      >
         <ModalContent
           onTrainSelect={(trainOrStation) => {
             // If it's a train, animate out main modal then show details
@@ -439,10 +476,25 @@ function MapScreenInner() {
           minSnapPercent={0.15}
           initialSnap="max"
           onDismiss={handleDetailModalDismissed}
+          onSnapChange={(snap) => setCurrentModalSnap(snap)}
         >
           <TrainDetailModal
             train={selectedTrain}
             onClose={handleDetailModalClose}
+            onStationSelect={(stationCode, lat, lon) => {
+              // Animate map to station with offset for 50% modal
+              const latitudeDelta = 0.02;
+              const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+              mapRef.current?.animateToRegion({
+                latitude: lat - latitudeOffset,
+                longitude: lon,
+                latitudeDelta: latitudeDelta,
+                longitudeDelta: 0.02,
+              }, 500);
+              // Snap modal to 50%
+              setCurrentModalSnap('half');
+              detailModalRef.current?.snapToPoint?.('half');
+            }}
           />
         </SlideUpModal>
       )}
@@ -452,8 +504,9 @@ function MapScreenInner() {
         <SlideUpModal
           ref={departureBoardRef}
           minSnapPercent={0.1}
-          initialSnap="max"
+          initialSnap="half"
           onDismiss={handleDepartureBoardDismissed}
+          onSnapChange={(snap) => setCurrentModalSnap(snap)}
         >
           <DepartureBoardModal
             station={selectedStation}

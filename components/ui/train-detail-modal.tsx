@@ -23,6 +23,7 @@ const FONTS = {
 interface TrainDetailModalProps {
   train?: Train;
   onClose: () => void;
+  onStationSelect?: (stationCode: string, lat: number, lon: number) => void;
 }
 
 /**
@@ -76,7 +77,7 @@ function calculateDuration(startTime: string, endTime: string): string {
 
 import { Alert } from 'react-native';
 
-export default function TrainDetailModal({ train, onClose }: TrainDetailModalProps) {
+export default function TrainDetailModal({ train, onClose, onStationSelect }: TrainDetailModalProps) {
   // Use context if train is not provided
   const { selectedTrain } = useTrainContext();
   const trainData = train || selectedTrain;
@@ -154,6 +155,19 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   const countdown = trainData ? getCountdownForTrain(trainData) : null;
   const unitLabel = countdown ? `${countdown.unit}${countdown.past ? ' AGO' : ''}` : '';
 
+  // Handle station selection - get coordinates and call callback
+  const handleStationPress = (stationCode: string) => {
+    if (!onStationSelect) return;
+    try {
+      const stop = gtfsParser.getStop(stationCode);
+      if (stop) {
+        onStationSelect(stationCode, stop.stop_lat, stop.stop_lon);
+      }
+    } catch (e) {
+      console.error('Failed to get station coordinates:', e);
+    }
+  };
+
   // Instead of returning early, render null or error in JSX
   if (!trainData || error) {
     return <></>;
@@ -225,8 +239,14 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             <View style={styles.infoSection}>
               <View style={styles.infoHeader}>
                 <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
-                <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
+                <TouchableOpacity
+                  style={styles.stationTouchable}
+                  onPress={() => handleStationPress(trainData.fromCode)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.locationCode}>{trainData.fromCode}</Text>
+                  <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
+                </TouchableOpacity>
               </View>
               <Text style={styles.timeText}>{trainData.departTime}</Text>
               <View style={styles.durationLineRow}>
@@ -251,11 +271,19 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
                   <View style={styles.dashedLine} />
                 </View>
                 {intermediateStops.map((stop, index) => (
-                  <View key={index} style={styles.stopSection}>
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.stopSection}
+                    onPress={() => handleStationPress(stop.code)}
+                    activeOpacity={0.7}
+                  >
                     <Text style={styles.stopTime}>{stop.time}</Text>
-                    <Text style={styles.stopStation}>{stop.name}</Text>
+                    <View style={styles.stopStationRow}>
+                      <Ionicons name="location-outline" size={14} color={COLORS.primary} style={styles.stopLocationPin} />
+                      <Text style={styles.stopStation}>{stop.name}</Text>
+                    </View>
                     <Text style={styles.stopCode}>{stop.code}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
                 <View style={styles.endLineRow}>
                   <View style={styles.horizontalLine} />
@@ -267,8 +295,15 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             <View style={styles.infoSection}>
               <View style={styles.infoHeader}>
                 <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
-                <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
+                <TouchableOpacity
+                  style={styles.stationTouchable}
+                  onPress={() => handleStationPress(trainData.toCode)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="location-outline" size={16} color={COLORS.primary} style={styles.locationPin} />
+                  <Text style={styles.locationCode}>{trainData.toCode}</Text>
+                  <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
+                </TouchableOpacity>
               </View>
               <Text style={styles.timeText}>
                 {trainData.arriveTime}
@@ -391,12 +426,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  stationTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  locationPin: {
+    marginRight: 4,
+  },
   locationCode: {
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.family,
     color: COLORS.primary,
-    marginLeft: 8,
   },
   locationName: {
     fontSize: 16,
@@ -493,11 +535,18 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginBottom: 4,
   },
+  stopStationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  stopLocationPin: {
+    marginRight: 4,
+  },
   stopStation: {
     fontSize: 14,
     fontFamily: FONTS.family,
     color: COLORS.primary,
-    marginBottom: 4,
   },
   stopCode: {
     fontSize: 12,
