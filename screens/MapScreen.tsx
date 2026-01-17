@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
 import React, { useRef } from 'react';
-import { Modal, View } from 'react-native';
+import { Animated, Modal, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import SlideUpModal from '../components/ui/slide-up-modal';
@@ -28,6 +28,25 @@ function MapScreenInner() {
   });
   const { savedTrains, setSavedTrains, selectedTrain, setSelectedTrain } = useTrainContext();
   const [selectedStation, setSelectedStation] = React.useState<string | null>(null);
+  const markerScale = useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    if (selectedStation) {
+      Animated.spring(markerScale, {
+        toValue: 1.2,
+        useNativeDriver: true,
+        friction: 6,
+        tension: 100,
+      }).start();
+    } else {
+      Animated.spring(markerScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 6,
+        tension: 100,
+      }).start();
+    }
+  }, [selectedStation, markerScale]);
 
   React.useEffect(() => {
     (async () => {
@@ -78,29 +97,37 @@ function MapScreenInner() {
           <Polyline
             key={shape.id}
             coordinates={shape.coordinates}
-            strokeColor="{AppColors.primary}"
+            strokeColor={AppColors.primary}
             strokeWidth={2}
             lineCap="round"
             lineJoin="round"
           />
         ))}
 
-        {stations.map((station) => (
-          <Marker
-            key={station.id}
-            coordinate={{ latitude: station.lat, longitude: station.lon }}
-            title={station.name}
-            description={station.id}
-            onPress={() => setSelectedStation(station.id)}
-          >
-            <Ionicons
-              name="location"
-              size={selectedStation === station.id ? 36 : 24}
-              color={selectedStation === station.id ? '#2196F3' : '{AppColors.primary}'}
-              style={selectedStation === station.id ? { transform: [{ scale: 1.5 }] } : undefined}
-            />
-          </Marker>
-        ))}
+        {stations.map((station) => {
+          const isSelected = selectedStation === station.id;
+          return (
+            <Marker
+              key={station.id}
+              coordinate={{ latitude: station.lat, longitude: station.lon }}
+              title={station.name}
+              description={station.id}
+              onPress={() => setSelectedStation(station.id)}
+            >
+              <Animated.View
+                style={{
+                  transform: [{ scale: isSelected ? markerScale : 1 }],
+                }}
+              >
+                <Ionicons
+                  name="location"
+                  size={24}
+                  color={isSelected ? '#FFFFFF' : AppColors.primary}
+                />
+              </Animated.View>
+            </Marker>
+          );
+        })}
 
         {savedTrains.map((train) => (
           train.realtime?.position && (
@@ -111,7 +138,7 @@ function MapScreenInner() {
               description={train.routeName}
             >
               <View style={styles.liveTrainMarker}>
-                <Ionicons name="train" size={16} color="{AppColors.primary}" />
+                <Ionicons name="train" size={16} color={AppColors.primary} />
               </View>
             </Marker>
           )

@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
 import React, { useContext, useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -90,7 +89,6 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
   const [refreshPhases, setRefreshPhases] = useState<string[]>([]);
   const searchInputRef = React.useRef<TextInput>(null);
   const { items: frequentlyUsed, refresh: refreshFrequentlyUsed } = useFrequentlyUsed();
-  const [isHeaderStuck, setIsHeaderStuck] = useState(false);
 
   // Load saved trains from storage service
   useEffect(() => {
@@ -223,88 +221,81 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
   }, [isSearchFocused, searchQuery, isCollapsed, snapToPoint]);
 
   return (
-    <ScrollView
-      style={styles.scrollView}
-      showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
-      scrollEnabled={isFullscreen}
-      onScroll={(e) => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        scrollOffset.value = offsetY;
-        setIsHeaderStuck(offsetY > 0);
-      }}
-      scrollEventThrottle={16}
-      simultaneousHandlers={panGesture}
-    >
-        <BlurView 
-          intensity={isHeaderStuck ? 80 : 0} 
-          tint="dark" 
-          style={[
-            styles.stickyHeader,
-            isHeaderStuck && styles.stickyHeaderStuck
-          ]}
-        >
-          <View style={styles.titleRow}>
-            <Text style={[styles.title, isCollapsed && styles.titleCollapsed]}>
-              {isRefreshing ? 'Fetching' : (isSearchFocused ? 'Add Train' : 'My Trains')}
-            </Text>
-          </View>
-          {/* Absolutely positioned refresh button */}
-          {!isSearchFocused && !isRefreshing && (
-            <TouchableOpacity
-              onPress={handleRefresh}
-              style={styles.refreshButton}
-              activeOpacity={0.7}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Refresh train schedules"
-            >
-              <Ionicons
-                name="refresh"
-                size={24}
-                color={COLORS.primary}
-                style={isRefreshing ? styles.refreshIconSpinning : undefined}
-              />
-            </TouchableOpacity>
-          )}
-        </BlurView>
-        <View>
-          {isRefreshing && (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
-              <Ionicons name="train" size={40} color={COLORS.secondary} style={{ marginBottom: 16 }} />
-              <View style={{ width: 220, alignItems: 'center' }}>
-                <Text
-                  style={[styles.noTrainsText, { marginBottom: 8 }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {`Refreshing GTFS · ${refreshStep.replace(/\s*•.*/, '')}`}
-                </Text>
-                <View style={{ width: '100%', height: 5, backgroundColor: COLORS.border.secondary, borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
-                  <View style={{ height: '100%', backgroundColor: COLORS.accentBlue, borderRadius: 999, width: `${Math.max(5, refreshProgress * 100)}%` }} />
-                </View>
-                <Text style={[styles.progressValue, { marginBottom: 12 }]}>{Math.round(refreshProgress * 100)}%</Text>
-                {/* Only show current stage, not all phases */}
-              </View>
-            </View>
-          )}
-          {isSearchFocused && (
-            <Text style={styles.subtitle}>Add any amtrak train (for now)</Text>
-          )}
-
-          {!isRefreshing && (
-            <View style={{ paddingHorizontal: 0, marginBottom: 0 }}>
-              <SearchBar
-                isSearchFocused={isSearchFocused}
-                searchQuery={searchQuery}
-                setIsSearchFocused={setIsSearchFocused}
-                setSearchQuery={setSearchQuery}
-                snapToPoint={snapToPoint}
-                searchInputRef={searchInputRef}
-              />
-            </View>
-          )}
+    <View style={{ flex: 1 }}>
+      {/* Fixed Header */}
+      <View>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, isCollapsed && styles.titleCollapsed]}>
+            {isRefreshing ? 'Fetching' : (isSearchFocused ? 'Add Train' : 'My Trains')}
+          </Text>
         </View>
+        {!isSearchFocused && !isRefreshing && (
+          <TouchableOpacity
+            onPress={handleRefresh}
+            style={styles.refreshButton}
+            activeOpacity={0.7}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh train schedules"
+          >
+            <Ionicons
+              name="refresh"
+              size={24}
+              color={COLORS.primary}
+              style={isRefreshing ? styles.refreshIconSpinning : undefined}
+            />
+          </TouchableOpacity>
+        )}
+
+        {isRefreshing && (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
+            <Ionicons name="train" size={40} color={COLORS.secondary} style={{ marginBottom: 16 }} />
+            <View style={{ width: 220, alignItems: 'center' }}>
+              <Text
+                style={[styles.noTrainsText, { marginBottom: 8 }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {`Refreshing GTFS · ${refreshStep.replace(/\s*•.*/, '')}`}
+              </Text>
+              <View style={{ width: '100%', height: 5, backgroundColor: COLORS.border.secondary, borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
+                <View style={{ height: '100%', backgroundColor: COLORS.accentBlue, borderRadius: 999, width: `${Math.max(5, refreshProgress * 100)}%` }} />
+              </View>
+              <Text style={[styles.progressValue, { marginBottom: 12 }]}>{Math.round(refreshProgress * 100)}%</Text>
+            </View>
+          </View>
+        )}
+
+        {isSearchFocused && (
+          <Text style={styles.subtitle}>Add any amtrak train (for now)</Text>
+        )}
+
+        {!isRefreshing && (
+          <View style={{ paddingHorizontal: 0, marginBottom: 0 }}>
+            <SearchBar
+              isSearchFocused={isSearchFocused}
+              searchQuery={searchQuery}
+              setIsSearchFocused={setIsSearchFocused}
+              setSearchQuery={setSearchQuery}
+              snapToPoint={snapToPoint}
+              searchInputRef={searchInputRef}
+            />
+          </View>
+        )}
+      </View>
+
+      {/* Scrollable Content */}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={isFullscreen}
+        onScroll={(e) => {
+          const offsetY = e.nativeEvent.contentOffset.y;
+          scrollOffset.value = offsetY;
+        }}
+        scrollEventThrottle={16}
+        simultaneousHandlers={panGesture}
+      >
         {isSearchFocused && !isCollapsed && (
           <View style={styles.frequentlyUsedSection}>
             <Text style={styles.sectionLabel}>
@@ -315,7 +306,6 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
                 query={searchQuery}
                 onSelectResult={async (result) => {
                   if (result.type === 'train') {
-                    // For trains, get train details from API
                     const tripData = result.data as { trip_id: string };
                     const trainObj = await TrainAPIService.getTrainDetails(tripData.trip_id);
                     if (trainObj) {
@@ -325,12 +315,9 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
                       setIsSearchFocused(false);
                     }
                   } else if (result.type === 'station') {
-                    // For stations, center map and collapse modal
                     const stopData = result.data as { stop_id: string, lat?: number, lon?: number };
-                    // Find station lat/lon from search result or context
                     let lat = result.lat, lon = result.lon;
                     if (lat == null || lon == null) {
-                      // fallback: try to get from gtfsParser
                       const stop = (typeof stopData.stop_id === 'string') ? (require('../utils/gtfs-parser').gtfsParser.getStop(stopData.stop_id)) : null;
                       lat = stop?.stop_lat;
                       lon = stop?.stop_lon;
@@ -360,6 +347,7 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
           }} />
         )}
       </ScrollView>
+    </View>
   );
 }
 
