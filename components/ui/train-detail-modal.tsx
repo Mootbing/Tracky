@@ -158,6 +158,9 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
                   {distanceMiles !== null && (
                     <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
                   )}
+                  {distanceMiles !== null && trainData.intermediateStops && (
+                    <Text style={[styles.durationText, { marginLeft: 0 }]}> * {trainData.intermediateStops.length} stops after {distanceMiles.toFixed(0)}mi</Text>
+                  )}
                 </View>
                 <View style={styles.horizontalLine} />
               </View>
