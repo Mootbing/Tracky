@@ -291,20 +291,23 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
         )}
 
         {isRefreshing && (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
-            <Ionicons name="train" size={40} color={COLORS.secondary} style={{ marginBottom: 16 }} />
-            <View style={{ width: 220, alignItems: 'center' }}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
+            <Ionicons name="train" size={48} color={COLORS.secondary} style={{ marginBottom: 16 }} />
+            <View style={{ width: 240, alignItems: 'center' }}>
               <Text
-                style={[styles.noTrainsText, { marginBottom: 8 }]}
-                numberOfLines={1}
+                style={[styles.noTrainsText, { marginBottom: 8, fontSize: 14 }]}
+                numberOfLines={2}
                 ellipsizeMode="tail"
               >
-                {`Refreshing GTFS · ${refreshStep.replace(/\s*•.*/, '')}`}
+                {refreshStep || 'Refreshing GTFS data...'}
               </Text>
-              <View style={{ width: '100%', height: 5, backgroundColor: COLORS.border.secondary, borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
+              <View style={{ width: '100%', height: 6, backgroundColor: COLORS.border.secondary, borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
                 <View style={{ height: '100%', backgroundColor: COLORS.accentBlue, borderRadius: 999, width: `${Math.max(5, refreshProgress * 100)}%` }} />
               </View>
-              <Text style={[styles.progressValue, { marginBottom: 12 }]}>{Math.round(refreshProgress * 100)}%</Text>
+              <Text style={[styles.progressValue, { marginBottom: 12, fontSize: 13, fontWeight: '600' }]}>{Math.round(refreshProgress * 100)}%</Text>
+              <Text style={[styles.frequentlyUsedSubtitle, { fontSize: 11, textAlign: 'center', fontStyle: 'italic', marginTop: 4 }]}>
+                This happens once per week to keep schedules current
+              </Text>
             </View>
           </View>
         )}
