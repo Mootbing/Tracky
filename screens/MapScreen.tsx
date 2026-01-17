@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Modal, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
@@ -117,11 +118,20 @@ export default function MapScreen() {
         }} />
       </SlideUpModal>
 
-      {showDetailModal && selectedTrain && (
-        <View style={styles.detailModalContainer}>
-          <TrainDetailModal train={selectedTrain} onClose={() => setShowDetailModal(false)} />
+      <Modal
+        visible={showDetailModal && !!selectedTrain}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={styles.detailModalOverlay}>
+          <BlurView intensity={30} tint="dark" style={styles.detailModalCard}>
+            {selectedTrain && (
+              <TrainDetailModal train={selectedTrain} onClose={() => setShowDetailModal(false)} />
+            )}
+          </BlurView>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }

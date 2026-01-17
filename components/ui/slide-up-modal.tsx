@@ -13,7 +13,7 @@ import { BorderRadius, Spacing } from '../../constants/theme';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const SNAP_POINTS = {
-  MIN: SCREEN_HEIGHT * 0.15 + 30,
+  MIN: SCREEN_HEIGHT * 0.35,
   HALF: SCREEN_HEIGHT * 0.5,
   MAX: SCREEN_HEIGHT * 0.95,
 };

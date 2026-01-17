@@ -84,6 +84,8 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
   const [searchQuery, setSearchQuery] = useState('');
   const [savedTrains, setSavedTrains] = useState<Train[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState(0);
+  const [refreshStep, setRefreshStep] = useState('');
   const searchInputRef = React.useRef<TextInput>(null);
   const { items: frequentlyUsed, refresh: refreshFrequentlyUsed } = useFrequentlyUsed();
 
@@ -114,12 +116,20 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
   // Manual refresh handler
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    setRefreshProgress(0.05);
+    setRefreshStep('Checking GTFS cache');
     snapToPoint?.('max'); // Expand to fullscreen loading screen
     try {
-      await ensureFreshGTFS();
+      await ensureFreshGTFS((update) => {
+        setRefreshProgress(update.progress);
+        setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
+      });
       await refreshFrequentlyUsed();
+      setRefreshProgress(1);
+      setRefreshStep('Refresh complete');
     } catch (error) {
       console.error('Manual refresh failed:', error);
+      setRefreshStep('Refresh failed');
     } finally {
       setIsRefreshing(false);
     }
@@ -170,6 +180,18 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
               </TouchableOpacity>
             )}
           </View>
+          {isRefreshing && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Refreshing schedules</Text>
+                <Text style={styles.progressValue}>{Math.round(refreshProgress * 100)}%</Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressBar, { width: `${Math.max(5, refreshProgress * 100)}%` }]} />
+              </View>
+              <Text style={styles.progressStep}>{refreshStep || 'Working...'}</Text>
+            </View>
+          )}
           {isSearchFocused && (
             <Text style={styles.subtitle}>Add any amtrak train (for now)</Text>
           )}
@@ -225,7 +247,7 @@ export default function ModalContent({ onTrainSelect }: { onTrainSelect: (train:
             )}
           </View>
         )}
-        {!isSearchFocused && !isCollapsed && (
+        {!isSearchFocused && (
           <TrainList flights={flights} onTrainSelect={onTrainSelect} />
         )}
       </ScrollView>

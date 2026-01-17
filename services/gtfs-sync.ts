@@ -8,11 +8,19 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { strFromU8, unzipSync } from 'fflate';
-import type { Route, Stop, StopTime } from '../types/train';
+import type { Route, Shape, Stop, StopTime } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
 
 const GTFS_URL = 'https://content.amtrak.com/content/gtfs/GTFS.zip';
+const GTFS_CACHE_DIR = `${FileSystem.documentDirectory}gtfs-cache/`;
+const GTFS_FILES = {
+  routes: `${GTFS_CACHE_DIR}routes.json`,
+  stops: `${GTFS_CACHE_DIR}stops.json`,
+  stopTimes: `${GTFS_CACHE_DIR}stop_times.json`,
+  shapes: `${GTFS_CACHE_DIR}shapes.json`,
+};
 
 const STORAGE_KEYS = {
   LAST_FETCH: 'GTFS_LAST_FETCH',
@@ -31,6 +39,28 @@ function isOlderThanDays(dateMs: number, days: number): boolean {
 function safeJSONParse<T>(text: string | null): T | null {
   if (!text) return null;
   try { return JSON.parse(text) as T; } catch { return null; }
+}
+
+async function ensureCacheDir() {
+  const info = await FileSystem.getInfoAsync(GTFS_CACHE_DIR);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(GTFS_CACHE_DIR, { intermediates: true });
+  }
+}
+
+async function readJSONFromFile<T>(path: string): Promise<T | null> {
+  try {
+    const info = await FileSystem.getInfoAsync(path);
+    if (!info.exists) return null;
+    const content = await FileSystem.readAsStringAsync(path);
+    return JSON.parse(content) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function writeJSONToFile(path: string, data: unknown) {
+  await FileSystem.writeAsStringAsync(path, JSON.stringify(data));
 }
 
 // Basic CSV parser that respects quoted fields
@@ -148,26 +178,40 @@ function buildShapes(rows: Array<Record<string, string>>): Record<string, Shape[
   return grouped;
 }
 
-export async function ensureFreshGTFS(): Promise<{ usedCache: boolean }> {
+type ProgressUpdate = { step: string; progress: number; detail?: string };
+
+export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => void): Promise<{ usedCache: boolean }> {
   try {
+    const report = (step: string, progress: number, detail?: string) => {
+      onProgress?.({ step, progress: Math.min(1, Math.max(0, progress)), detail });
+    };
+
+    report('Checking GTFS cache', 0.05);
+
+    await ensureCacheDir();
+
     const lastFetchStr = await AsyncStorage.getItem(STORAGE_KEYS.LAST_FETCH);
     const lastFetchMs = lastFetchStr ? parseInt(lastFetchStr, 10) : 0;
 
     // If cache is fresh, apply and return
     if (lastFetchMs && !isOlderThanDays(lastFetchMs, 7)) {
-      const routes = safeJSONParse<Route[]>(await AsyncStorage.getItem(STORAGE_KEYS.ROUTES));
-      const stops = safeJSONParse<Stop[]>(await AsyncStorage.getItem(STORAGE_KEYS.STOPS));
-      const stopTimes = safeJSONParse<Record<string, StopTime[]>>(await AsyncStorage.getItem(STORAGE_KEYS.STOP_TIMES));
-      const shapes = safeJSONParse<Record<string, Shape[]>>(await AsyncStorage.getItem(STORAGE_KEYS.SHAPES));
+      const routes = await readJSONFromFile<Route[]>(GTFS_FILES.routes);
+      const stops = await readJSONFromFile<Stop[]>(GTFS_FILES.stops);
+      const stopTimes = await readJSONFromFile<Record<string, StopTime[]>>(GTFS_FILES.stopTimes);
+      const shapes = await readJSONFromFile<Record<string, Shape[]>>(GTFS_FILES.shapes);
       if (routes && stops && stopTimes) {
         gtfsParser.overrideData(routes, stops, stopTimes, shapes || {});
+        report('Using cached GTFS', 1, 'Cache age < 7 days');
         return { usedCache: true };
       }
     }
 
+    report('Downloading GTFS.zip', 0.1, 'Fetching latest schedule');
     // Fetch and rebuild cache
     const zipBytes = await fetchZipBytes();
+    report('Download complete', 0.2);
     const files = unzipSync(zipBytes);
+    report('Unzipping archive', 0.3);
 
     const routesTxt = files['routes.txt'] ? strFromU8(files['routes.txt']) : '';
     const stopsTxt = files['stops.txt'] ? strFromU8(files['stops.txt']) : '';
@@ -178,21 +222,28 @@ export async function ensureFreshGTFS(): Promise<{ usedCache: boolean }> {
       throw new Error('Missing expected GTFS files (routes/stops/stop_times)');
     }
 
+    report('Parsing routes', 0.4);
     const routes = buildRoutes(parseCSV(routesTxt));
+    report('Parsing stops', 0.5);
     const stops = buildStops(parseCSV(stopsTxt));
+    report('Parsing stop times', 0.7);
     const stopTimes = buildStopTimes(parseCSV(stopTimesTxt));
+    report('Parsing shapes', 0.8);
     const shapes = shapesTxt ? buildShapes(parseCSV(shapesTxt)) : {};
 
-    await AsyncStorage.setItem(STORAGE_KEYS.ROUTES, JSON.stringify(routes));
-    await AsyncStorage.setItem(STORAGE_KEYS.STOPS, JSON.stringify(stops));
-    await AsyncStorage.setItem(STORAGE_KEYS.STOP_TIMES, JSON.stringify(stopTimes));
-    await AsyncStorage.setItem(STORAGE_KEYS.SHAPES, JSON.stringify(shapes));
+    report('Persisting cache', 0.9, 'Writing JSON to device storage');
+    await writeJSONToFile(GTFS_FILES.routes, routes);
+    await writeJSONToFile(GTFS_FILES.stops, stops);
+    await writeJSONToFile(GTFS_FILES.stopTimes, stopTimes);
+    await writeJSONToFile(GTFS_FILES.shapes, shapes);
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_FETCH, String(Date.now()));
 
     gtfsParser.overrideData(routes, stops, stopTimes, shapes);
+    report('Refresh complete', 1, 'Applied latest GTFS');
     return { usedCache: false };
   } catch (err) {
     console.warn('GTFS sync failed; falling back to bundled assets.', err);
+    onProgress?.({ step: 'GTFS refresh failed', progress: 1, detail: 'Using bundled assets' });
     return { usedCache: true };
   }
 }

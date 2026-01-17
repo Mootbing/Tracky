@@ -1,10 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useContext } from 'react';
+import React from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { GestureDetector } from 'react-native-gesture-handler';
 import { AppColors, Spacing } from '../../constants/theme';
 import type { Train } from '../../types/train';
-import { SlideUpModalContext } from './slide-up-modal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -55,7 +53,11 @@ const calculateDuration = (startTime: string, endTime: string): string => {
 };
 
 export default function TrainDetailModal({ train, onClose }: TrainDetailModalProps) {
-  const { panGesture, isFullscreen, isCollapsed, scrollOffset } = useContext(SlideUpModalContext);
+  // Detail modal is rendered outside SlideUpModal; use a simple scroll container without gestures.
+  const isFullscreen = true;
+  const isCollapsed = false;
+  const scrollOffset = { value: 0 } as any;
+  const panGesture = null;
   
   // Calculate journey duration from departure to arrival
   const duration = calculateDuration(train.departTime, train.arriveTime);
@@ -64,16 +66,15 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
   const estimatedMiles = Math.round(((train.intermediateStops?.length || 0) + 1) * 45);
   
   return (
-    <GestureDetector gesture={panGesture}>
-      <ScrollView 
-        style={styles.modalContent} 
-        scrollEnabled={isFullscreen} 
-        showsVerticalScrollIndicator={false}
-        onScroll={(e) => {
-          scrollOffset.value = e.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-      >
+    <ScrollView 
+      style={styles.modalContent} 
+      scrollEnabled={isFullscreen} 
+      showsVerticalScrollIndicator={false}
+      onScroll={(e) => {
+        scrollOffset.value = e.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={16}
+    >
         {/* Header */}
         <View style={[styles.header, isCollapsed && styles.headerCollapsed]}>
           <View style={styles.headerContent}>
@@ -159,8 +160,7 @@ export default function TrainDetailModal({ train, onClose }: TrainDetailModalPro
             </View>
           </>
         )}
-      </ScrollView>
-    </GestureDetector>
+    </ScrollView>
   );
 }
 
