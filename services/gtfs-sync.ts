@@ -189,6 +189,15 @@ function buildShapes(rows: Array<Record<string, string>>): Record<string, Shape[
   return grouped;
 }
 
+function buildTrips(rows: Array<Record<string, string>>): Trip[] {
+  return rows.map(r => ({
+    route_id: r['route_id'],
+    trip_id: r['trip_id'],
+    trip_short_name: r['trip_short_name'] || undefined,
+    trip_headsign: r['trip_headsign'] || undefined,
+  })).filter(t => !!t.trip_id);
+}
+
 type ProgressUpdate = { step: string; progress: number; detail?: string };
 
 export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => void): Promise<{ usedCache: boolean }> {
@@ -216,8 +225,9 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       const stops = await readJSONFromFile<Stop[]>(GTFS_FILES.stops);
       const stopTimes = await readJSONFromFile<Record<string, StopTime[]>>(GTFS_FILES.stopTimes);
       const shapes = await readJSONFromFile<Record<string, Shape[]>>(GTFS_FILES.shapes);
+      const trips = await readJSONFromFile<Trip[]>(GTFS_FILES.trips);
       if (routes && stops && stopTimes) {
-        gtfsParser.overrideData(routes, stops, stopTimes, shapes || {});
+        gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || []);
 
         // Initialize shape loader for map rendering
         shapeLoader.initialize(shapes || {});
@@ -238,16 +248,19 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     const stopsTxt = files['stops.txt'] ? strFromU8(files['stops.txt']) : '';
     const stopTimesTxt = files['stop_times.txt'] ? strFromU8(files['stop_times.txt']) : '';
     const shapesTxt = files['shapes.txt'] ? strFromU8(files['shapes.txt']) : '';
+    const tripsTxt = files['trips.txt'] ? strFromU8(files['trips.txt']) : '';
 
     if (!routesTxt || !stopsTxt || !stopTimesTxt) {
       console.error('[GTFS Refresh] Missing expected GTFS files (routes/stops/stop_times)');
       throw new Error('Missing expected GTFS files (routes/stops/stop_times)');
     }
 
-    report('Parsing routes', 0.4);
+    report('Parsing routes', 0.35);
     const routes = buildRoutes(parseCSV(routesTxt));
-    report('Parsing stops', 0.5);
+    report('Parsing stops', 0.45);
     const stops = buildStops(parseCSV(stopsTxt));
+    report('Parsing trips', 0.55);
+    const trips = tripsTxt ? buildTrips(parseCSV(tripsTxt)) : [];
     report('Parsing stop times', 0.7);
     const stopTimes = buildStopTimes(parseCSV(stopTimesTxt));
     report('Parsing shapes', 0.8);
@@ -260,9 +273,10 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     await AsyncStorage.setItem(STORAGE_KEYS.STOPS, JSON.stringify(stops));
     await AsyncStorage.setItem(STORAGE_KEYS.STOP_TIMES, JSON.stringify(stopTimes));
     await AsyncStorage.setItem(STORAGE_KEYS.SHAPES, JSON.stringify(shapes));
+    await AsyncStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(trips));
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_FETCH, String(Date.now()));
 
-    gtfsParser.overrideData(routes, stops, stopTimes, shapes);
+    gtfsParser.overrideData(routes, stops, stopTimes, shapes, trips);
 
     // Initialize shape loader for map rendering
     shapeLoader.initialize(shapes);
@@ -299,9 +313,10 @@ export async function loadCachedGTFS(): Promise<boolean> {
     const stops = await readJSONFromFile<Stop[]>(GTFS_FILES.stops);
     const stopTimes = await readJSONFromFile<Record<string, StopTime[]>>(GTFS_FILES.stopTimes);
     const shapes = await readJSONFromFile<Record<string, Shape[]>>(GTFS_FILES.shapes);
+    const trips = await readJSONFromFile<Trip[]>(GTFS_FILES.trips);
 
     if (routes && stops && stopTimes) {
-      gtfsParser.overrideData(routes, stops, stopTimes, shapes || {});
+      gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || []);
       shapeLoader.initialize(shapes || {});
       console.log('[GTFS] Loaded cached data on startup');
       return true;

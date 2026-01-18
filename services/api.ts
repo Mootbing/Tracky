@@ -44,16 +44,12 @@ export function formatTimeWithDayOffset(time24: string): FormattedTime {
 
 /**
  * Extract the actual train number from a tripId
- * tripId format: "2026-01-16_AMTK_543" -> returns "543"
+ * Uses GTFS trips.txt trip_short_name as source of truth
+ * Falls back to parsing trip_id if trips data not available
  */
 export function extractTrainNumber(tripId: string): string {
-  // Try to match pattern: YYYY-MM-DD_AMTK_NNN or similar
-  const match = tripId.match(/_(\d+)$/);
-  if (match) {
-    return match[1];
-  }
-  // Fallback: return the tripId if no pattern match
-  return tripId;
+  // Try to get from trips data first (source of truth)
+  return gtfsParser.getTrainNumber(tripId);
 }
 
 /**
@@ -191,7 +187,20 @@ export function getRouteNameForTrainNumber(trainNumber: string): string | null {
  */
 export function getTrainDisplayName(tripId: string): { routeName: string | null; trainNumber: string; displayName: string } {
   const trainNumber = extractTrainNumber(tripId);
-  const routeName = getRouteNameForTrainNumber(trainNumber);
+
+  // First try the hardcoded mapping (covers named trains with friendly names)
+  let routeName = getRouteNameForTrainNumber(trainNumber);
+
+  // If not in mapping, try to get from GTFS route data
+  if (!routeName) {
+    const routeId = gtfsParser.getRouteIdForTrip(tripId);
+    if (routeId) {
+      const route = gtfsParser.getRoute(routeId);
+      if (route?.route_long_name && route.route_long_name !== 'Unknown Route') {
+        routeName = route.route_long_name;
+      }
+    }
+  }
 
   const displayName = routeName
     ? `${routeName} ${trainNumber}`

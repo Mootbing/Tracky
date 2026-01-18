@@ -5,6 +5,7 @@
 
 import { Alert } from 'react-native';
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
+import { gtfsParser } from '../utils/gtfs-parser';
 
 // Track last error alert time to avoid spamming user
 let lastErrorAlertTime = 0;
@@ -98,10 +99,16 @@ async function fetchProtobuf(url: string): Promise<Uint8Array> {
 
 /**
  * Extract train number from trip_id
- * Examples: "2026-01-16_AMTK_543" -> "543", "220408" -> "220408"
+ * Uses GTFS trips data for actual train number, falls back to parsing trip_id
  */
 function extractTrainNumber(tripId: string): string {
-  // Try to match pattern: YYYY-MM-DD_AMTK_NNN
+  // Try to get from trips data first (source of truth)
+  const trainNumber = gtfsParser.getTrainNumber(tripId);
+  // If we got something different than the tripId, use it
+  if (trainNumber !== tripId) {
+    return trainNumber;
+  }
+  // Fallback: try to match pattern YYYY-MM-DD_AMTK_NNN for real-time data
   const match = tripId.match(/_AMTK_(\d+)$/);
   if (match) {
     return match[1];

@@ -10,6 +10,7 @@ import type {
   Shape,
   Stop,
   StopTime,
+  Trip,
 } from '../types/train';
 
 export class GTFSParser {
@@ -17,6 +18,8 @@ export class GTFSParser {
   private stops: Map<string, Stop> = new Map();
   private stopTimes: Map<string, StopTime[]> = new Map();
   private shapes: Map<string, Shape[]> = new Map();
+  private trips: Map<string, Trip> = new Map(); // keyed by trip_id
+  private tripsByNumber: Map<string, Trip[]> = new Map(); // keyed by trip_short_name for search
   private _isLoaded: boolean = false;
 
   constructor() {
@@ -28,11 +31,13 @@ export class GTFSParser {
   }
 
   // Override parser data with dynamically fetched cache
-  overrideData(routes: Route[], stops: Stop[], stopTimes: Record<string, StopTime[]>, shapes: Record<string, Shape[]> = {}): void {
+  overrideData(routes: Route[], stops: Stop[], stopTimes: Record<string, StopTime[]>, shapes: Record<string, Shape[]> = {}, trips: Trip[] = []): void {
     this.routes.clear();
     this.stops.clear();
     this.stopTimes.clear();
     this.shapes.clear();
+    this.trips.clear();
+    this.tripsByNumber.clear();
 
     routes.forEach(route => {
       if (route && route.route_id) this.routes.set(route.route_id, route);
@@ -45,6 +50,18 @@ export class GTFSParser {
     });
     Object.entries(shapes).forEach(([shapeId, points]) => {
       if (shapeId && Array.isArray(points)) this.shapes.set(shapeId, points);
+    });
+    // Populate trips maps
+    trips.forEach(trip => {
+      if (trip && trip.trip_id) {
+        this.trips.set(trip.trip_id, trip);
+        // Also index by trip_short_name for search
+        if (trip.trip_short_name) {
+          const existing = this.tripsByNumber.get(trip.trip_short_name) || [];
+          existing.push(trip);
+          this.tripsByNumber.set(trip.trip_short_name, existing);
+        }
+      }
     });
 
     this._isLoaded = this.routes.size > 0 && this.stops.size > 0;
@@ -113,6 +130,48 @@ export class GTFSParser {
     return Array.from(this.stopTimes.keys());
   }
 
+  /**
+   * Get trip by trip_id
+   */
+  getTrip(tripId: string): Trip | undefined {
+    return this.trips.get(tripId);
+  }
+
+  /**
+   * Get the actual train number (trip_short_name) for a trip_id
+   * Falls back to extracting from trip_id if not found
+   */
+  getTrainNumber(tripId: string): string {
+    const trip = this.trips.get(tripId);
+    if (trip?.trip_short_name) {
+      return trip.trip_short_name;
+    }
+    // Fallback: extract from trip_id (for backwards compatibility)
+    const match = tripId.match(/_(\d+)$/);
+    return match ? match[1] : tripId;
+  }
+
+  /**
+   * Get route_id for a trip_id
+   */
+  getRouteIdForTrip(tripId: string): string | undefined {
+    return this.trips.get(tripId)?.route_id;
+  }
+
+  /**
+   * Search trips by train number (trip_short_name)
+   */
+  getTripsByNumber(trainNumber: string): Trip[] {
+    return this.tripsByNumber.get(trainNumber) || [];
+  }
+
+  /**
+   * Get all trips
+   */
+  getAllTrips(): Trip[] {
+    return Array.from(this.trips.values());
+  }
+
   getRawShapesData(): Record<string, any[]> {
     const result: Record<string, any[]> = {};
     this.shapes.forEach((points, shapeId) => {
@@ -129,6 +188,9 @@ export class GTFSParser {
     // If query starts with 'amt', treat as AMT{train}
     if (queryLower.startsWith('amt')) {
       trainNumberQuery = queryLower.substring(3);
+    } else if (/^\d+$/.test(query)) {
+      // Pure number query - search by actual train number
+      trainNumberQuery = query;
     } else {
       // Try to match {name}{train} pattern (e.g., acela2150, crescent19)
       const nameTrainMatch = queryLower.match(/^([a-z]+)(\d{1,4})$/);
@@ -177,16 +239,40 @@ export class GTFSParser {
       }
     });
 
+    // Search by actual train number using trips data
+    if (trainNumberQuery) {
+      const matchingTrips = this.tripsByNumber.get(trainNumberQuery) || [];
+      for (const trip of matchingTrips.slice(0, 5)) {
+        const routeName = this.getRouteName(trip.route_id);
+        const displayName = routeName !== 'Unknown Route'
+          ? `${routeName} ${trip.trip_short_name}`
+          : `Train ${trip.trip_short_name}`;
+        results.push({
+          id: `train-${trip.trip_id}`,
+          name: displayName,
+          subtitle: trip.trip_headsign || '',
+          type: 'train',
+          data: { trip_id: trip.trip_id },
+        });
+      }
+    }
+
     // Search trips (trains) by their stops
     this.stopTimes.forEach((times, tripId) => {
-      // Add search by train number, AMT{train}, or {name}{train}
+      const trainNumber = this.getTrainNumber(tripId);
+      const trip = this.trips.get(tripId);
+      const routeName = trip?.route_id ? this.getRouteName(trip.route_id) : '';
+      const displayName = routeName && routeName !== 'Unknown Route'
+        ? `${routeName} ${trainNumber}`
+        : `Train ${trainNumber}`;
+
+      // Check for AMT{train} or {name}{train} match (legacy support)
       const tripIdLower = tripId.toLowerCase();
-      // Check for AMT{train} or {name}{train} match
-      if (trainNumberQuery && tripIdLower.endsWith(trainNumberQuery)) {
+      if (trainNumberQuery && tripIdLower.endsWith(trainNumberQuery) && !results.find(r => r.id === `train-${tripId}`)) {
         results.push({
           id: `tripid-${tripId}`,
-          name: `Train ${tripId}`,
-          subtitle: '',
+          name: displayName,
+          subtitle: trip?.trip_headsign || '',
           type: 'train',
           data: { trip_id: tripId },
         });
@@ -197,7 +283,7 @@ export class GTFSParser {
         if (stop && stop.stop_name.toLowerCase().includes(queryLower)) {
           results.push({
             id: `trip-stop-${tripId}-${stopId}`,
-            name: `Train ${tripId}`,
+            name: displayName,
             subtitle: `Stops at "${stop.stop_name}"`,
             type: 'train',
             data: { trip_id: tripId, stop_id: stopId, stop_name: stop.stop_name },
