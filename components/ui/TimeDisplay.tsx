@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
-import { AppColors } from '../../constants/theme';
+import { AppColors, Spacing } from '../../constants/theme';
 
 interface TimeDisplayProps {
   time: string;
@@ -8,11 +8,18 @@ interface TimeDisplayProps {
   style?: TextStyle;
   superscriptStyle?: TextStyle;
   containerStyle?: ViewStyle;
+  // Delay support
+  delayMinutes?: number;
+  delayedTime?: string;
+  delayedDayOffset?: number;
 }
 
 /**
  * Displays a time with an optional day offset as a superscript
  * e.g., "5:53 AM" with dayOffset=1 renders as "5:53 AM" with "+1" as superscript
+ *
+ * When delayMinutes > 0, shows original time with strikethrough in secondary color,
+ * followed by the new delayed time in the primary style
  */
 export default function TimeDisplay({
   time,
@@ -20,7 +27,34 @@ export default function TimeDisplay({
   style,
   superscriptStyle,
   containerStyle,
+  delayMinutes,
+  delayedTime,
+  delayedDayOffset,
 }: TimeDisplayProps) {
+  const hasDelay = delayMinutes != null && delayMinutes > 0 && delayedTime;
+
+  if (hasDelay) {
+    // Show original time with strikethrough, then delayed time
+    return (
+      <View style={[styles.delayContainer, containerStyle]}>
+        {/* New delayed time (primary) */}
+        <View style={styles.container}>
+          <Text style={[style, styles.delayedTime]}>{delayedTime}</Text>
+          {(delayedDayOffset ?? 0) > 0 && (
+            <Text style={[styles.superscript, superscriptStyle, styles.delayedSuperscript]}>+{delayedDayOffset}</Text>
+          )}
+        </View>
+        {/* Original time (strikethrough, faded) */}
+        <View style={styles.originalTimeContainer}>
+          <Text style={[style, styles.originalTime]}>{time}</Text>
+          {dayOffset > 0 && (
+            <Text style={[styles.superscript, superscriptStyle, styles.originalSuperscript]}>+{dayOffset}</Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   if (dayOffset === 0) {
     return <Text style={style}>{time}</Text>;
   }
@@ -44,5 +78,31 @@ const styles = StyleSheet.create({
     color: AppColors.secondary,
     marginLeft: 2,
     marginTop: -2,
+  },
+  // Delay styles
+  delayContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.sm,
+  },
+  delayedTime: {
+    color: '#F59E0B', // Amber/orange color for delayed time
+  },
+  delayedSuperscript: {
+    color: '#F59E0B',
+  },
+  originalTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  originalTime: {
+    textDecorationLine: 'line-through',
+    color: AppColors.secondary,
+    opacity: 0.7,
+  },
+  originalSuperscript: {
+    textDecorationLine: 'line-through',
+    color: AppColors.secondary,
+    opacity: 0.7,
   },
 });

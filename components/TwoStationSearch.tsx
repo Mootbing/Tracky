@@ -35,11 +35,11 @@ function formatTime(time24: string): string {
 }
 
 /**
- * Format date for display in pill (e.g., "Jan 4, 2025")
+ * Format date for display in pill (e.g., "Jan 4")
  */
 function formatDateForPill(date: Date): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
 export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProps) {

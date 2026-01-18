@@ -36,6 +36,53 @@ function formatTime24to12(time24: string): { time: string; dayOffset: number } {
   return formatTimeWithDayOffset(time24);
 }
 
+/**
+ * Add delay minutes to a time string and return the new time
+ * @param timeStr - Time in "h:mm AM/PM" format
+ * @param delayMinutes - Number of minutes to add
+ * @param baseDayOffset - The original day offset
+ * @returns New time string and updated day offset
+ */
+function addDelayToTime(timeStr: string, delayMinutes: number, baseDayOffset: number = 0): { time: string; dayOffset: number } {
+  const minutes = timeToMinutes(timeStr);
+  let newMinutes = minutes + delayMinutes;
+  let dayOffset = baseDayOffset;
+
+  // Handle day rollover
+  while (newMinutes >= 24 * 60) {
+    newMinutes -= 24 * 60;
+    dayOffset += 1;
+  }
+
+  const hours = Math.floor(newMinutes / 60);
+  const mins = newMinutes % 60;
+  const isPM = hours >= 12;
+  let displayHours = hours % 12;
+  if (displayHours === 0) displayHours = 12;
+
+  return {
+    time: `${displayHours}:${mins.toString().padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`,
+    dayOffset,
+  };
+}
+
+/**
+ * Calculate number of nights for a journey based on day offsets
+ */
+function calculateNights(departDayOffset: number, arriveDayOffset: number): number {
+  return Math.max(0, (arriveDayOffset || 0) - (departDayOffset || 0));
+}
+
+/**
+ * Pluralize a word based on count
+ * @param count - The number to check
+ * @param singular - Singular form of the word
+ * @param plural - Plural form (defaults to singular + 's')
+ */
+function pluralize(count: number, singular: string, plural?: string): string {
+  return count === 1 ? singular : (plural || `${singular}s`);
+}
+
 // Helper function to parse time string (HH:MM AM/PM) and return minutes since midnight
 const timeToMinutes = (timeStr: string): number => {
   // Extract just the time part (before AM/PM)
@@ -391,7 +438,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
                         {remainingDistanceMiles !== null && (
                           <Text style={[styles.durationText, { marginLeft: 0 }]}> • {remainingDistanceMiles.toFixed(0)} mi</Text>
                         )}
-                        <Text style={[styles.durationText, { marginLeft: 0 }]}> • {remainingStopsCount} stops left</Text>
+                        <Text style={[styles.durationText, { marginLeft: 0 }]}> • {remainingStopsCount} {pluralize(remainingStopsCount, 'stop')} left</Text>
                       <TouchableOpacity
                         style={styles.elapsedStopsButton}
                         onPress={() => setIsRouteExpanded(true)}
@@ -502,7 +549,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
                         {distanceMiles !== null && (
                           <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
                         )}
-                        <Text style={[styles.durationText, { marginLeft: 0 }]}> • {allStops.length - 1} stops</Text>
+                        <Text style={[styles.durationText, { marginLeft: 0 }]}> • {allStops.length - 1} {pluralize(allStops.length - 1, 'stop')}</Text>
                         <TouchableOpacity
                           style={styles.elapsedStopsButton}
                           onPress={() => setIsRouteExpanded(false)}
@@ -601,7 +648,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
                             {fullRouteDistanceMiles !== null && (
                               <Text style={[styles.durationText, { marginLeft: 0 }]}> • {fullRouteDistanceMiles.toFixed(0)} mi</Text>
                             )}
-                            <Text style={[styles.durationText, { marginLeft: 0 }]}> • {allStops.length - 1} stops</Text>
+                            <Text style={[styles.durationText, { marginLeft: 0 }]}> • {allStops.length - 1} {pluralize(allStops.length - 1, 'stop')}</Text>
                             <TouchableOpacity
                               style={styles.elapsedStopsButton}
                               onPress={() => setIsRouteExpanded(false)}
@@ -687,12 +734,31 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
                             <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
                           </TouchableOpacity>
                         </View>
-                        <TimeDisplay
-                          time={trainData.departTime}
-                          dayOffset={trainData.departDayOffset}
-                          style={styles.timeText}
-                          superscriptStyle={styles.timeSuperscript}
-                        />
+                        {(() => {
+                          const delay = trainData.realtime?.delay;
+                          if (delay && delay > 0) {
+                            const delayed = addDelayToTime(trainData.departTime, delay, trainData.departDayOffset || 0);
+                            return (
+                              <TimeDisplay
+                                time={trainData.departTime}
+                                dayOffset={trainData.departDayOffset}
+                                style={styles.timeText}
+                                superscriptStyle={styles.timeSuperscript}
+                                delayMinutes={delay}
+                                delayedTime={delayed.time}
+                                delayedDayOffset={delayed.dayOffset}
+                              />
+                            );
+                          }
+                          return (
+                            <TimeDisplay
+                              time={trainData.departTime}
+                              dayOffset={trainData.departDayOffset}
+                              style={styles.timeText}
+                              superscriptStyle={styles.timeSuperscript}
+                            />
+                          );
+                        })()}
                         <View style={styles.durationLineRow}>
                           <View style={styles.durationContentRow}>
                             <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
@@ -700,8 +766,20 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
                             {distanceMiles !== null && (
                               <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
                             )}
+                            {(() => {
+                              const nights = calculateNights(trainData.departDayOffset || 0, trainData.arriveDayOffset || 0);
+                              if (nights > 0) {
+                                return (
+                                  <View style={styles.overnightBadge}>
+                                    <Ionicons name="moon" size={12} color={COLORS.secondary} />
+                                    <Text style={styles.overnightText}>{nights} {pluralize(nights, 'night')}</Text>
+                                  </View>
+                                );
+                              }
+                              return null;
+                            })()}
                             {intermediateStops && (
-                              <Text style={[styles.durationText, { marginLeft: 0 }]}> • {intermediateStops.length} stops</Text>
+                              <Text style={[styles.durationText, { marginLeft: 0 }]}> • {intermediateStops.length} {pluralize(intermediateStops.length, 'stop')}</Text>
                             )}
                             {isSegment && (
                               <TouchableOpacity
@@ -759,12 +837,31 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
                             <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
                           </TouchableOpacity>
                         </View>
-                        <TimeDisplay
-                          time={trainData.arriveTime}
-                          dayOffset={trainData.arriveDayOffset}
-                          style={styles.timeText}
-                          superscriptStyle={styles.timeSuperscript}
-                        />
+                        {(() => {
+                          const delay = trainData.realtime?.delay;
+                          if (delay && delay > 0) {
+                            const delayed = addDelayToTime(trainData.arriveTime, delay, trainData.arriveDayOffset || 0);
+                            return (
+                              <TimeDisplay
+                                time={trainData.arriveTime}
+                                dayOffset={trainData.arriveDayOffset}
+                                style={styles.timeText}
+                                superscriptStyle={styles.timeSuperscript}
+                                delayMinutes={delay}
+                                delayedTime={delayed.time}
+                                delayedDayOffset={delayed.dayOffset}
+                              />
+                            );
+                          }
+                          return (
+                            <TimeDisplay
+                              time={trainData.arriveTime}
+                              dayOffset={trainData.arriveDayOffset}
+                              style={styles.timeText}
+                              superscriptStyle={styles.timeSuperscript}
+                            />
+                          );
+                        })()}
                       </View>
                     </>
                   )}
@@ -1096,6 +1193,18 @@ const styles = StyleSheet.create({
   },
   // Elapsed stop text styling (secondary color for past stops)
   elapsedText: {
+    color: COLORS.secondary,
+  },
+  // Overnight badge
+  overnightBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 4,
+  },
+  overnightText: {
+    fontSize: 14,
+    fontFamily: FONTS.family,
     color: COLORS.secondary,
   },
 });

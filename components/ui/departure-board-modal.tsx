@@ -40,7 +40,7 @@ function formatDateDisplay(date: Date): string {
   } else if (targetDate.getTime() === tomorrow.getTime()) {
     return 'Tomorrow';
   } else {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 }
 
