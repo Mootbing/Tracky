@@ -371,22 +371,8 @@ function MapScreenInner() {
     return getStrokeWidthForZoom(region?.latitudeDelta ?? 0.0922);
   }, [region?.latitudeDelta]);
 
-  // Calculate route opacity based on zoom level - fade out when zoomed out
-  // latitudeDelta: smaller = zoomed in, larger = zoomed out
-  const routeOpacity = useMemo(() => {
-    const delta = region?.latitudeDelta ?? 0.0922;
-    const fadeStartDelta = 0.5;  // Start fading at this zoom level
-    const fadeEndDelta = 1.5;    // Fully hidden at this zoom level
-
-    if (delta <= fadeStartDelta) return 1;
-    if (delta >= fadeEndDelta) return 0;
-
-    // Linear interpolation between fade start and end
-    return 1 - (delta - fadeStartDelta) / (fadeEndDelta - fadeStartDelta);
-  }, [region?.latitudeDelta]);
-
-  // Don't render routes at all when fully faded out (memory optimization)
-  const shouldRenderRoutes = routeMode !== 'hidden' && routeOpacity > 0;
+  // Routes are always visible (no zoom-based fading)
+  const shouldRenderRoutes = routeMode !== 'hidden';
 
   // Cluster stations based on zoom level and station mode
   const stationClusters = useMemo(() => {
@@ -437,7 +423,6 @@ function MapScreenInner() {
               coordinates={shape.coordinates}
               strokeColor={colorScheme.stroke}
               strokeWidth={Math.max(2, baseStrokeWidth)}
-              zoomOpacity={routeOpacity}
             />
           );
         })}

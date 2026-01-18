@@ -3,7 +3,7 @@
  * Displays train position with label (similar to station markers)
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -31,20 +31,70 @@ export function LiveTrainMarker({
   onPress,
 }: LiveTrainMarkerProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
+  // Track current display state for smooth transitions
+  const [currentLabel, setCurrentLabel] = useState(isCluster ? `${clusterCount}+` : trainNumber);
+  const [currentIsCluster, setCurrentIsCluster] = useState(isCluster);
+
+  // Fade in on mount
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, scaleAnim]);
+
+  // Animate when cluster state or label changes
+  const newLabel = isCluster ? `${clusterCount}+` : trainNumber;
+  useEffect(() => {
+    if (newLabel !== currentLabel || isCluster !== currentIsCluster) {
+      // Quick fade out, update, fade in
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 0.3,
+            duration: 100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 0.9,
+            duration: 100,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(10),
+      ]).start(() => {
+        setCurrentLabel(newLabel);
+        setCurrentIsCluster(isCluster);
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 8,
+            tension: 100,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }
+  }, [newLabel, isCluster, currentLabel, currentIsCluster, fadeAnim, scaleAnim]);
 
   // Determine icon color based on state
   const iconColor = isSaved ? AppColors.accentBlue : AppColors.primary;
-
-  // Display label: cluster count or train number
-  const displayLabel = isCluster ? `${clusterCount}+` : trainNumber;
 
   return (
     <Marker
@@ -53,7 +103,15 @@ export function LiveTrainMarker({
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={false}
     >
-      <Animated.View style={[styles.markerContainer, { opacity: fadeAnim }]}>
+      <Animated.View
+        style={[
+          styles.markerContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
         <View style={styles.iconWrapper}>
           <Ionicons
             name="train"
@@ -65,11 +123,11 @@ export function LiveTrainMarker({
           style={[
             styles.label,
             { color: iconColor },
-            isCluster && styles.clusterLabel,
+            currentIsCluster && styles.clusterLabel,
           ]}
           numberOfLines={1}
         >
-          {displayLabel}
+          {currentLabel}
         </Text>
       </Animated.View>
     </Marker>
