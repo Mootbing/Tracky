@@ -80,12 +80,33 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
   >([]);
   const [error, setError] = React.useState<string | null>(null);
 
+  // For live trains: track past stops, next stop, and future stops
+  const [allStops, setAllStops] = React.useState<
+    { time: string; dayOffset: number; name: string; code: string }[]
+  >([]);
+  const [isRouteExpanded, setIsRouteExpanded] = React.useState(false);
+
+  // Check if train is currently live (has realtime position)
+  const isLiveTrain = trainData?.realtime?.position !== undefined;
+
   React.useEffect(() => {
     if (!trainData) return;
     if (trainData.tripId) {
       try {
         const stops = gtfsParser.getStopTimesForTrip(trainData.tripId);
         if (stops && stops.length > 0) {
+          // Store all stops for the full route (for live trains)
+          const allFormattedStops = stops.map(stop => {
+            const formatted = stop.departure_time ? formatTime24to12(stop.departure_time) : { time: '', dayOffset: 0 };
+            return {
+              time: formatted.time,
+              dayOffset: formatted.dayOffset,
+              name: stop.stop_name,
+              code: stop.stop_id,
+            };
+          });
+          setAllStops(allFormattedStops);
+
           // Find the indices of the user's selected segment
           const fromIdx = stops.findIndex(s => s.stop_id === trainData.fromCode);
           const toIdx = stops.findIndex(s => s.stop_id === trainData.toCode);
@@ -156,6 +177,114 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
   // Countdown logic (shared with TrainList)
   const countdown = trainData ? getCountdownForTrain(trainData) : null;
   const unitLabel = countdown ? `${countdown.unit}${countdown.past ? ' AGO' : ''}` : '';
+
+  // For live trains: find the next stop based on current time
+  const { pastStops, nextStop, futureStops, originStop } = React.useMemo(() => {
+    if (!isLiveTrain || allStops.length === 0) {
+      return { pastStops: [], nextStop: null, futureStops: [], originStop: null };
+    }
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Find the first stop that hasn't happened yet
+    let nextStopIndex = -1;
+    for (let i = 0; i < allStops.length; i++) {
+      const stopMinutes = timeToMinutes(allStops[i].time);
+      // Account for day offset - if stop is next day, add 24 hours
+      const adjustedStopMinutes = stopMinutes + (allStops[i].dayOffset * 24 * 60);
+      const adjustedCurrentMinutes = currentMinutes;
+
+      if (adjustedStopMinutes > adjustedCurrentMinutes) {
+        nextStopIndex = i;
+        break;
+      }
+    }
+
+    // If no future stop found, train has completed its journey
+    if (nextStopIndex === -1) {
+      return {
+        pastStops: allStops.slice(0, -1),
+        nextStop: allStops[allStops.length - 1],
+        futureStops: [],
+        originStop: allStops[0],
+      };
+    }
+
+    return {
+      pastStops: allStops.slice(0, nextStopIndex),
+      nextStop: allStops[nextStopIndex],
+      futureStops: allStops.slice(nextStopIndex + 1),
+      originStop: allStops[0],
+    };
+  }, [isLiveTrain, allStops]);
+
+  // For live trains: calculate remaining stops count
+  const remainingStopsCount = futureStops.length;
+  const pastStopsCount = pastStops.length;
+
+  // For live trains: calculate remaining duration and distance (from next stop to final destination)
+  const { remainingDuration, remainingDistanceMiles } = React.useMemo(() => {
+    if (!isLiveTrain || !nextStop || allStops.length === 0) {
+      return { remainingDuration: duration, remainingDistanceMiles: distanceMiles };
+    }
+
+    const finalStop = allStops[allStops.length - 1];
+
+    // Calculate remaining duration from next stop to final destination
+    const remDuration = calculateDuration(nextStop.time, finalStop.time);
+
+    // Calculate remaining distance from next stop to final destination
+    let remDistance: number | null = null;
+    try {
+      const nextStopData = gtfsParser.getStop(nextStop.code);
+      const finalStopData = gtfsParser.getStop(finalStop.code);
+      if (nextStopData && finalStopData) {
+        remDistance = haversineDistance(
+          nextStopData.stop_lat, nextStopData.stop_lon,
+          finalStopData.stop_lat, finalStopData.stop_lon
+        );
+      }
+    } catch {}
+
+    return { remainingDuration: remDuration, remainingDistanceMiles: remDistance };
+  }, [isLiveTrain, nextStop, allStops, duration, distanceMiles]);
+
+  // Check if the saved route is a segment (user's from/to don't match full route origin/destination)
+  const isSegment = React.useMemo(() => {
+    if (allStops.length < 2 || !trainData) return false;
+    const fullRouteOrigin = allStops[0].code;
+    const fullRouteDestination = allStops[allStops.length - 1].code;
+    return trainData.fromCode !== fullRouteOrigin || trainData.toCode !== fullRouteDestination;
+  }, [allStops, trainData]);
+
+  // Calculate full route duration and distance (for segments)
+  const { fullRouteDuration, fullRouteDistanceMiles } = React.useMemo(() => {
+    if (allStops.length < 2) {
+      return { fullRouteDuration: duration, fullRouteDistanceMiles: distanceMiles };
+    }
+
+    const originStop = allStops[0];
+    const finalStop = allStops[allStops.length - 1];
+
+    // Calculate full route duration
+    const fullDuration = calculateDuration(originStop.time, finalStop.time);
+
+    // Calculate full route distance
+    let fullDistance: number | null = null;
+    try {
+      const originStopData = gtfsParser.getStop(originStop.code);
+      const finalStopData = gtfsParser.getStop(finalStop.code);
+      if (originStopData && finalStopData) {
+        fullDistance = haversineDistance(
+          originStopData.stop_lat, originStopData.stop_lon,
+          finalStopData.stop_lat, finalStopData.stop_lon
+        );
+      }
+    } catch {}
+
+    return { fullRouteDuration: fullDuration, fullRouteDistanceMiles: fullDistance };
+  }, [allStops, duration, distanceMiles]);
 
   // Handle station selection - get coordinates and call callback
   const handleStationPress = (stationCode: string) => {
@@ -231,89 +360,418 @@ export default function TrainDetailModal({ train, onClose, onStationSelect }: Tr
           )}
           <View style={styles.fullWidthLine} />
 
-          {/* Departure Info */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoHeader}>
-              <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
-              <TouchableOpacity
-                style={styles.stationTouchable}
-                onPress={() => handleStationPress(trainData.fromCode)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
-              </TouchableOpacity>
-            </View>
-            <TimeDisplay
-              time={trainData.departTime}
-              dayOffset={trainData.departDayOffset}
-              style={styles.timeText}
-              superscriptStyle={styles.timeSuperscript}
-            />
-            <View style={styles.durationLineRow}>
-              <View style={styles.durationContentRow}>
-                <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
-                <Text style={styles.durationText}>{duration}</Text>
-                {distanceMiles !== null && (
-                  <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
-                )}
-                {distanceMiles !== null && intermediateStops && (
-                  <Text style={[styles.durationText, { marginLeft: 0 }]}> • {intermediateStops.length} stops</Text>
-                )}
-              </View>
-              <View style={styles.horizontalLine} />
-            </View>
-          </View>
+          {/* LIVE TRAIN VIEW: Show next stop as primary, elapsed stops in duration row */}
+          {isLiveTrain && nextStop && !isRouteExpanded ? (
+            <>
+              {/* Next Stop (Primary) - only show if there are more stops after this one */}
+              {remainingStopsCount > 0 && (
+                <>
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoHeader}>
+                      <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
+                      <TouchableOpacity
+                        style={styles.stationTouchable}
+                        onPress={() => handleStationPress(nextStop.code)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.locationCode}>{nextStop.code}</Text>
+                        <Text style={styles.locationName}> • {nextStop.name}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TimeDisplay
+                      time={nextStop.time}
+                      dayOffset={nextStop.dayOffset}
+                      style={styles.timeText}
+                      superscriptStyle={styles.timeSuperscript}
+                    />
+                    <View style={styles.durationLineRow}>
+                      <View style={styles.durationContentRow}>
+                        <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
+                        <Text style={styles.durationText}>{remainingDuration}</Text>
+                        {remainingDistanceMiles !== null && (
+                          <Text style={[styles.durationText, { marginLeft: 0 }]}> • {remainingDistanceMiles.toFixed(0)} mi</Text>
+                        )}
+                        <Text style={[styles.durationText, { marginLeft: 0 }]}> • {remainingStopsCount} stops left</Text>
+                      <TouchableOpacity
+                        style={styles.elapsedStopsButton}
+                        onPress={() => setIsRouteExpanded(true)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.elapsedStopsText}> • show full route</Text>
+                      </TouchableOpacity>
+                      </View>
+                      <View style={styles.horizontalLine} />
+                    </View>
+                  </View>
 
-          {/* Intermediate Stops with Timeline */}
-          {intermediateStops && intermediateStops.length > 0 && (
-            <View style={styles.timelineContainer}>
-              <View style={styles.dashedLineWrapper}>
-                <View style={styles.dashedLine} />
+                  {/* Future Stops */}
+                  {futureStops.length > 0 && (
+                    <View style={styles.timelineContainer}>
+                      <View style={styles.dashedLineWrapper}>
+                        <View style={styles.dashedLine} />
+                      </View>
+                      {futureStops.map((stop, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.stopSection}
+                          onPress={() => handleStationPress(stop.code)}
+                          activeOpacity={0.7}
+                        >
+                          <TimeDisplay
+                            time={stop.time}
+                            dayOffset={stop.dayOffset}
+                            style={styles.stopTime}
+                            superscriptStyle={styles.stopTimeSuperscript}
+                          />
+                          <Text style={styles.stopStation}>{stop.name}</Text>
+                          <Text style={styles.stopCode}>{stop.code}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      <View style={styles.endLineRow}>
+                        <View style={styles.horizontalLine} />
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* Final Destination */}
+              <View style={styles.infoSection}>
+                <View style={styles.infoHeader}>
+                  <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+                  <TouchableOpacity
+                    style={styles.stationTouchable}
+                    onPress={() => handleStationPress(allStops[allStops.length - 1]?.code || trainData.toCode)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.locationCode}>{allStops[allStops.length - 1]?.code || trainData.toCode}</Text>
+                    <Text style={styles.locationName}> • {allStops[allStops.length - 1]?.name || gtfsParser.getStopName(trainData.toCode)}</Text>
+                  </TouchableOpacity>
+                </View>
+                <TimeDisplay
+                  time={allStops[allStops.length - 1]?.time || trainData.arriveTime}
+                  dayOffset={allStops[allStops.length - 1]?.dayOffset || trainData.arriveDayOffset}
+                  style={styles.timeText}
+                  superscriptStyle={styles.timeSuperscript}
+                />
+                {/* Show "show full route" link when at final stop */}
+                {remainingStopsCount === 0 && (
+                  <View style={styles.durationLineRow}>
+                    <View style={styles.durationContentRow}>
+                      <TouchableOpacity
+                        style={styles.elapsedStopsButton}
+                        onPress={() => setIsRouteExpanded(true)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.elapsedStopsText}>show full route</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
-              {intermediateStops.map((stop, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.stopSection}
-                  onPress={() => handleStationPress(stop.code)}
-                  activeOpacity={0.7}
-                >
-                  <TimeDisplay
-                    time={stop.time}
-                    dayOffset={stop.dayOffset}
-                    style={styles.stopTime}
-                    superscriptStyle={styles.stopTimeSuperscript}
-                  />
-                  <Text style={styles.stopStation}>{stop.name}</Text>
-                  <Text style={styles.stopCode}>{stop.code}</Text>
-                </TouchableOpacity>
-              ))}
-              <View style={styles.endLineRow}>
-                <View style={styles.horizontalLine} />
-              </View>
-            </View>
+            </>
+          ) : (
+            <>
+              {/* STANDARD VIEW: Show full route (non-live trains or expanded view) */}
+              {/* EXPANDED LIVE TRAIN VIEW: Show all stops with elapsed ones in secondary color */}
+              {isLiveTrain && isRouteExpanded && allStops.length > 0 ? (
+                <>
+                  {/* Origin Stop */}
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoHeader}>
+                      <MaterialCommunityIcons name="arrow-top-right" size={16} color={pastStopsCount > 0 ? COLORS.secondary : COLORS.primary} />
+                      <TouchableOpacity
+                        style={styles.stationTouchable}
+                        onPress={() => handleStationPress(allStops[0].code)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.locationCode, pastStopsCount > 0 && styles.elapsedText]}>{allStops[0].code}</Text>
+                        <Text style={[styles.locationName, pastStopsCount > 0 && styles.elapsedText]}> • {allStops[0].name}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TimeDisplay
+                      time={allStops[0].time}
+                      dayOffset={allStops[0].dayOffset}
+                      style={[styles.timeText, pastStopsCount > 0 && styles.elapsedText]}
+                      superscriptStyle={[styles.timeSuperscript, pastStopsCount > 0 && styles.elapsedText]}
+                    />
+                    <View style={styles.durationLineRow}>
+                      <View style={styles.durationContentRow}>
+                        <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
+                        <Text style={styles.durationText}>{duration}</Text>
+                        {distanceMiles !== null && (
+                          <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
+                        )}
+                        <Text style={[styles.durationText, { marginLeft: 0 }]}> • {allStops.length - 1} stops</Text>
+                        <TouchableOpacity
+                          style={styles.elapsedStopsButton}
+                          onPress={() => setIsRouteExpanded(false)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.elapsedStopsText}> • show next stop</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.horizontalLine} />
+                    </View>
+                  </View>
+
+                  {/* All Intermediate Stops with elapsed styling */}
+                  {allStops.length > 2 && (
+                    <View style={styles.timelineContainer}>
+                      <View style={styles.dashedLineWrapper}>
+                        <View style={styles.dashedLine} />
+                      </View>
+                      {allStops.slice(1, -1).map((stop, index) => {
+                        // Check if this stop has elapsed (index + 1 because we sliced from 1)
+                        const isElapsed = index + 1 < pastStopsCount;
+                        return (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.stopSection}
+                            onPress={() => handleStationPress(stop.code)}
+                            activeOpacity={0.7}
+                          >
+                            <TimeDisplay
+                              time={stop.time}
+                              dayOffset={stop.dayOffset}
+                              style={[styles.stopTime, isElapsed && styles.elapsedText]}
+                              superscriptStyle={[styles.stopTimeSuperscript, isElapsed && styles.elapsedText]}
+                            />
+                            <Text style={[styles.stopStation, isElapsed && styles.elapsedText]}>{stop.name}</Text>
+                            <Text style={[styles.stopCode, isElapsed && styles.elapsedText]}>{stop.code}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                      <View style={styles.endLineRow}>
+                        <View style={styles.horizontalLine} />
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Final Destination */}
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoHeader}>
+                      <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+                      <TouchableOpacity
+                        style={styles.stationTouchable}
+                        onPress={() => handleStationPress(allStops[allStops.length - 1].code)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.locationCode}>{allStops[allStops.length - 1].code}</Text>
+                        <Text style={styles.locationName}> • {allStops[allStops.length - 1].name}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TimeDisplay
+                      time={allStops[allStops.length - 1].time}
+                      dayOffset={allStops[allStops.length - 1].dayOffset}
+                      style={styles.timeText}
+                      superscriptStyle={styles.timeSuperscript}
+                    />
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* NON-LIVE TRAINS: Show segment or full route based on isRouteExpanded */}
+                  {isSegment && isRouteExpanded && allStops.length > 0 ? (
+                    <>
+                      {/* FULL ROUTE VIEW for segments */}
+                      {/* Origin Stop */}
+                      <View style={styles.infoSection}>
+                        <View style={styles.infoHeader}>
+                          <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.secondary} />
+                          <TouchableOpacity
+                            style={styles.stationTouchable}
+                            onPress={() => handleStationPress(allStops[0].code)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.locationCode, styles.elapsedText]}>{allStops[0].code}</Text>
+                            <Text style={[styles.locationName, styles.elapsedText]}> • {allStops[0].name}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TimeDisplay
+                          time={allStops[0].time}
+                          dayOffset={allStops[0].dayOffset}
+                          style={[styles.timeText, styles.elapsedText]}
+                          superscriptStyle={[styles.timeSuperscript, styles.elapsedText]}
+                        />
+                        <View style={styles.durationLineRow}>
+                          <View style={styles.durationContentRow}>
+                            <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
+                            <Text style={styles.durationText}>{fullRouteDuration}</Text>
+                            {fullRouteDistanceMiles !== null && (
+                              <Text style={[styles.durationText, { marginLeft: 0 }]}> • {fullRouteDistanceMiles.toFixed(0)} mi</Text>
+                            )}
+                            <Text style={[styles.durationText, { marginLeft: 0 }]}> • {allStops.length - 1} stops</Text>
+                            <TouchableOpacity
+                              style={styles.elapsedStopsButton}
+                              onPress={() => setIsRouteExpanded(false)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.elapsedStopsText}> • show my segment</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <View style={styles.horizontalLine} />
+                        </View>
+                      </View>
+
+                      {/* All Intermediate Stops - highlight user's segment */}
+                      {allStops.length > 2 && (
+                        <View style={styles.timelineContainer}>
+                          <View style={styles.dashedLineWrapper}>
+                            <View style={styles.dashedLine} />
+                          </View>
+                          {allStops.slice(1, -1).map((stop, index) => {
+                            // Check if this stop is within user's segment
+                            const fromIdx = allStops.findIndex(s => s.code === trainData.fromCode);
+                            const toIdx = allStops.findIndex(s => s.code === trainData.toCode);
+                            const currentIdx = index + 1; // +1 because we sliced from 1
+                            const isOutsideSegment = currentIdx < fromIdx || currentIdx > toIdx;
+                            return (
+                              <TouchableOpacity
+                                key={index}
+                                style={styles.stopSection}
+                                onPress={() => handleStationPress(stop.code)}
+                                activeOpacity={0.7}
+                              >
+                                <TimeDisplay
+                                  time={stop.time}
+                                  dayOffset={stop.dayOffset}
+                                  style={[styles.stopTime, isOutsideSegment && styles.elapsedText]}
+                                  superscriptStyle={[styles.stopTimeSuperscript, isOutsideSegment && styles.elapsedText]}
+                                />
+                                <Text style={[styles.stopStation, isOutsideSegment && styles.elapsedText]}>{stop.name}</Text>
+                                <Text style={[styles.stopCode, isOutsideSegment && styles.elapsedText]}>{stop.code}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                          <View style={styles.endLineRow}>
+                            <View style={styles.horizontalLine} />
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Final Destination */}
+                      <View style={styles.infoSection}>
+                        <View style={styles.infoHeader}>
+                          <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.secondary} />
+                          <TouchableOpacity
+                            style={styles.stationTouchable}
+                            onPress={() => handleStationPress(allStops[allStops.length - 1].code)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.locationCode, styles.elapsedText]}>{allStops[allStops.length - 1].code}</Text>
+                            <Text style={[styles.locationName, styles.elapsedText]}> • {allStops[allStops.length - 1].name}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TimeDisplay
+                          time={allStops[allStops.length - 1].time}
+                          dayOffset={allStops[allStops.length - 1].dayOffset}
+                          style={[styles.timeText, styles.elapsedText]}
+                          superscriptStyle={[styles.timeSuperscript, styles.elapsedText]}
+                        />
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      {/* SEGMENT VIEW (or full route if not a segment) */}
+                      {/* Departure Info */}
+                      <View style={styles.infoSection}>
+                        <View style={styles.infoHeader}>
+                          <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
+                          <TouchableOpacity
+                            style={styles.stationTouchable}
+                            onPress={() => handleStationPress(trainData.fromCode)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.locationCode}>{trainData.fromCode}</Text>
+                            <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.fromCode)}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TimeDisplay
+                          time={trainData.departTime}
+                          dayOffset={trainData.departDayOffset}
+                          style={styles.timeText}
+                          superscriptStyle={styles.timeSuperscript}
+                        />
+                        <View style={styles.durationLineRow}>
+                          <View style={styles.durationContentRow}>
+                            <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.secondary} style={{ marginRight: 6 }} />
+                            <Text style={styles.durationText}>{duration}</Text>
+                            {distanceMiles !== null && (
+                              <Text style={[styles.durationText, { marginLeft: 0 }]}> • {distanceMiles.toFixed(0)} mi</Text>
+                            )}
+                            {intermediateStops && (
+                              <Text style={[styles.durationText, { marginLeft: 0 }]}> • {intermediateStops.length} stops</Text>
+                            )}
+                            {isSegment && (
+                              <TouchableOpacity
+                                style={styles.elapsedStopsButton}
+                                onPress={() => setIsRouteExpanded(true)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.elapsedStopsText}> • show full route</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                          <View style={styles.horizontalLine} />
+                        </View>
+                      </View>
+
+                      {/* Intermediate Stops with Timeline */}
+                      {intermediateStops && intermediateStops.length > 0 && (
+                        <View style={styles.timelineContainer}>
+                          <View style={styles.dashedLineWrapper}>
+                            <View style={styles.dashedLine} />
+                          </View>
+                          {intermediateStops.map((stop, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={styles.stopSection}
+                              onPress={() => handleStationPress(stop.code)}
+                              activeOpacity={0.7}
+                            >
+                              <TimeDisplay
+                                time={stop.time}
+                                dayOffset={stop.dayOffset}
+                                style={styles.stopTime}
+                                superscriptStyle={styles.stopTimeSuperscript}
+                              />
+                              <Text style={styles.stopStation}>{stop.name}</Text>
+                              <Text style={styles.stopCode}>{stop.code}</Text>
+                            </TouchableOpacity>
+                          ))}
+                          <View style={styles.endLineRow}>
+                            <View style={styles.horizontalLine} />
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Arrival Info */}
+                      <View style={styles.infoSection}>
+                        <View style={styles.infoHeader}>
+                          <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+                          <TouchableOpacity
+                            style={styles.stationTouchable}
+                            onPress={() => handleStationPress(trainData.toCode)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.locationCode}>{trainData.toCode}</Text>
+                            <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TimeDisplay
+                          time={trainData.arriveTime}
+                          dayOffset={trainData.arriveDayOffset}
+                          style={styles.timeText}
+                          superscriptStyle={styles.timeSuperscript}
+                        />
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+            </>
           )}
-
-          {/* Arrival Info */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoHeader}>
-              <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
-              <TouchableOpacity
-                style={styles.stationTouchable}
-                onPress={() => handleStationPress(trainData.toCode)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                <Text style={styles.locationName}> • {gtfsParser.getStopName(trainData.toCode)}</Text>
-              </TouchableOpacity>
-            </View>
-            <TimeDisplay
-              time={trainData.arriveTime}
-              dayOffset={trainData.arriveDayOffset}
-              style={styles.timeText}
-              superscriptStyle={styles.timeSuperscript}
-            />
-          </View>
         </ScrollView>
       )}
     </View>
@@ -624,5 +1082,20 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.family,
     color: '#000000',
     marginTop: 8,
+  },
+  // Elapsed stops button (inline in duration row for live trains)
+  elapsedStopsButton: {
+    marginLeft: 0,
+    paddingVertical: 4,
+  },
+  elapsedStopsText: {
+    fontSize: 14,
+    fontFamily: FONTS.family,
+    color: COLORS.secondary,
+    marginLeft: 0
+  },
+  // Elapsed stop text styling (secondary color for past stops)
+  elapsedText: {
+    color: COLORS.secondary,
   },
 });

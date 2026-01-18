@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "raily",
-    "slug": "raily",
+    "name": "Tracky",
+    "slug": "tracky",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "raily",
+    "scheme": "tracky",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "platforms": ["ios", "android"],

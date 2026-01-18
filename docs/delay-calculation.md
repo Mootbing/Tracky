@@ -1,6 +1,6 @@
 # Delay Calculation System
 
-This document describes how train delays are calculated and displayed in the Raily app.
+This document describes how train delays are calculated and displayed in the Tracky app.
 
 ## Overview
 

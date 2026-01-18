@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully integrated real-time train position data from Transitdocs GTFS-RT feed into the Raily app. The integration matches trains by ID and displays realistic live positions on the map.
+Successfully integrated real-time train position data from Transitdocs GTFS-RT feed into the Tracky app. The integration matches trains by ID and displays realistic live positions on the map.
 
 ## What Was Implemented
 

@@ -1,4 +1,4 @@
-# Raily 🚂
+# Tracky 🚂
 
 A real-time Amtrak train tracking app built with React Native and Expo. Track train positions, delays, and routes with live GTFS-RT data from Transitdocs.
 
@@ -133,7 +133,7 @@ Transitdocs GTFS-RT Feed
 ## Project Structure
 
 ```
-raily/
+tracky/
 ├── app/               # Screen components (Expo Router)
 ├── components/        # Reusable UI components
 ├── services/          # Business logic and API clients

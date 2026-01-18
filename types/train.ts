@@ -1,5 +1,5 @@
 /**
- * Core type definitions for the Raily train tracking app
+ * Core type definitions for the Tracky train tracking app
  */
 
 
