@@ -10,7 +10,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
 import { strFromU8, unzipSync } from 'fflate';
-import type { Route, Shape, Stop, StopTime } from '../types/train';
+import type { Route, Shape, Stop, StopTime, Trip } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { shapeLoader } from './shape-loader';
 
@@ -21,6 +21,7 @@ const GTFS_FILES = {
   stops: 'stops.json',
   stopTimes: 'stop_times.json',
   shapes: 'shapes.json',
+  trips: 'trips.json',
 };
 
 const STORAGE_KEYS = {
@@ -29,6 +30,7 @@ const STORAGE_KEYS = {
   STOPS: 'GTFS_STOPS_JSON',
   STOP_TIMES: 'GTFS_STOP_TIMES_JSON',
   SHAPES: 'GTFS_SHAPES_JSON',
+  TRIPS: 'GTFS_TRIPS_JSON',
 };
 
 function isOlderThanDays(dateMs: number, days: number): boolean {
@@ -56,6 +58,7 @@ async function readJSONFromFile<T>(filename: string): Promise<T | null> {
     else if (filename === 'stops.json') key = STORAGE_KEYS.STOPS;
     else if (filename === 'stop_times.json') key = STORAGE_KEYS.STOP_TIMES;
     else if (filename === 'shapes.json') key = STORAGE_KEYS.SHAPES;
+    else if (filename === 'trips.json') key = STORAGE_KEYS.TRIPS;
     else return null;
     const content = await AsyncStorage.getItem(key);
     if (!content) return null;
@@ -224,7 +227,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       }
     }
 
-    report('Downloading GTFS.zip', 0.1, 'Fetching latest schedule');
+    report('GTFS.zip', 0.1, 'Fetching latest schedule');
     // Fetch and rebuild cache
     const zipBytes = await fetchZipBytes();
     report('Download complete', 0.2);

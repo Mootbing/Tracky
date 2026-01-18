@@ -1,15 +1,14 @@
 import React from 'react';
-import { Dimensions, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
   interpolate,
   runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { AppColors } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -144,7 +143,8 @@ export default function MapSettingsPill({
           onPress={onRecenter}
           activeOpacity={0.7}
         >
-          <FontAwesome name="location-arrow" size={22} color={AppColors.primary} />
+          {/* <FontAwesome name="location-arrow" size={22} color={AppColors.primary} /> */}
+          <MaterialIcons name="my-location" size={22} color={AppColors.primary} />
         </TouchableOpacity>
       </Animated.View>
 

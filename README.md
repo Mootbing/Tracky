@@ -1,20 +1,62 @@
-# Tracky 🚂
+# Tracky
 
-A real-time Amtrak train tracking app built with React Native and Expo. Track train positions, delays, and routes with live GTFS-RT data from Transitdocs.
+A real-time Amtrak train tracking app built with React Native and Expo. Track train positions, view schedules, save favorite trains, and explore station departure boards with live GTFS-RT data.
 
 ## Features
 
-- 🗺️ **Interactive Map** - View Amtrak routes and stations on an interactive map
-- 📍 **Live Train Positions** - See real-time locations of all active Amtrak trains
-- ⏱️ **Delay Information** - Get up-to-date delay and schedule information
-- 🔍 **Search** - Find trains, routes, and stations quickly
-- 💾 **Save Trains** - Track your favorite trains and get live updates
+### Interactive Map
+- Full-screen map interface with train and station markers
+- Real-time train positions updated every 15 seconds
+- Color-coded route polylines for each train
+- Smart station clustering that adapts to zoom level
+- Standard and satellite map views
+- GPS-based user location with recenter button
 
-## Get Started
+### Live Train Tracking
+- Real-time positions from Transitdocs GTFS-RT feed
+- Train bearing, speed, and delay information
+- Named train routes (Acela, Southwest Chief, Coast Starlight, etc.)
+- Automatic refresh every 15 seconds with 15-second cache
+
+### Saved Trains
+- Save favorite trains for quick access
+- Support for partial trip segments (e.g., Boston to NYC only)
+- Persistent storage across app sessions
+- Real-time updates for saved trains every 20 seconds
+- Swipe-to-delete with haptic feedback
+
+### Train Details
+- Complete trip information with departure/arrival times
+- Multi-day journey support with day offset indicators
+- Intermediate stops with arrival times
+- Real-time delay status
+- Tap stations to view their departure boards
+
+### Station Departure Boards
+- View all arrivals and departures for any station
+- Filter by arrivals, departures, or all
+- Date picker for future schedules
+- Search within station departures
+- Tap trains to view full details
+
+### Search
+- Search trains by number or route name
+- Search stations by name or code
+- Two-station trip search with date selection
+- Real-time autocomplete results
+
+### Map Settings
+Quick-access settings panel with:
+- **Route Mode**: Show/hide train route lines
+- **Station Mode**: Off, Compact (clustered), or All stations
+- **Train Mode**: Off, Saved trains only, or All trains
+- **Map Type**: Standard or Satellite view
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 18+
 - Expo CLI
 - iOS Simulator (Mac) or Android Emulator
 
@@ -35,112 +77,115 @@ A real-time Amtrak train tracking app built with React Native and Expo. Track tr
 3. Open the app:
    - Press `i` for iOS simulator
    - Press `a` for Android emulator
-   - Scan QR code with Expo Go app on your phone
+   - Scan QR code with Expo Go on your device
 
 Note: Web is not supported. This app targets iOS and Android only.
 
-## Real-Time GTFS Integration
-
-This app uses the [Transitdocs GTFS-RT feed](https://asm-backend.transitdocs.com/gtfs/amtrak) to provide live train positions and delays.
-
-### How It Works
-
-1. **Data Fetching** - Every 15 seconds, the app fetches the latest GTFS-RT protobuf data
-2. **Train Matching** - Trains are matched by train number (e.g., "543") extracted from trip IDs
-3. **Position Updates** - Live positions (lat/lon, speed, bearing) are displayed on the map
-4. **Delay Tracking** - Real-time delay information is shown for each stop
-
-### Testing Real-Time Integration
-
-Run the test script to verify the integration:
-
-```bash
-npx tsx test-realtime.ts
-```
-
-This will:
-- Fetch all active train positions
-- Display sample train data (position, speed, bearing)
-- Check for delay information
-- Verify train number matching
-
-### API Usage
-
-#### Get All Active Trains
-
-```typescript
-import { TrainAPIService } from './services/api';
-
-const trains = await TrainAPIService.getActiveTrains();
-// Returns array of Train objects with real-time positions
-```
-
-#### Get Position for Specific Train
-
-```typescript
-import { RealtimeService } from './services/realtime';
-
-const position = await RealtimeService.getPositionForTrip('543');
-// Supports both train numbers ("543") and trip IDs ("2026-01-16_AMTK_543")
-```
-
-#### Refresh Real-Time Data
-
-```typescript
-const updatedTrain = await TrainAPIService.refreshRealtimeData(train);
-// Updates position and delay information
-```
-
 ## Architecture
+
+### Project Structure
+
+```
+tracky/
+├── app/                    # Expo Router screens
+├── components/
+│   ├── map/                # Map markers and overlays
+│   └── ui/                 # Modals, lists, and controls
+├── context/                # React Context providers
+├── hooks/                  # Custom React hooks
+├── services/               # Business logic and APIs
+├── utils/                  # Helpers and parsers
+├── types/                  # TypeScript definitions
+├── assets/                 # Static assets and GTFS cache
+└── constants/              # Theme and configuration
+```
 
 ### Services
 
-- **`services/realtime.ts`** - GTFS-RT feed parser and cache manager
-- **`services/api.ts`** - High-level API for train data and real-time enrichment
-- **`services/gtfs-sync.ts`** - Weekly GTFS schedule data sync
-- **`services/shape-loader.ts`** - Efficient route shape viewport culling
-- **`services/station-loader.ts`** - Station visibility optimization
+| Service | Purpose |
+|---------|---------|
+| `realtime.ts` | GTFS-RT feed parsing and caching |
+| `api.ts` | High-level train data API |
+| `gtfs-sync.ts` | Weekly GTFS schedule sync |
+| `storage.ts` | AsyncStorage persistence |
+| `shape-loader.ts` | Viewport-based route loading |
+| `station-loader.ts` | Viewport-based station loading |
+
+### State Management
+
+- **TrainContext**: Manages saved trains and selected train state
+- **ModalContext**: Handles modal navigation stack and transitions
 
 ### Data Flow
 
 ```
 Transitdocs GTFS-RT Feed
-         ↓
-   [Protobuf Parser]
-         ↓
-    [15s Cache]
-         ↓
-  [Train Matching]
-         ↓
-    [Map Markers]
+         │
+    [Protobuf Parser]
+         │
+     [15s Cache]
+         │
+   [Train Matching]
+         │
+     [Map Markers]
 ```
 
 ### GTFS Data Sync
 
-- On app startup, checks for fresh Amtrak GTFS schedule data
-- If cache is missing or older than 7 days, fetches `GTFS.zip` from Amtrak
-- Parses `routes.txt`, `stops.txt`, `stop_times.txt`, and `shapes.txt`
-- Stores in local JSON files for offline access
+On app startup:
+1. Checks if cached GTFS data exists and is fresh (< 7 days old)
+2. If stale, fetches `GTFS.zip` from Amtrak
+3. Parses `routes.txt`, `stops.txt`, `stop_times.txt`, and `shapes.txt`
+4. Stores compressed JSON locally for offline access
 
-## Technologies
+## Performance Optimizations
 
-- **React Native** - Cross-platform mobile framework
-- **Expo** - Development toolchain
-- **react-native-maps** - Interactive map component
-- **gtfs-realtime-bindings** - GTFS-RT protobuf parser
-- **TypeScript** - Type safety and better DX
+- **Viewport Culling**: Only loads visible routes and stations
+- **Throttled Updates**: Region changes throttled to 100ms
+- **Debounced Loading**: Viewport bounds updates debounced to 250ms
+- **Real-Time Cache**: 15-second TTL prevents redundant API calls
+- **Smart Clustering**: Reduces marker count at lower zoom levels
+- **Reanimated Animations**: 60fps modal and marker transitions
 
-## Project Structure
+## Tech Stack
 
+- **React Native** 0.81 with **React** 19
+- **Expo** 54 with Expo Router
+- **TypeScript** 5.9
+- **react-native-maps** for map rendering
+- **react-native-reanimated** for animations
+- **gtfs-realtime-bindings** for protobuf parsing
+- **AsyncStorage** for persistence
+
+## API Usage
+
+### Get All Active Trains
+
+```typescript
+import { RealtimeService } from './services/realtime';
+
+const trains = await RealtimeService.getAllActiveTrains();
 ```
-tracky/
-├── app/               # Screen components (Expo Router)
-├── components/        # Reusable UI components
-├── services/          # Business logic and API clients
-├── utils/             # Helper functions and parsers
-├── types/             # TypeScript type definitions
-├── assets/            # Static assets and cached GTFS data
-└── constants/         # Theme and configuration
+
+### Get Train Position
+
+```typescript
+const position = await RealtimeService.getPositionForTrip('543');
+// Supports train numbers ("543") or trip IDs ("2026-01-16_AMTK_543")
+```
+
+### Search Stations
+
+```typescript
+import { TrainAPIService } from './services/api';
+
+const stations = await TrainAPIService.searchStations('Boston');
+```
+
+### Find Trips Between Stations
+
+```typescript
+const trips = await TrainAPIService.findTripsWithStops('BOS', 'NYP');
 ```
 
 ## Contributing
@@ -150,7 +195,3 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 ## License
 
 MIT
-
----
-
-Built with ❤️ using Expo and React Native
