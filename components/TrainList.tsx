@@ -184,7 +184,10 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
   });
 
   const countdown = getCountdownForTrain(train);
-  const unitLabel = `${countdown.unit}${countdown.past ? ' AGO' : ''}`;
+  // Proper pluralization: "1 HOUR" vs "2 HOURS"
+  const singularUnit = countdown.unit.slice(0, -1); // Remove trailing 'S' (DAYS->DAY, HOURS->HOUR, etc.)
+  const unitText = countdown.value === 1 ? singularUnit : countdown.unit;
+  const unitLabel = `${unitText}${countdown.past ? ' AGO' : ''}`;
   const isPast = countdown.past;
 
   const handleDeletePress = () => {

@@ -56,10 +56,6 @@ export function AnimatedStationMarker({
             fontWeight: '600',
             marginTop: -4,
             textAlign: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            paddingHorizontal: 4,
-            paddingVertical: 1,
-            borderRadius: 3,
           }}
           numberOfLines={1}
         >

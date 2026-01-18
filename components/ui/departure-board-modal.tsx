@@ -90,6 +90,7 @@ export default function DepartureBoardModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [filterMode, setFilterMode] = useState<'all' | 'departures' | 'arrivals'>('all');
 
   const { isCollapsed, scrollOffset } = React.useContext(SlideUpModalContext);
 
@@ -117,7 +118,7 @@ export default function DepartureBoardModal({
     fetchDepartures();
   }, [station.stop_id]);
 
-  // Filter departures based on search and date
+  // Filter departures based on search, date, and filter mode
   const filteredDepartures = useMemo(() => {
     return departures.filter((train) => {
       // Filter by upcoming time for today
@@ -125,19 +126,29 @@ export default function DepartureBoardModal({
         return false;
       }
 
+      // Filter by departure/arrival mode
+      if (filterMode !== 'all') {
+        const isDeparture = train.fromCode === station.stop_id;
+        const isArrival = train.toCode === station.stop_id;
+        if (filterMode === 'departures' && !isDeparture) return false;
+        if (filterMode === 'arrivals' && !isArrival) return false;
+      }
+
       // Filter by search query (destination, train number, route name)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesDestination = train.to.toLowerCase().includes(query);
         const matchesToCode = train.toCode.toLowerCase().includes(query);
+        const matchesOrigin = train.from.toLowerCase().includes(query);
+        const matchesFromCode = train.fromCode.toLowerCase().includes(query);
         const matchesTrainNumber = train.trainNumber.toLowerCase().includes(query);
         const matchesRouteName = train.routeName?.toLowerCase().includes(query);
-        return matchesDestination || matchesToCode || matchesTrainNumber || matchesRouteName;
+        return matchesDestination || matchesToCode || matchesOrigin || matchesFromCode || matchesTrainNumber || matchesRouteName;
       }
 
       return true;
     });
-  }, [departures, selectedDate, searchQuery]);
+  }, [departures, selectedDate, searchQuery, filterMode, station.stop_id]);
 
   // Date navigation
   const navigateDate = useCallback((direction: 'prev' | 'next') => {
@@ -233,30 +244,66 @@ export default function DepartureBoardModal({
               )}
             </View>
 
-            {/* Date Selector */}
-            <View style={styles.dateSelector}>
-              <TouchableOpacity
-                style={[styles.dateArrow, !canGoBack && styles.dateArrowDisabled]}
-                onPress={() => canGoBack && navigateDate('prev')}
-                disabled={!canGoBack}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={20}
-                  color={canGoBack ? AppColors.primary : AppColors.tertiary}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.dateDisplay}
-                onPress={() => setShowDatePicker(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="calendar-outline" size={16} color={AppColors.secondary} />
-                <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.dateArrow} onPress={() => navigateDate('next')}>
-                <Ionicons name="chevron-forward" size={20} color={AppColors.primary} />
-              </TouchableOpacity>
+            {/* Date Selector and Filter Row */}
+            <View style={styles.dateSelectorRow}>
+              {/* Date Navigation */}
+              <View style={styles.dateSelector}>
+                <TouchableOpacity
+                  style={[styles.dateArrow, !canGoBack && styles.dateArrowDisabled]}
+                  onPress={() => canGoBack && navigateDate('prev')}
+                  disabled={!canGoBack}
+                >
+                  <Ionicons
+                    name="chevron-back"
+                    size={20}
+                    color={canGoBack ? AppColors.primary : AppColors.tertiary}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dateDisplay}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={AppColors.secondary} />
+                  <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.dateArrow} onPress={() => navigateDate('next')}>
+                  <Ionicons name="chevron-forward" size={20} color={AppColors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Filter Toggle - integrated pill style */}
+              <View style={styles.filterToggle}>
+                <TouchableOpacity
+                  style={[styles.filterButton, styles.filterButtonLeft, filterMode === 'all' && styles.filterButtonActive]}
+                  onPress={() => setFilterMode('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterText, filterMode === 'all' && styles.filterTextActive]}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterButton, filterMode === 'departures' && styles.filterButtonActive]}
+                  onPress={() => setFilterMode('departures')}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-top-right"
+                    size={18}
+                    color={filterMode === 'departures' ? AppColors.primary : AppColors.tertiary}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterButton, styles.filterButtonRight, filterMode === 'arrivals' && styles.filterButtonActive]}
+                  onPress={() => setFilterMode('arrivals')}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-bottom-left"
+                    size={18}
+                    color={filterMode === 'arrivals' ? AppColors.primary : AppColors.tertiary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </>
         )}
@@ -275,6 +322,7 @@ export default function DepartureBoardModal({
                 onChange={handleDateChange}
                 minimumDate={new Date()}
                 themeVariant="dark"
+                accentColor="#FFFFFF"
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -318,7 +366,7 @@ export default function DepartureBoardModal({
             ) : (
               <View style={styles.departuresList}>
                 <Text style={styles.sectionTitle}>
-                  Departures ({filteredDepartures.length})
+                  {filterMode === 'arrivals' ? 'Arrivals' : filterMode === 'departures' ? 'Departures' : 'All Trains'} ({filteredDepartures.length})
                 </Text>
                 {filteredDepartures.map((train, index) => {
                   if (!train || !train.departTime) return null;
@@ -454,13 +502,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.border.primary,
   },
+  dateSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+  },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.background.secondary,
+    borderRadius: 18,
+    height: 36,
+  },
+  filterButton: {
+    height: 36,
+    paddingHorizontal: Spacing.md,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
+    alignItems: 'center',
+  },
+  filterButtonLeft: {
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+  },
+  filterButtonRight: {
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  filterButtonActive: {
+    backgroundColor: AppColors.background.tertiary,
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.tertiary,
+  },
+  filterTextActive: {
+    color: AppColors.primary,
   },
   dateArrow: {
     width: 36,

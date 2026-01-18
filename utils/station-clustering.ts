@@ -3,6 +3,8 @@
  * Groups nearby stations when zoomed out
  */
 
+import { ClusteringConfig } from './clustering-config';
+
 export interface Station {
   id: string;
   name: string;
@@ -28,8 +30,8 @@ export function clusterStations(
   stations: Station[],
   latitudeDelta: number
 ): StationCluster[] {
-  // If zoomed in enough (< 3.0 degrees), show individual stations
-  if (latitudeDelta < 5.0) {
+  // If zoomed in enough, show individual stations
+  if (latitudeDelta < ClusteringConfig.stationClusterThreshold) {
     return stations.map(station => ({
       id: station.id,
       lat: station.lat,
@@ -41,7 +43,7 @@ export function clusterStations(
 
   // Calculate cluster distance based on zoom level
   // More zoomed out = larger cluster radius
-  const clusterDistance = latitudeDelta * 0.1;
+  const clusterDistance = latitudeDelta * ClusteringConfig.clusterDistanceMultiplier;
 
   const clusters: StationCluster[] = [];
   const processed = new Set<string>();

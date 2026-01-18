@@ -3,7 +3,14 @@
  * Fetches live positions and delays from Transitdocs GTFS-RT feed
  */
 
+import { Alert } from 'react-native';
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
+
+// Track last error alert time to avoid spamming user
+let lastErrorAlertTime = 0;
+const ERROR_ALERT_COOLDOWN = 60000; // Only show alert once per minute
+let consecutiveErrors = 0;
+const MAX_SILENT_ERRORS = 3; // Show alert after 3 consecutive errors
 
 export interface RealtimePosition {
   trip_id: string;
@@ -41,13 +48,50 @@ let positionsCache: { data: Map<string, RealtimePosition>; timestamp: number } |
 let updatesCache: { data: Map<string, RealtimeUpdate[]>; timestamp: number } | null = null;
 
 /**
+ * Show error alert to user (rate-limited)
+ */
+function showRealtimeErrorAlert(status: number): void {
+  consecutiveErrors++;
+
+  // Only show alert if enough consecutive errors and cooldown has passed
+  const now = Date.now();
+  if (consecutiveErrors >= MAX_SILENT_ERRORS && (now - lastErrorAlertTime) > ERROR_ALERT_COOLDOWN) {
+    lastErrorAlertTime = now;
+
+    let message = 'Unable to fetch live train positions. ';
+    if (status === 503) {
+      message += 'The Transitdocs service is temporarily unavailable. Train positions will update when service is restored.';
+    } else if (status === 429) {
+      message += 'Too many requests. Please wait a moment.';
+    } else {
+      message += `Server returned error ${status}. Please try again later.`;
+    }
+
+    Alert.alert(
+      'Live Data Unavailable',
+      message,
+      [{ text: 'OK', style: 'default' }]
+    );
+  }
+}
+
+/**
+ * Reset error counter on successful fetch
+ */
+function resetErrorCounter(): void {
+  consecutiveErrors = 0;
+}
+
+/**
  * Fetch GTFS-RT protobuf data
  */
 async function fetchProtobuf(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) {
+    showRealtimeErrorAlert(response.status);
     throw new Error(`GTFS-RT fetch failed: ${response.status}`);
   }
+  resetErrorCounter();
   const arrayBuffer = await response.arrayBuffer();
   return new Uint8Array(arrayBuffer);
 }

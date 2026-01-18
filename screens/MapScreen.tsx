@@ -21,8 +21,10 @@ import type { ViewportBounds } from '../services/shape-loader';
 import { TrainStorageService } from '../services/storage';
 import type { Stop, Train } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
-import { getColoredRouteColor, getRouteColor, getStrokeWidthForZoom } from '../utils/route-colors';
+import { getRouteColor, getStrokeWidthForZoom } from '../utils/route-colors';
+import { ClusteringConfig } from '../utils/clustering-config';
 import { clusterStations, getStationAbbreviation } from '../utils/station-clustering';
+import { clusterTrains } from '../utils/train-clustering';
 import { ModalContent } from './ModalContent';
 import { styles } from './styles';
 
@@ -81,9 +83,9 @@ function MapScreenInner() {
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapType, setMapType] = useState<MapType>('standard');
-  const [routeMode, setRouteMode] = useState<RouteMode>('secondary');
+  const [routeMode, setRouteMode] = useState<RouteMode>('visible');
   const [stationMode, setStationMode] = useState<StationMode>('auto');
-  const [trainMode, setTrainMode] = useState<TrainMode>('saved');
+  const [trainMode, setTrainMode] = useState<TrainMode>('all');
   // Track current modal snap point for map centering calculations
   // 'half' = 50% modal, 'max' = fullscreen, 'min' = collapsed, null = no modal
   const [currentModalSnap, setCurrentModalSnap] = useState<'min' | 'half' | 'max' | null>(null);
@@ -423,9 +425,7 @@ function MapScreenInner() {
         onRegionChangeComplete={handleRegionChangeComplete}
       >
         {routeMode !== 'hidden' && visibleShapes.map((shape) => {
-          const colorScheme = routeMode === 'colored'
-            ? getColoredRouteColor(shape.id)
-            : getRouteColor(shape.id);
+          const colorScheme = getRouteColor(shape.id);
           return (
             <AnimatedRoute
               key={shape.id}
@@ -438,8 +438,8 @@ function MapScreenInner() {
         })}
 
         {stationClusters.map((cluster) => {
-          // Show full name when zoomed in enough (latitudeDelta < 0.25)
-          const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < 1;
+          // Show full name when zoomed in enough
+          const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < ClusteringConfig.fullNameThreshold;
           const displayName = cluster.isCluster
             ? `${cluster.stations.length}+`
             : showFullName
@@ -469,64 +469,110 @@ function MapScreenInner() {
         })}
 
         {/* Render saved trains when mode is 'saved' */}
-        {trainMode === 'saved' && savedTrains.map((train) => (
-          train.realtime?.position && (
+        {trainMode === 'saved' && (() => {
+          const savedTrainsWithPosition = savedTrains
+            .filter(train => train.realtime?.position)
+            .map(train => ({
+              tripId: train.tripId || `saved-${train.id}`,
+              trainNumber: train.trainNumber,
+              routeName: train.routeName,
+              position: {
+                lat: train.realtime!.position!.lat,
+                lon: train.realtime!.position!.lon,
+              },
+              isSaved: true,
+              originalTrain: train,
+            }));
+
+          const clusteredSavedTrains = clusterTrains(
+            savedTrainsWithPosition,
+            region?.latitudeDelta ?? 1
+          );
+
+          return clusteredSavedTrains.map((cluster) => (
             <LiveTrainMarker
-              key={`saved-train-${train.id}`}
-              trainNumber={train.trainNumber}
-              routeName={train.routeName}
+              key={cluster.id}
+              trainNumber={cluster.trainNumber || ''}
+              routeName={cluster.routeName || null}
               coordinate={{
-                latitude: train.realtime.position.lat,
-                longitude: train.realtime.position.lon,
+                latitude: cluster.lat,
+                longitude: cluster.lon,
               }}
               isSaved={true}
-              onPress={() => handleTrainMarkerPress(
-                train,
-                train.realtime!.position!.lat,
-                train.realtime!.position!.lon
-              )}
-            />
-          )
-        ))}
-
-        {/* Render all live trains when mode is 'all' */}
-        {trainMode === 'all' && liveTrains.map((train) => {
-          // Check if this train is saved
-          const savedTrain = savedTrains.find(
-            saved => saved.trainNumber === train.trainNumber ||
-            (saved.tripId && saved.tripId.includes(train.trainNumber))
-          );
-          return (
-            <LiveTrainMarker
-              key={`live-train-${train.tripId}`}
-              trainNumber={train.trainNumber}
-              routeName={train.routeName}
-              coordinate={{
-                latitude: train.position.lat,
-                longitude: train.position.lon,
-              }}
-              bearing={train.position.bearing}
-              isSaved={!!savedTrain}
+              isCluster={cluster.isCluster}
+              clusterCount={cluster.trains.length}
               onPress={() => {
-                // If it's a saved train, use its data directly
-                if (savedTrain && savedTrain.realtime?.position) {
+                if (!cluster.isCluster && cluster.trains[0]) {
+                  const train = (cluster.trains[0] as any).originalTrain;
                   handleTrainMarkerPress(
-                    savedTrain,
-                    train.position.lat,
-                    train.position.lon
-                  );
-                } else {
-                  // Fetch train details for non-saved trains
-                  handleLiveTrainMarkerPress(
-                    train.tripId,
-                    train.position.lat,
-                    train.position.lon
+                    train,
+                    cluster.lat,
+                    cluster.lon
                   );
                 }
               }}
             />
+          ));
+        })()}
+
+        {/* Render all live trains when mode is 'all' */}
+        {trainMode === 'all' && (() => {
+          // Prepare trains with saved status
+          const trainsWithSavedStatus = liveTrains.map(train => {
+            const savedTrain = savedTrains.find(
+              saved => saved.trainNumber === train.trainNumber ||
+              (saved.tripId && saved.tripId.includes(train.trainNumber))
+            );
+            return {
+              tripId: train.tripId,
+              trainNumber: train.trainNumber,
+              routeName: train.routeName,
+              position: train.position,
+              isSaved: !!savedTrain,
+              savedTrain,
+            };
+          });
+
+          const clusteredTrains = clusterTrains(
+            trainsWithSavedStatus,
+            region?.latitudeDelta ?? 1
           );
-        })}
+
+          return clusteredTrains.map((cluster) => (
+            <LiveTrainMarker
+              key={cluster.id}
+              trainNumber={cluster.trainNumber || ''}
+              routeName={cluster.routeName || null}
+              coordinate={{
+                latitude: cluster.lat,
+                longitude: cluster.lon,
+              }}
+              isSaved={cluster.isSaved}
+              isCluster={cluster.isCluster}
+              clusterCount={cluster.trains.length}
+              onPress={() => {
+                if (!cluster.isCluster && cluster.trains[0]) {
+                  const trainData = cluster.trains[0] as any;
+                  // If it's a saved train, use its data directly
+                  if (trainData.savedTrain && trainData.savedTrain.realtime?.position) {
+                    handleTrainMarkerPress(
+                      trainData.savedTrain,
+                      cluster.lat,
+                      cluster.lon
+                    );
+                  } else {
+                    // Fetch train details for non-saved trains
+                    handleLiveTrainMarkerPress(
+                      trainData.tripId,
+                      cluster.lat,
+                      cluster.lon
+                    );
+                  }
+                }
+              }}
+            />
+          ));
+        })()}
       </MapView>
 
       <MapSettingsPill

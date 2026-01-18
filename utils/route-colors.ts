@@ -13,12 +13,12 @@ export interface RouteColorScheme {
 
 /**
  * Get color for a route based on its ID or characteristics
- * All routes use secondary color with 2px width for consistency
+ * All routes use white color with 2px width for consistency
  */
 export function getRouteColor(shapeId: string): RouteColorScheme {
-  // All routes use secondary color by default
+  // All routes use white color by default
   return {
-    stroke: AppColors.secondary,
+    stroke: '#FFFFFF',
     strokeWidth: 2,
     opacity: 1,
   };

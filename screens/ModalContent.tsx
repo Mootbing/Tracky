@@ -231,7 +231,26 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     }
   };
 
-  const flights = savedTrains;
+  // Sort saved trains by departure time (earliest first)
+  const flights = [...savedTrains].sort((a, b) => {
+    // First compare by travel date if available
+    if (a.travelDate && b.travelDate) {
+      const dateA = new Date(a.travelDate);
+      const dateB = new Date(b.travelDate);
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateA.getTime() - dateB.getTime();
+      }
+    } else if (a.daysAway !== undefined && b.daysAway !== undefined) {
+      if (a.daysAway !== b.daysAway) {
+        return a.daysAway - b.daysAway;
+      }
+    }
+    // If same day, compare by departure time
+    const now = new Date();
+    const departA = parseTimeToDate(a.departTime, now);
+    const departB = parseTimeToDate(b.departTime, now);
+    return departA.getTime() - departB.getTime();
+  });
 
   // Exit search mode when modal is collapsed
   useEffect(() => {

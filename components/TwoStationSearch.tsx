@@ -295,6 +295,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               onChange={handleDateChange}
               minimumDate={new Date()}
               themeVariant="dark"
+              accentColor="#FFFFFF"
               style={styles.datePicker}
             />
           </View>

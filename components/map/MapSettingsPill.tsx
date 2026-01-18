@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { AppColors } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -23,7 +24,7 @@ const SPRING_CONFIG = {
   overshootClamping: false,
 };
 
-export type RouteMode = 'hidden' | 'secondary' | 'colored';
+export type RouteMode = 'hidden' | 'visible';
 export type StationMode = 'hidden' | 'auto' | 'all';
 export type TrainMode = 'hidden' | 'saved' | 'all';
 export type MapType = 'standard' | 'satellite';
@@ -42,9 +43,7 @@ interface MapSettingsPillProps {
 }
 
 function getNextRouteMode(current: RouteMode): RouteMode {
-  if (current === 'hidden') return 'secondary';
-  if (current === 'secondary') return 'colored';
-  return 'hidden';
+  return current === 'hidden' ? 'visible' : 'hidden';
 }
 
 function getNextStationMode(current: StationMode): StationMode {
@@ -60,9 +59,7 @@ function getNextTrainMode(current: TrainMode): TrainMode {
 }
 
 function getRouteModeLabel(mode: RouteMode): string {
-  if (mode === 'hidden') return 'Off';
-  if (mode === 'secondary') return 'On';
-  return 'Color';
+  return mode === 'hidden' ? 'Off' : 'On';
 }
 
 function getStationModeLabel(mode: StationMode): string {
@@ -79,7 +76,7 @@ function getTrainModeLabel(mode: TrainMode): string {
 
 function getModeColor(mode: string): string {
   if (mode === 'hidden') return AppColors.tertiary;
-  if (mode === 'secondary' || mode === 'auto' || mode === 'saved' || mode === 'standard') return AppColors.primary;
+  if (mode === 'visible' || mode === 'auto' || mode === 'saved' || mode === 'standard') return AppColors.primary;
   return AppColors.accentBlue;
 }
 
@@ -147,7 +144,7 @@ export default function MapSettingsPill({
           onPress={onRecenter}
           activeOpacity={0.7}
         >
-          <MaterialIcons name="my-location" size={24} color={AppColors.primary} />
+          <FontAwesome name="location-arrow" size={22} color={AppColors.primary} />
         </TouchableOpacity>
       </Animated.View>
 
