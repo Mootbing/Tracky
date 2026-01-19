@@ -6,6 +6,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -13,10 +14,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AppColors, BorderRadius, Spacing } from '../constants/theme';
+import { AppColors, Spacing } from '../constants/theme';
 import { COLORS, styles } from '../screens/styles';
 import type { Train } from '../types/train';
 import TimeDisplay from './ui/TimeDisplay';
+import { SlideUpModalContext } from './ui/slide-up-modal';
 
 // First threshold - shows delete button
 const FIRST_THRESHOLD = -80;
@@ -61,9 +63,12 @@ interface SwipeableTrainCardProps {
   train: Train;
   onPress: () => void;
   onDelete: () => void;
+  isFirst?: boolean;
+  isRest?: boolean;
+  contentOpacity?: SharedValue<number>;
 }
 
-function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProps) {
+function SwipeableTrainCard({ train, onPress, onDelete, isFirst, isRest, contentOpacity }: SwipeableTrainCardProps) {
   const translateX = useSharedValue(0);
   const hasTriggeredSecondHaptic = useSharedValue(false);
   const isDeleting = useSharedValue(false);
@@ -115,13 +120,13 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
       } else if (translateX.value <= FIRST_THRESHOLD) {
         // Snap to show delete button
         translateX.value = withSpring(FIRST_THRESHOLD, {
-          damping: 28,
+          damping: 50,
           stiffness: 200,
         });
       } else {
         // Snap back
         translateX.value = withSpring(0, {
-          damping: 28,
+          damping: 50,
           stiffness: 200,
         });
       }
@@ -135,7 +140,7 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
       if (translateX.value < -10) {
         // If swiped, tap closes it
         translateX.value = withSpring(0, {
-          damping: 28,
+          damping: 50,
           stiffness: 200,
         });
       } else {
@@ -190,12 +195,40 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
   const unitLabel = `${unitText}${countdown.past ? ' AGO' : ''}`;
   const isPast = countdown.past;
 
+  // Animated margin for first item - increases as modal collapses
+  const firstItemMarginStyle = useAnimatedStyle(() => {
+    if (!isFirst || !contentOpacity) {
+      return {};
+    }
+    // When contentOpacity is 1 (half height), margin is default (Spacing.md)
+    // When contentOpacity is 0 (collapsed), margin is 100
+    const marginBottom = interpolate(
+      contentOpacity.value,
+      [0, 1],
+      [100, Spacing.md],
+      'clamp'
+    );
+    return {
+      marginBottom,
+    };
+  });
+
+  // Animated opacity for rest of the list (not the first item) - fades out as modal collapses
+  const restItemOpacityStyle = useAnimatedStyle(() => {
+    if (!isRest || !contentOpacity) {
+      return {};
+    }
+    return {
+      opacity: contentOpacity.value,
+    };
+  });
+
   const handleDeletePress = () => {
     performDelete();
   };
 
   return (
-    <View style={swipeStyles.container}>
+    <Animated.View style={[swipeStyles.container, firstItemMarginStyle, restItemOpacityStyle]}>
       {/* Delete button behind the card */}
       <Animated.View style={[swipeStyles.deleteButtonContainer, deleteContainerAnimatedStyle]}>
         <View style={swipeStyles.deleteButtonWrapper}>
@@ -260,7 +293,7 @@ function SwipeableTrainCard({ train, onPress, onDelete }: SwipeableTrainCardProp
           </View>
         </Animated.View>
       </GestureDetector>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -271,6 +304,8 @@ interface TrainListProps {
 }
 
 export function TrainList({ flights, onTrainSelect, onDeleteTrain }: TrainListProps) {
+  const { contentOpacity } = React.useContext(SlideUpModalContext);
+
   if (flights.length === 0) {
     return (
       <View style={styles.noTrainsContainer}>
@@ -282,12 +317,15 @@ export function TrainList({ flights, onTrainSelect, onDeleteTrain }: TrainListPr
 
   return (
     <>
-      {flights.map((flight) => (
+      {flights.map((flight, index) => (
         <SwipeableTrainCard
           key={flight.id}
           train={flight}
           onPress={() => onTrainSelect(flight)}
           onDelete={() => onDeleteTrain?.(flight)}
+          isFirst={index === 0}
+          isRest={index > 0}
+          contentOpacity={contentOpacity}
         />
       ))}
     </>

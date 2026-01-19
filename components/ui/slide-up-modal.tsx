@@ -3,8 +3,10 @@ import React, { createContext, useEffect, useState } from 'react';
 import { Dimensions, Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  interpolate,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSpring
 } from 'react-native-reanimated';
@@ -24,6 +26,7 @@ export const SlideUpModalContext = createContext<{
   scrollOffset: any;
   panGesture: any;
   modalHeight: any;
+  contentOpacity: any;
   snapToPoint?: (point: 'min' | 'half' | 'max') => void;
   setGestureEnabled?: (enabled: boolean) => void;
 }>({
@@ -32,6 +35,7 @@ export const SlideUpModalContext = createContext<{
   scrollOffset: { value: 0 } as any,
   panGesture: null,
   modalHeight: { value: DEFAULT_SNAP_POINTS.HALF } as any,
+  contentOpacity: { value: 1 } as any,
 });
 
 interface SlideUpModalProps {
@@ -77,12 +81,28 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
   const [isCollapsed, setIsCollapsed] = useState(initialSnap === 'min');
   const [gestureEnabled, setGestureEnabled] = useState(true);
 
+  // Content opacity - fades elements between HALF (50%) and MIN (collapsed) height
+  // At HALF height: opacity = 1 (fully visible)
+  // At MIN height: opacity = 0 (hidden)
+  const contentOpacity = useDerivedValue(() => {
+    const currentHeight = SCREEN_HEIGHT - translateY.value;
+    const minHeight = SNAP_POINTS.MIN;
+    const halfHeight = SNAP_POINTS.HALF;
+
+    // Clamp and interpolate
+    return interpolate(
+      currentHeight,
+      [minHeight, halfHeight],
+      [0, 1],
+      'clamp'
+    );
+  });
+
   // Dismiss function to animate out and call onDismiss
   const dismiss = () => {
     translateY.value = withSpring(SCREEN_HEIGHT, {
-      damping: 50,
-      stiffness: 560,
-      overshootClamping: true,
+      damping: 60,
+      stiffness: 500,
     }, (finished) => {
       if (finished && onDismiss) {
         runOnJS(onDismiss)();
@@ -102,9 +122,8 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     runOnJS(setIsCollapsed)(targetSnap === 'min');
 
     translateY.value = withSpring(targetY, {
-      damping: 50,
-      stiffness: 560,
-      overshootClamping: false,
+      damping: 60,
+      stiffness: 500,
     });
   };
 
@@ -117,9 +136,8 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
   useEffect(() => {
     // Animate in on mount from bottom of screen
     translateY.value = withSpring(SCREEN_HEIGHT - getInitialHeight(), {
-      damping: 50,
-      stiffness: 560,
-      overshootClamping: false,
+      damping: 60,
+      stiffness: 500,
     });
   }, []);
 
@@ -142,9 +160,8 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
     runOnJS(setIsCollapsed)(point === 'min');
 
     translateY.value = withSpring(targetY, {
-      damping: 50,
-      stiffness: 560,
-      overshootClamping: false,
+      damping: 60,
+      stiffness: 500,
     });
   };
 
@@ -230,9 +247,8 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
       }
 
       translateY.value = withSpring(targetY, {
-        damping: 38,
-        stiffness: 800,
-        overshootClamping: false,
+        damping: 60,
+        stiffness: 500,
       });
     })
     .simultaneousWithExternalGesture();
@@ -310,7 +326,7 @@ export default React.forwardRef<{ snapToPoint: (point: 'min' | 'half' | 'max') =
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        <SlideUpModalContext.Provider value={{ isFullscreen, isCollapsed, scrollOffset, panGesture, modalHeight, snapToPoint, setGestureEnabled }}>
+        <SlideUpModalContext.Provider value={{ isFullscreen, isCollapsed, scrollOffset, panGesture, modalHeight, contentOpacity, snapToPoint, setGestureEnabled }}>
           <Animated.View
             style={[
               styles.blurContainer,

@@ -21,9 +21,8 @@ const STRIP_WIDTH = SCREEN_WIDTH - 32;
 const STRIP_HEIGHT = 56;
 
 const SPRING_CONFIG = {
-  damping: 28,
-  stiffness: 400,
-  overshootClamping: false,
+  damping: 60,
+  stiffness: 500,
 };
 
 export type RouteMode = 'hidden' | 'visible';

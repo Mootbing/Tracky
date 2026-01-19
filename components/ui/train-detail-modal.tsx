@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, Spacing } from '../../constants/theme';
@@ -138,6 +139,12 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   // Check if train is currently live (has realtime position)
   const isLiveTrain = trainData?.realtime?.position !== undefined;
 
+  // Base day offset for the segment - used to localize times relative to segment departure
+  const [segmentBaseDayOffset, setSegmentBaseDayOffset] = React.useState(0);
+  // Actual day offsets from GTFS for segment endpoints (more reliable than trainData which may be undefined)
+  const [segmentDepartDayOffset, setSegmentDepartDayOffset] = React.useState(0);
+  const [segmentArriveDayOffset, setSegmentArriveDayOffset] = React.useState(0);
+
   React.useEffect(() => {
     if (!trainData) return;
     if (trainData.tripId) {
@@ -161,14 +168,25 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
           const toIdx = stops.findIndex(s => s.stop_id === trainData.toCode);
 
           if (fromIdx !== -1 && toIdx !== -1 && fromIdx < toIdx) {
+            // Calculate base day offset from the segment's departure station
+            const fromStop = stops[fromIdx];
+            const toStop = stops[toIdx];
+            const fromFormatted = fromStop.departure_time ? formatTime24to12(fromStop.departure_time) : { time: '', dayOffset: 0 };
+            const toFormatted = toStop.arrival_time ? formatTime24to12(toStop.arrival_time) : { time: '', dayOffset: 0 };
+
+            setSegmentBaseDayOffset(fromFormatted.dayOffset);
+            setSegmentDepartDayOffset(fromFormatted.dayOffset);
+            setSegmentArriveDayOffset(toFormatted.dayOffset);
+
             // Only show stops between from and to (exclusive of endpoints)
+            // Day offsets are localized relative to segment departure
             const segmentStops = stops.slice(fromIdx + 1, toIdx);
             setIntermediateStops(
               segmentStops.map(stop => {
                 const formatted = stop.departure_time ? formatTime24to12(stop.departure_time) : { time: '', dayOffset: 0 };
                 return {
                   time: formatted.time,
-                  dayOffset: formatted.dayOffset,
+                  dayOffset: formatted.dayOffset - fromFormatted.dayOffset, // Localize to segment
                   name: stop.stop_name,
                   code: stop.stop_id,
                 };
@@ -176,6 +194,9 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             );
           } else {
             // Fallback: show all intermediate stops if segment not found
+            setSegmentBaseDayOffset(0);
+            setSegmentDepartDayOffset(0);
+            setSegmentArriveDayOffset(0);
             setIntermediateStops(
               stops.slice(1, -1).map(stop => {
                 const formatted = stop.departure_time ? formatTime24to12(stop.departure_time) : { time: '', dayOffset: 0 };
@@ -208,8 +229,15 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   }, [error, onClose]);
 
   // Use context from SlideUpModal for proper scroll/gesture coordination
-  const { isCollapsed, isFullscreen, scrollOffset } = React.useContext(SlideUpModalContext);
+  const { isCollapsed, isFullscreen, scrollOffset, contentOpacity } = React.useContext(SlideUpModalContext);
   const [isScrolled, setIsScrolled] = React.useState(false);
+
+  // Animated style for content that fades between half and collapsed states
+  const fadeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: contentOpacity.value,
+    };
+  });
 
   // Check if modal is at half height (not collapsed and not fullscreen)
   const isHalfHeight = !isCollapsed && !isFullscreen;
@@ -408,8 +436,8 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
         </TouchableOpacity>
       </View>
 
-      {/* Collapsed: only header visible */}
-      {!isCollapsed && (
+      {/* Collapsed: only header visible - content fades between half and collapsed */}
+      <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]} pointerEvents={isCollapsed ? 'none' : 'auto'}>
         <ScrollView
           style={styles.scrollContent}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: isHalfHeight ? SCREEN_HEIGHT * 0.5 : 100 }}
@@ -780,12 +808,15 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                         </View>
                         {(() => {
                           const delay = trainData.realtime?.delay;
+                          // Localize day offset: departure is always day 0 for segment view
+                          // Use GTFS-derived offset which is more reliable than trainData.departDayOffset
+                          const localizedDepartOffset = segmentDepartDayOffset - segmentBaseDayOffset; // Should always be 0
                           if (delay && delay > 0) {
-                            const delayed = addDelayToTime(trainData.departTime, delay, trainData.departDayOffset || 0);
+                            const delayed = addDelayToTime(trainData.departTime, delay, localizedDepartOffset);
                             return (
                               <TimeDisplay
                                 time={trainData.departTime}
-                                dayOffset={trainData.departDayOffset}
+                                dayOffset={localizedDepartOffset}
                                 style={styles.timeText}
                                 superscriptStyle={styles.timeSuperscript}
                                 delayMinutes={delay}
@@ -797,7 +828,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                           return (
                             <TimeDisplay
                               time={trainData.departTime}
-                              dayOffset={trainData.departDayOffset}
+                              dayOffset={localizedDepartOffset}
                               style={styles.timeText}
                               superscriptStyle={styles.timeSuperscript}
                             />
@@ -871,12 +902,15 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                         </View>
                         {(() => {
                           const delay = trainData.realtime?.delay;
+                          // Localize day offset relative to segment departure
+                          // Use GTFS-derived offset which is more reliable than trainData.arriveDayOffset
+                          const localizedArriveOffset = segmentArriveDayOffset - segmentBaseDayOffset;
                           if (delay && delay > 0) {
-                            const delayed = addDelayToTime(trainData.arriveTime, delay, trainData.arriveDayOffset || 0);
+                            const delayed = addDelayToTime(trainData.arriveTime, delay, localizedArriveOffset);
                             return (
                               <TimeDisplay
                                 time={trainData.arriveTime}
-                                dayOffset={trainData.arriveDayOffset}
+                                dayOffset={localizedArriveOffset}
                                 style={styles.timeText}
                                 superscriptStyle={styles.timeSuperscript}
                                 delayMinutes={delay}
@@ -888,7 +922,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                           return (
                             <TimeDisplay
                               time={trainData.arriveTime}
-                              dayOffset={trainData.arriveDayOffset}
+                              dayOffset={localizedArriveOffset}
                               style={styles.timeText}
                               superscriptStyle={styles.timeSuperscript}
                             />
@@ -902,7 +936,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             </>
           )}
         </ScrollView>
-      )}
+      </Animated.View>
     </View>
   );
 }

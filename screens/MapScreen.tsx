@@ -187,6 +187,17 @@ function MapScreenInner() {
     navigateToTrain(train, { fromMarker: false, returnTo: 'departureBoard' });
   }, [setSelectedTrain, navigateToTrain]);
 
+  // Handle saving train from departure board swipe
+  const handleSaveTrainFromBoard = useCallback(async (train: Train): Promise<boolean> => {
+    if (!train.tripId) return false;
+    const saved = await TrainStorageService.saveTrain(train);
+    if (saved) {
+      const updatedTrains = await TrainStorageService.getSavedTrains();
+      setSavedTrains(updatedTrains);
+    }
+    return saved;
+  }, [setSavedTrains]);
+
   // Handle close button on departure board
   const handleDepartureBoardClose = useCallback(() => {
     navigateToMain();
@@ -612,7 +623,7 @@ function MapScreenInner() {
       {showTrainDetail && selectedTrain && (
         <SlideUpModal
           ref={detailModalRef}
-          minSnapPercent={0.1}
+          minSnapPercent={0.15}
           initialSnap={getInitialSnap('trainDetail')}
           onDismiss={() => handleModalDismissed('trainDetail')}
           onSnapChange={handleSnapChange}
@@ -630,7 +641,7 @@ function MapScreenInner() {
       {showDepartureBoard && modalData.station && (
         <SlideUpModal
           ref={departureBoardRef}
-          minSnapPercent={0.1}
+          minSnapPercent={0.15}
           initialSnap={getInitialSnap('departureBoard')}
           onDismiss={() => handleModalDismissed('departureBoard')}
           onSnapChange={handleSnapChange}
@@ -639,6 +650,7 @@ function MapScreenInner() {
             station={modalData.station}
             onClose={handleDepartureBoardClose}
             onTrainSelect={handleDepartureBoardTrainSelect}
+            onSaveTrain={handleSaveTrainFromBoard}
           />
         </SlideUpModal>
       )}
