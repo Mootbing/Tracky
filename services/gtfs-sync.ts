@@ -213,7 +213,7 @@ type ProgressUpdate = { step: string; progress: number; detail?: string };
 
 export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => void): Promise<{ usedCache: boolean }> {
   try {
-    const report = (step: string, progress: number, detail?: string) => {
+    const report = async (step: string, progress: number, detail?: string) => {
       onProgress?.({ step, progress: Math.min(1, Math.max(0, progress)), detail });
       // Progressive console logging
       if (detail) {
@@ -221,9 +221,11 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       } else {
         logger.info(`[GTFS Refresh] ${step} (${Math.round(progress * 100)}%)`);
       }
+      // Yield to the event loop so React can flush state updates and re-render
+      await new Promise(resolve => setTimeout(resolve, 0));
     };
 
-    report('Checking GTFS cache', 0.05);
+    await report('Checking GTFS cache', 0.05);
 
     await ensureCacheDir();
 
@@ -243,17 +245,17 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
         // Initialize shape loader for map rendering
         shapeLoader.initialize(shapes || {});
 
-        report('Using cached GTFS', 1, 'Cache age < 7 days');
+        await report('Using cached GTFS', 1, 'Cache age < 7 days');
         return { usedCache: true };
       }
     }
 
-    report('GTFS.zip', 0.1, 'Fetching latest schedule');
+    await report('GTFS.zip', 0.1, 'Fetching latest schedule');
     // Fetch and rebuild cache
     const zipBytes = await fetchZipBytes();
-    report('Download complete', 0.2);
+    await report('Download complete', 0.2);
     const files = unzipSync(zipBytes);
-    report('Unzipping archive', 0.3);
+    await report('Unzipping archive', 0.3);
 
     const routesTxt = files['routes.txt'] ? strFromU8(files['routes.txt']) : '';
     const stopsTxt = files['stops.txt'] ? strFromU8(files['stops.txt']) : '';
@@ -266,18 +268,18 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       throw new Error('Missing expected GTFS files (routes/stops/stop_times)');
     }
 
-    report('Parsing routes', 0.35);
+    await report('Parsing routes', 0.35);
     const routes = buildRoutes(parseCSV(routesTxt));
-    report('Parsing stops', 0.45);
+    await report('Parsing stops', 0.45);
     const stops = buildStops(parseCSV(stopsTxt));
-    report('Parsing trips', 0.55);
+    await report('Parsing trips', 0.55);
     const trips = tripsTxt ? buildTrips(parseCSV(tripsTxt)) : [];
-    report('Parsing stop times', 0.7);
+    await report('Parsing stop times', 0.7);
     const stopTimes = buildStopTimes(parseCSV(stopTimesTxt));
-    report('Parsing shapes', 0.8);
+    await report('Parsing shapes', 0.8);
     const shapes = shapesTxt ? buildShapes(parseCSV(shapesTxt)) : {};
 
-    report('Persisting cache', 0.9, 'Writing JSON to device storage');
+    await report('Persisting cache', 0.9, 'Writing JSON to device storage');
 
     // Write to AsyncStorage instead of file system
     await AsyncStorage.setItem(STORAGE_KEYS.ROUTES, JSON.stringify(routes));
@@ -292,7 +294,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     // Initialize shape loader for map rendering
     shapeLoader.initialize(shapes);
 
-    report('Refresh complete', 1, 'Applied latest GTFS');
+    await report('Refresh complete', 1, 'Applied latest GTFS');
     return { usedCache: false };
   } catch (err) {
     logger.error('[GTFS Refresh] GTFS sync failed:', err);

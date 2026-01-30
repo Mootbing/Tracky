@@ -49,25 +49,6 @@ function pluralize(count: number, singular: string, plural?: string): string {
   return count === 1 ? singular : plural || `${singular}s`;
 }
 
-// Helper function to parse time string (HH:MM AM/PM) and return minutes since midnight
-const timeToMinutes = (timeStr: string): number => {
-  // Extract just the time part (before AM/PM)
-  const timePart = timeStr.split(' ')[0];
-  const [hoursStr, minutesStr] = timePart.split(':');
-  const hours = parseInt(hoursStr);
-  const minutes = parseInt(minutesStr);
-  const isPM = timeStr.includes('PM');
-
-  let totalHours = hours;
-  if (isPM && hours !== 12) {
-    totalHours = hours + 12;
-  } else if (!isPM && hours === 12) {
-    totalHours = 0;
-  }
-
-  return totalHours * 60 + minutes;
-};
-
 function calculateDuration(startTime: string, endTime: string): string {
   const startMinutes = timeToMinutes(startTime);
   let endMinutes = timeToMinutes(endTime);
