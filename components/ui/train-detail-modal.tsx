@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
   elapsedStopsText: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: COLORS.secondary,
+    color: COLORS.primary,
     marginLeft: 0,
   },
   // Elapsed stop text styling (secondary color for past stops)

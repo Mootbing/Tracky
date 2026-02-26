@@ -107,6 +107,7 @@ export function LiveTrainMarker({
           alignItems: 'center',
           opacity: fadeAnim,
           transform: [{ scale: scaleAnim }],
+          padding: 10,
         }}
       >
         {isAcela ? (

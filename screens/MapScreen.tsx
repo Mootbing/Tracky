@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import MapView, { PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,9 +66,9 @@ function MapScreenInner() {
 
   // Use centralized modal context
   const {
-    showMain,
-    showTrainDetail,
-    showDepartureBoard,
+    showMainContent,
+    showTrainDetailContent,
+    showDepartureBoardContent,
     mainModalRef,
     detailModalRef,
     departureBoardRef,
@@ -92,6 +92,9 @@ function MapScreenInner() {
   // Debounced viewport bounds for lazy loading (updates less frequently than region)
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounced latitudeDelta for train clustering - prevents crash on rapid zoom
+  const [debouncedLatDelta, setDebouncedLatDelta] = useState<number>(1);
+  const trainDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapType, setMapType] = useState<MapType>('standard');
   const [routeMode, setRouteMode] = useState<RouteMode>('visible');
   const [stationMode, setStationMode] = useState<StationMode>('auto');
@@ -105,6 +108,44 @@ function MapScreenInner() {
 
   // Fetch all live trains from GTFS-RT (only when trainMode is 'all')
   const { liveTrains } = useLiveTrains(15000, trainMode === 'all');
+
+  // Memoize clustered trains to avoid expensive reclustering on every render
+  const clusteredLiveTrains = useMemo(() => {
+    if (trainMode !== 'all') return [];
+    const trainsWithSavedStatus = liveTrains.map(train => {
+      const savedTrain = savedTrains.find(
+        saved =>
+          saved.trainNumber === train.trainNumber || (saved.tripId && saved.tripId.includes(train.trainNumber))
+      );
+      return {
+        tripId: train.tripId,
+        trainNumber: train.trainNumber,
+        routeName: train.routeName,
+        position: train.position,
+        isSaved: !!savedTrain,
+        savedTrain,
+      };
+    });
+    return clusterTrains(trainsWithSavedStatus, debouncedLatDelta);
+  }, [liveTrains, savedTrains, debouncedLatDelta, trainMode]);
+
+  const clusteredSavedTrains = useMemo(() => {
+    if (trainMode !== 'saved') return [];
+    const savedTrainsWithPosition = savedTrains
+      .filter(train => train.realtime?.position)
+      .map(train => ({
+        tripId: train.tripId || `saved-${train.id}`,
+        trainNumber: train.trainNumber,
+        routeName: train.routeName,
+        position: {
+          lat: train.realtime!.position!.lat,
+          lon: train.realtime!.position!.lon,
+        },
+        isSaved: true,
+        originalTrain: train,
+      }));
+    return clusterTrains(savedTrainsWithPosition, debouncedLatDelta);
+  }, [savedTrains, debouncedLatDelta, trainMode]);
 
   // Handle train selection from list - animate map if has position, navigate to detail
   const handleTrainSelect = useCallback(
@@ -154,19 +195,33 @@ function MapScreenInner() {
     [setSelectedTrain, navigateToTrain]
   );
 
-  // Handle live train marker press - fetch train details then show modal
+  // Handle live train marker press - zoom immediately, fetch train details in parallel
   const handleLiveTrainMarkerPress = useCallback(
     async (tripId: string, lat: number, lon: number) => {
+      // Start map zoom immediately — don't wait for API
+      const latitudeDelta = 0.05;
+      const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+      mapRef.current?.animateToRegion(
+        {
+          latitude: lat - latitudeOffset,
+          longitude: lon,
+          latitudeDelta,
+          longitudeDelta: 0.05,
+        },
+        500
+      );
+
       try {
         const train = await TrainAPIService.getTrainDetails(tripId);
         if (train) {
-          handleTrainMarkerPress(train, lat, lon);
+          setSelectedTrain(train);
+          navigateToTrain(train, { fromMarker: true });
         }
       } catch (error) {
         logger.error('Error fetching train details:', error);
       }
     },
-    [handleTrainMarkerPress]
+    [setSelectedTrain, navigateToTrain]
   );
 
   // Handle station pin press - show departure board
@@ -200,6 +255,19 @@ function MapScreenInner() {
         stop_lat: stationData.lat,
         stop_lon: stationData.lon,
       };
+
+      // Zoom to station immediately
+      const latitudeDelta = 0.05;
+      const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+      mapRef.current?.animateToRegion(
+        {
+          latitude: stationData.lat - latitudeOffset,
+          longitude: stationData.lon,
+          latitudeDelta,
+          longitudeDelta: 0.05,
+        },
+        500
+      );
 
       navigateToStation(stop);
     },
@@ -374,6 +442,14 @@ function MapScreenInner() {
     debounceTimerRef.current = setTimeout(() => {
       setViewportBounds(regionToViewportBounds(newRegion));
     }, 250); // 250ms debounce for viewport bounds
+
+    // Debounce train clustering latitudeDelta to avoid expensive reclustering during fast zoom
+    if (trainDebounceRef.current) {
+      clearTimeout(trainDebounceRef.current);
+    }
+    trainDebounceRef.current = setTimeout(() => {
+      setDebouncedLatDelta(newRegion.latitudeDelta);
+    }, 300); // 300ms debounce for train clustering
   }, []);
 
   // Initialize viewport bounds when region is first set
@@ -391,6 +467,9 @@ function MapScreenInner() {
       }
       if (regionThrottleTimerRef.current) {
         clearTimeout(regionThrottleTimerRef.current);
+      }
+      if (trainDebounceRef.current) {
+        clearTimeout(trainDebounceRef.current);
       }
     };
   }, []);
@@ -517,93 +596,55 @@ function MapScreenInner() {
 
         {/* Render saved trains when mode is 'saved' */}
         {trainMode === 'saved' &&
-          (() => {
-            const savedTrainsWithPosition = savedTrains
-              .filter(train => train.realtime?.position)
-              .map(train => ({
-                tripId: train.tripId || `saved-${train.id}`,
-                trainNumber: train.trainNumber,
-                routeName: train.routeName,
-                position: {
-                  lat: train.realtime!.position!.lat,
-                  lon: train.realtime!.position!.lon,
-                },
-                isSaved: true,
-                originalTrain: train,
-              }));
-
-            const clusteredSavedTrains = clusterTrains(savedTrainsWithPosition, region?.latitudeDelta ?? 1);
-
-            return clusteredSavedTrains.map(cluster => (
-              <LiveTrainMarker
-                key={cluster.id}
-                trainNumber={cluster.trainNumber || ''}
-                routeName={cluster.routeName || null}
-                coordinate={{
-                  latitude: cluster.lat,
-                  longitude: cluster.lon,
-                }}
-                isSaved={true}
-                isCluster={cluster.isCluster}
-                clusterCount={cluster.trains.length}
-                onPress={() => {
-                  if (!cluster.isCluster && cluster.trains[0]) {
-                    const train = (cluster.trains[0] as any).originalTrain;
-                    handleTrainMarkerPress(train, cluster.lat, cluster.lon);
-                  }
-                }}
-              />
-            ));
-          })()}
+          clusteredSavedTrains.map(cluster => (
+            <LiveTrainMarker
+              key={cluster.id}
+              trainNumber={cluster.trainNumber || ''}
+              routeName={cluster.routeName || null}
+              coordinate={{
+                latitude: cluster.lat,
+                longitude: cluster.lon,
+              }}
+              isSaved={true}
+              isCluster={cluster.isCluster}
+              clusterCount={cluster.trains.length}
+              onPress={() => {
+                if (!cluster.isCluster && cluster.trains[0]) {
+                  const train = (cluster.trains[0] as any).originalTrain;
+                  handleTrainMarkerPress(train, cluster.lat, cluster.lon);
+                }
+              }}
+            />
+          ))}
 
         {/* Render all live trains when mode is 'all' */}
         {trainMode === 'all' &&
-          (() => {
-            // Prepare trains with saved status
-            const trainsWithSavedStatus = liveTrains.map(train => {
-              const savedTrain = savedTrains.find(
-                saved =>
-                  saved.trainNumber === train.trainNumber || (saved.tripId && saved.tripId.includes(train.trainNumber))
-              );
-              return {
-                tripId: train.tripId,
-                trainNumber: train.trainNumber,
-                routeName: train.routeName,
-                position: train.position,
-                isSaved: !!savedTrain,
-                savedTrain,
-              };
-            });
-
-            const clusteredTrains = clusterTrains(trainsWithSavedStatus, region?.latitudeDelta ?? 1);
-
-            return clusteredTrains.map(cluster => (
-              <LiveTrainMarker
-                key={cluster.id}
-                trainNumber={cluster.trainNumber || ''}
-                routeName={cluster.routeName || null}
-                coordinate={{
-                  latitude: cluster.lat,
-                  longitude: cluster.lon,
-                }}
-                isSaved={cluster.isSaved}
-                isCluster={cluster.isCluster}
-                clusterCount={cluster.trains.length}
-                onPress={() => {
-                  if (!cluster.isCluster && cluster.trains[0]) {
-                    const trainData = cluster.trains[0] as any;
-                    // If it's a saved train, use its data directly
-                    if (trainData.savedTrain && trainData.savedTrain.realtime?.position) {
-                      handleTrainMarkerPress(trainData.savedTrain, cluster.lat, cluster.lon);
-                    } else {
-                      // Fetch train details for non-saved trains
-                      handleLiveTrainMarkerPress(trainData.tripId, cluster.lat, cluster.lon);
-                    }
+          clusteredLiveTrains.map(cluster => (
+            <LiveTrainMarker
+              key={cluster.id}
+              trainNumber={cluster.trainNumber || ''}
+              routeName={cluster.routeName || null}
+              coordinate={{
+                latitude: cluster.lat,
+                longitude: cluster.lon,
+              }}
+              isSaved={cluster.isSaved}
+              isCluster={cluster.isCluster}
+              clusterCount={cluster.trains.length}
+              onPress={() => {
+                if (!cluster.isCluster && cluster.trains[0]) {
+                  const trainData = cluster.trains[0] as any;
+                  // If it's a saved train, use its data directly
+                  if (trainData.savedTrain && trainData.savedTrain.realtime?.position) {
+                    handleTrainMarkerPress(trainData.savedTrain, cluster.lat, cluster.lon);
+                  } else {
+                    // Fetch train details for non-saved trains
+                    handleLiveTrainMarkerPress(trainData.tripId, cluster.lat, cluster.lon);
                   }
-                }}
-              />
-            ));
-          })()}
+                }
+              }}
+            />
+          ))}
       </MapView>
 
       <MapSettingsPill
@@ -619,15 +660,15 @@ function MapScreenInner() {
         onRecenter={handleRecenter}
       />
 
-      {/* Main modal - My Trains list (conditionally rendered, slides in/out) */}
-      {showMain && (
-        <SlideUpModal
-          ref={mainModalRef}
-          minSnapPercent={0.35}
-          initialSnap={savedTrains.length === 0 ? 'min' : 'half'}
-          onDismiss={() => handleModalDismissed('main')}
-          onSnapChange={handleSnapChange}
-        >
+      {/* Main modal - always mounted, content conditional */}
+      <SlideUpModal
+        ref={mainModalRef}
+        minSnapPercent={0.35}
+        initialSnap={savedTrains.length === 0 ? 'min' : 'half'}
+        onDismiss={() => handleModalDismissed('main')}
+        onSnapChange={handleSnapChange}
+      >
+        {showMainContent && (
           <ModalContent
             onTrainSelect={trainOrStation => {
               // If it's a train, animate out main modal then show details
@@ -648,44 +689,46 @@ function MapScreenInner() {
               }
             }}
           />
-        </SlideUpModal>
-      )}
+        )}
+      </SlideUpModal>
 
-      {/* Detail modal - Train details */}
-      {showTrainDetail && selectedTrain && (
-        <SlideUpModal
-          ref={detailModalRef}
-          minSnapPercent={0.15}
-          initialSnap={getInitialSnap('trainDetail')}
-          onDismiss={() => handleModalDismissed('trainDetail')}
-          onSnapChange={handleSnapChange}
-        >
+      {/* Detail modal - always mounted, starts hidden, content conditional */}
+      <SlideUpModal
+        ref={detailModalRef}
+        minSnapPercent={0.15}
+        initialSnap={getInitialSnap('trainDetail')}
+        startHidden
+        onDismiss={() => handleModalDismissed('trainDetail')}
+        onSnapChange={handleSnapChange}
+      >
+        {showTrainDetailContent && selectedTrain && (
           <TrainDetailModal
             train={selectedTrain}
             onClose={handleDetailModalClose}
             onStationSelect={handleStationSelectFromDetail}
             onTrainSelect={handleTrainToTrainNavigation}
           />
-        </SlideUpModal>
-      )}
+        )}
+      </SlideUpModal>
 
-      {/* Departure board modal - Station departures */}
-      {showDepartureBoard && modalData.station && (
-        <SlideUpModal
-          ref={departureBoardRef}
-          minSnapPercent={0.15}
-          initialSnap={getInitialSnap('departureBoard')}
-          onDismiss={() => handleModalDismissed('departureBoard')}
-          onSnapChange={handleSnapChange}
-        >
+      {/* Departure board modal - always mounted, starts hidden, content conditional */}
+      <SlideUpModal
+        ref={departureBoardRef}
+        minSnapPercent={0.15}
+        initialSnap={getInitialSnap('departureBoard')}
+        startHidden
+        onDismiss={() => handleModalDismissed('departureBoard')}
+        onSnapChange={handleSnapChange}
+      >
+        {showDepartureBoardContent && modalData.station && (
           <DepartureBoardModal
             station={modalData.station}
             onClose={handleDepartureBoardClose}
             onTrainSelect={handleDepartureBoardTrainSelect}
             onSaveTrain={handleSaveTrainFromBoard}
           />
-        </SlideUpModal>
-      )}
+        )}
+      </SlideUpModal>
     </View>
   );
 }

@@ -9,6 +9,8 @@ import Animated, {
   useDerivedValue,
   useSharedValue,
   withSpring,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import { AppColors, BlurIntensity, BorderRadius, Spacing } from '../../constants/theme';
 
@@ -47,17 +49,19 @@ interface SlideUpModalProps {
   minSnapPercent?: number;
   /** Initial snap point. Defaults to 'half' */
   initialSnap?: 'min' | 'half' | 'max';
+  /** When true, mount off-screen without auto-sliding in. Use slideIn() to show. */
+  startHidden?: boolean;
 }
 
 export default React.forwardRef<
   {
     snapToPoint: (point: 'min' | 'half' | 'max') => void;
-    dismiss: () => void;
+    dismiss: (fast?: boolean) => void;
     slideIn: (targetSnap?: 'min' | 'half' | 'max') => void;
   },
   SlideUpModalProps
 >(function SlideUpModal(
-  { children, onSnapChange, onHeightChange, onDismiss, minSnapPercent = 0.35, initialSnap = 'half' }: SlideUpModalProps,
+  { children, onSnapChange, onHeightChange, onDismiss, minSnapPercent = 0.35, initialSnap = 'half', startHidden = false }: SlideUpModalProps,
   ref: React.Ref<any>
 ) {
   // Get safe area insets dynamically
@@ -106,19 +110,32 @@ export default React.forwardRef<
   });
 
   // Dismiss function to animate out and call onDismiss
-  const dismiss = () => {
-    translateY.value = withSpring(
-      SCREEN_HEIGHT,
-      {
-        damping: 60,
-        stiffness: 500,
-      },
-      finished => {
-        if (finished && onDismiss) {
-          runOnJS(onDismiss)();
+  // When fast=true, uses a quick timing animation for snappy modal-to-modal transitions
+  const dismiss = (fast?: boolean) => {
+    if (fast) {
+      translateY.value = withTiming(
+        SCREEN_HEIGHT,
+        { duration: 150, easing: Easing.out(Easing.quad) },
+        finished => {
+          if (finished && onDismiss) {
+            runOnJS(onDismiss)();
+          }
         }
-      }
-    );
+      );
+    } else {
+      translateY.value = withSpring(
+        SCREEN_HEIGHT,
+        {
+          damping: 60,
+          stiffness: 500,
+        },
+        finished => {
+          if (finished && onDismiss) {
+            runOnJS(onDismiss)();
+          }
+        }
+      );
+    }
   };
 
   // Slide in function to animate modal back into view
@@ -150,6 +167,7 @@ export default React.forwardRef<
   );
 
   useEffect(() => {
+    if (startHidden) return; // Stay off-screen, wait for explicit slideIn()
     // Animate in on mount from bottom of screen
     translateY.value = withSpring(SCREEN_HEIGHT - getInitialHeight(), {
       damping: 60,

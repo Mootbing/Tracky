@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { TrainList } from '../components/TrainList';
 import { TwoStationSearch } from '../components/TwoStationSearch';
@@ -18,6 +18,7 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
   const { isFullscreen, isCollapsed, scrollOffset, panGesture, snapToPoint, setGestureEnabled } =
     useContext(SlideUpModalContext);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { savedTrains, setSavedTrains, setSelectedTrain } = useTrainContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingCache, setIsLoadingCache] = useState(true); // Start true - loading on mount
@@ -154,11 +155,12 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
 
   // Manual refresh handler
   const handleRefresh = async () => {
+    setShowSettings(false);
     setIsRefreshing(true);
     setRefreshProgress(0.05);
     setRefreshStep('Checking GTFS cache');
-    setIsSearchFocused(false); // Hide search bar
-    snapToPoint?.('min'); // Collapse to 35%
+    setIsSearchFocused(false);
+    snapToPoint?.('min');
     try {
       setRefreshPhases([]);
       const result = await ensureFreshGTFS(update => {
@@ -255,14 +257,16 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     return departA.getTime() - departB.getTime();
   });
 
-  // Exit search mode when modal is collapsed
+  // Exit search mode and settings when modal is collapsed
   useEffect(() => {
-    if (isCollapsed && isSearchFocused) {
-      setIsSearchFocused(false);
+    if (isCollapsed) {
+      if (isSearchFocused) setIsSearchFocused(false);
+      if (showSettings) setShowSettings(false);
     }
-  }, [isCollapsed, isSearchFocused]);
+  }, [isCollapsed, isSearchFocused, showSettings]);
 
   const handleOpenSearch = () => {
+    setShowSettings(false);
     snapToPoint?.('max');
     setIsSearchFocused(true);
   };
@@ -290,19 +294,27 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
       <View>
         <View style={styles.titleRow}>
           <Text style={styles.title}>
-            {isLoading ? (isLoadingCache ? 'Loading' : 'Fetching') : isSearchFocused ? 'Add Train' : 'My Trains'}
+            {isLoading
+              ? isLoadingCache
+                ? 'Loading'
+                : 'Fetching'
+              : showSettings
+                ? 'Settings'
+                : isSearchFocused
+                  ? 'Add Train'
+                  : 'My Trains'}
           </Text>
         </View>
         {!isSearchFocused && !isLoading && (
           <TouchableOpacity
-            onPress={handleRefresh}
+            onPress={() => setShowSettings(s => !s)}
             style={styles.refreshButton}
             activeOpacity={0.7}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel="Refresh train schedules"
+            accessibilityLabel="Settings"
           >
-            <Ionicons name="refresh" size={24} color={COLORS.primary} />
+            <Ionicons name={showSettings ? 'close' : 'settings-sharp'} size={22} color={COLORS.primary} />
           </TouchableOpacity>
         )}
 
@@ -355,8 +367,8 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
 
         {isSearchFocused && <Text style={styles.subtitle}>Enter departure and arrival stations</Text>}
 
-        {/* Search Button (when not searching) */}
-        {!isLoading && !isSearchFocused && (
+        {/* Search Button (when not searching and not in settings) */}
+        {!isLoading && !isSearchFocused && !showSettings && (
           <TouchableOpacity
             style={styles.searchContainer}
             activeOpacity={0.7}
@@ -384,10 +396,29 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
         simultaneousHandlers={panGesture}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Settings Panel */}
+        {showSettings && !isLoading && (
+          <View style={{ paddingBottom: 16 }}>
+            <TouchableOpacity
+              style={settingsStyles.item}
+              activeOpacity={0.7}
+              onPress={handleRefresh}
+            >
+              <View style={settingsStyles.itemIcon}>
+                <Ionicons name="refresh" size={20} color={COLORS.accentBlue} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={settingsStyles.itemTitle}>Refresh GTFS Data</Text>
+                <Text style={settingsStyles.itemSubtitle}>Download latest Amtrak schedules</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
+            </TouchableOpacity>
+          </View>
+        )}
         {isSearchFocused && !isCollapsed && (
           <TwoStationSearch onSelectTrip={handleSelectTrip} onClose={handleCloseSearch} />
         )}
-        {!isSearchFocused && !isLoading && (
+        {!isSearchFocused && !showSettings && !isLoading && (
           <TrainList
             flights={flights}
             onTrainSelect={train => {
@@ -401,6 +432,37 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     </View>
   );
 }
+
+const settingsStyles = StyleSheet.create({
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background.secondary,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border.secondary,
+  },
+  itemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.background.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  itemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginBottom: 2,
+  },
+  itemSubtitle: {
+    fontSize: 12,
+    color: COLORS.secondary,
+  },
+});
 
 // parseTimeToDate is now imported from utils/time-formatting
 

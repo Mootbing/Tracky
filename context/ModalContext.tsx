@@ -14,12 +14,6 @@ export interface ModalConfig {
   };
 }
 
-// Transition request - what modal to show next after current dismisses
-interface TransitionRequest {
-  target: ModalConfig | null;
-  returnTo?: ModalConfig | null; // For going back (e.g., detail -> departure board)
-}
-
 interface ModalContextType {
   // Current modal state
   activeModal: ModalType;
@@ -29,10 +23,10 @@ interface ModalContextType {
   };
   currentSnap: 'min' | 'half' | 'max';
 
-  // Visibility states for rendering
-  showMain: boolean;
-  showTrainDetail: boolean;
-  showDepartureBoard: boolean;
+  // Content visibility states (controls what renders inside always-mounted modal shells)
+  showMainContent: boolean;
+  showTrainDetailContent: boolean;
+  showDepartureBoardContent: boolean;
 
   // Modal refs for imperative control
   mainModalRef: React.RefObject<any>;
@@ -71,10 +65,11 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const detailModalRef = useRef<any>(null);
   const departureBoardRef = useRef<any>(null);
 
-  // Visibility states
-  const [showMain, setShowMain] = useState(true);
-  const [showTrainDetail, setShowTrainDetail] = useState(false);
-  const [showDepartureBoard, setShowDepartureBoard] = useState(false);
+  // Content visibility states — modal shells are always mounted,
+  // these control whether content renders inside them
+  const [showMainContent, setShowMainContent] = useState(true);
+  const [showTrainDetailContent, setShowTrainDetailContent] = useState(false);
+  const [showDepartureBoardContent, setShowDepartureBoardContent] = useState(false);
 
   // Active modal tracking
   const [activeModal, setActiveModal] = useState<ModalType>('main');
@@ -89,11 +84,11 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Navigation stack for back navigation
   const [modalStack, setModalStack] = useState<ModalConfig[]>([]);
 
-  // Pending transition - what to do after current modal dismisses
-  const pendingTransitionRef = useRef<TransitionRequest | null>(null);
-
   // Track initial snap for next modal
   const nextModalSnapRef = useRef<'min' | 'half' | 'max'>('half');
+
+  // For same-modal transitions (e.g. train→train), need sequential dismiss→slideIn
+  const pendingSameModalRef = useRef<{ snap: 'min' | 'half' | 'max' } | null>(null);
 
   // Get initial snap for a modal type based on pending transition
   const getInitialSnap = useCallback((type: ModalType): 'min' | 'half' | 'max' => {
@@ -105,13 +100,31 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentSnap(snap);
   }, []);
 
+  // Helper: get ref for a modal type
+  const getModalRef = useCallback((type: ModalType) => {
+    if (type === 'main') return mainModalRef;
+    if (type === 'trainDetail') return detailModalRef;
+    return departureBoardRef;
+  }, []);
+
+  // Helper: show content for a modal type
+  const showContent = useCallback((type: ModalType) => {
+    if (type === 'main') setShowMainContent(true);
+    else if (type === 'trainDetail') setShowTrainDetailContent(true);
+    else if (type === 'departureBoard') setShowDepartureBoardContent(true);
+  }, []);
+
   // Navigate to train detail modal
   const navigateToTrain = useCallback(
     (train: Train, options?: { fromMarker?: boolean; returnTo?: ModalType }) => {
       const fromMarker = options?.fromMarker ?? false;
       const returnTo = options?.returnTo;
 
-      // Set up the transition
+      // If already showing this exact train, do nothing
+      if (activeModal === 'trainDetail' && modalData.train?.tripId && modalData.train.tripId === train.tripId) {
+        return;
+      }
+
       const targetSnap = fromMarker ? 'half' : 'max';
       nextModalSnapRef.current = targetSnap;
 
@@ -121,174 +134,132 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? { type: 'departureBoard', initialSnap: 'half', data: { station: modalData.station } }
           : null;
 
-      pendingTransitionRef.current = {
-        target: {
-          type: 'trainDetail',
-          initialSnap: targetSnap,
-          data: { train },
-        },
-        returnTo: returnConfig,
-      };
-
-      // Update stack if we have a return destination
       if (returnConfig) {
         setModalStack(prev => [...prev, returnConfig]);
       }
 
-      // Store train data now (will be used when modal shows)
+      // Set data and show content immediately
       setModalData(prev => ({ ...prev, train }));
+      setShowTrainDetailContent(true);
+      setActiveModal('trainDetail');
 
-      // Dismiss current modal - the transition will happen in handleModalDismissed
-      if (activeModal === 'main') {
-        mainModalRef.current?.dismiss?.();
-      } else if (activeModal === 'departureBoard') {
-        departureBoardRef.current?.dismiss?.();
-      } else if (activeModal === 'trainDetail') {
-        // Transitioning from one train to another
-        detailModalRef.current?.dismiss?.();
+      if (activeModal === 'trainDetail') {
+        // Same-modal transition: dismiss first, slideIn after dismiss completes
+        pendingSameModalRef.current = { snap: targetSnap };
+        detailModalRef.current?.dismiss?.(true);
+      } else {
+        // Different modal: dismiss old + slide in new simultaneously
+        getModalRef(activeModal).current?.dismiss?.(true);
+        detailModalRef.current?.slideIn?.(targetSnap);
       }
     },
-    [activeModal, modalData.station]
+    [activeModal, modalData.train, modalData.station, getModalRef]
   );
 
   // Navigate to station departure board
   const navigateToStation = useCallback(
     (station: Stop) => {
+      // If already showing this exact station, do nothing
+      if (activeModal === 'departureBoard' && modalData.station?.stop_id && modalData.station.stop_id === station.stop_id) {
+        return;
+      }
+
       nextModalSnapRef.current = 'half';
 
-      pendingTransitionRef.current = {
-        target: {
-          type: 'departureBoard',
-          initialSnap: 'half',
-          data: { station },
-        },
-        returnTo: null,
-      };
-
-      // Store station data now
+      // Set data and show content immediately
       setModalData(prev => ({ ...prev, station }));
+      setShowDepartureBoardContent(true);
+      setActiveModal('departureBoard');
 
-      // Dismiss current modal
-      if (activeModal === 'main') {
-        mainModalRef.current?.dismiss?.();
-      } else if (activeModal === 'trainDetail') {
-        detailModalRef.current?.dismiss?.();
-      } else if (activeModal === 'departureBoard') {
-        // Transitioning from one station to another
-        departureBoardRef.current?.dismiss?.();
+      if (activeModal === 'departureBoard') {
+        // Same-modal transition: dismiss first, slideIn after
+        pendingSameModalRef.current = { snap: 'half' };
+        departureBoardRef.current?.dismiss?.(true);
+      } else {
+        // Different modal: dismiss old + slide in new simultaneously
+        getModalRef(activeModal).current?.dismiss?.(true);
+        departureBoardRef.current?.slideIn?.('half');
       }
     },
-    [activeModal]
+    [activeModal, modalData.station, getModalRef]
   );
 
   // Navigate back to main modal
   const navigateToMain = useCallback(() => {
     nextModalSnapRef.current = 'half';
 
-    pendingTransitionRef.current = {
-      target: {
-        type: 'main',
-        initialSnap: 'half',
-      },
-      returnTo: null,
-    };
-
     // Clear stack
     setModalStack([]);
 
-    // Dismiss current modal
-    if (activeModal === 'trainDetail') {
-      detailModalRef.current?.dismiss?.();
-    } else if (activeModal === 'departureBoard') {
-      departureBoardRef.current?.dismiss?.();
-    }
-  }, [activeModal]);
+    // Show main content and slide in
+    setShowMainContent(true);
+    setActiveModal('main');
+
+    // Simultaneously: dismiss old + slide in new
+    getModalRef(activeModal).current?.dismiss?.(true);
+    mainModalRef.current?.slideIn?.('half');
+  }, [activeModal, getModalRef]);
 
   // Go back in the stack
   const goBack = useCallback(() => {
     if (modalStack.length > 0) {
       const returnTo = modalStack[modalStack.length - 1];
-      nextModalSnapRef.current = returnTo.initialSnap || 'half';
-
-      pendingTransitionRef.current = {
-        target: returnTo,
-        returnTo: null,
-      };
+      const targetSnap = returnTo.initialSnap || 'half';
+      nextModalSnapRef.current = targetSnap;
 
       // Pop the stack
       setModalStack(prev => prev.slice(0, -1));
 
-      // Dismiss current modal
-      if (activeModal === 'trainDetail') {
-        detailModalRef.current?.dismiss?.();
-      } else if (activeModal === 'departureBoard') {
-        departureBoardRef.current?.dismiss?.();
+      // Update data if needed
+      if (returnTo.data?.train) {
+        setModalData(prev => ({ ...prev, train: returnTo.data!.train! }));
       }
+      if (returnTo.data?.station) {
+        setModalData(prev => ({ ...prev, station: returnTo.data!.station! }));
+      }
+
+      // Show target content and slide in
+      showContent(returnTo.type);
+      setActiveModal(returnTo.type);
+
+      // Simultaneously: dismiss old + slide in target
+      getModalRef(activeModal).current?.dismiss?.(true);
+      getModalRef(returnTo.type).current?.slideIn?.(targetSnap);
     } else {
       // No stack, go to main
       navigateToMain();
     }
-  }, [modalStack, activeModal, navigateToMain]);
+  }, [modalStack, activeModal, navigateToMain, getModalRef, showContent]);
 
   // Dismiss current modal without navigation (just closes it)
   const dismissCurrent = useCallback(() => {
     goBack();
   }, [goBack]);
 
-  // Handle when a modal finishes dismissing
+  // Handle when a modal finishes its dismiss animation
   const handleModalDismissed = useCallback((type: ModalType) => {
-    // Hide the dismissed modal
-    if (type === 'main') {
-      setShowMain(false);
-    } else if (type === 'trainDetail') {
-      setShowTrainDetail(false);
-    } else if (type === 'departureBoard') {
-      setShowDepartureBoard(false);
+    // Check if this is a same-modal transition (e.g. train→train)
+    const pending = pendingSameModalRef.current;
+    if (pending) {
+      pendingSameModalRef.current = null;
+      // Content was already updated, just slide back in with new content
+      getModalRef(type).current?.slideIn?.(pending.snap);
+      return;
     }
 
-    // Process pending transition
-    const transition = pendingTransitionRef.current;
-    if (transition?.target) {
-      const target = transition.target;
-
-      // Small delay to allow dismiss animation to complete
-      setTimeout(() => {
-        // Update modal data if needed
-        if (target.data?.train) {
-          setModalData(prev => ({ ...prev, train: target.data!.train! }));
-        }
-        if (target.data?.station) {
-          setModalData(prev => ({ ...prev, station: target.data!.station! }));
-        }
-
-        // Show and slide in the target modal
-        if (target.type === 'main') {
-          setShowMain(true);
-          setActiveModal('main');
-          mainModalRef.current?.slideIn?.(target.initialSnap || 'half');
-        } else if (target.type === 'trainDetail') {
-          setShowTrainDetail(true);
-          setActiveModal('trainDetail');
-          // TrainDetail modal will auto-animate in on mount
-        } else if (target.type === 'departureBoard') {
-          setShowDepartureBoard(true);
-          setActiveModal('departureBoard');
-          // DepartureBoard modal will auto-animate in on mount
-        }
-
-        // Clear the pending transition
-        pendingTransitionRef.current = null;
-      }, 50);
-    }
-  }, []);
+    // Otherwise, hide content of the dismissed modal to free resources
+    if (type === 'main') setShowMainContent(false);
+    else if (type === 'trainDetail') setShowTrainDetailContent(false);
+    else if (type === 'departureBoard') setShowDepartureBoardContent(false);
+  }, [getModalRef]);
 
   const value: ModalContextType = {
     activeModal,
     modalData,
     currentSnap,
-    showMain,
-    showTrainDetail,
-    showDepartureBoard,
+    showMainContent,
+    showTrainDetailContent,
+    showDepartureBoardContent,
     mainModalRef,
     detailModalRef,
     departureBoardRef,
