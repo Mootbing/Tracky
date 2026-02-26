@@ -20,39 +20,15 @@ import type { Train } from '../types/train';
 import TimeDisplay from './ui/TimeDisplay';
 import { SlideUpModalContext } from './ui/slide-up-modal';
 import { parseTimeToDate } from '../utils/time-formatting';
+import { getCountdownForTrain } from '../utils/train-display';
 
 // Re-export for backwards compatibility
-export { parseTimeToDate };
+export { parseTimeToDate, getCountdownForTrain };
 
 // First threshold - shows delete button
 const FIRST_THRESHOLD = -80;
 // Second threshold - triggers auto-delete on release
 const SECOND_THRESHOLD = -200;
-
-export function getCountdownForTrain(train: Train): {
-  value: number;
-  unit: 'DAYS' | 'HOURS' | 'MINUTES' | 'SECONDS';
-  past: boolean;
-} {
-  if (train.daysAway && train.daysAway > 0) {
-    return { value: Math.round(train.daysAway), unit: 'DAYS', past: false };
-  }
-  const now = new Date();
-  const baseDate = new Date(now);
-  const departDate = parseTimeToDate(train.departTime, baseDate);
-  let deltaSec = (departDate.getTime() - now.getTime()) / 1000;
-  const past = deltaSec < 0;
-  const absSec = Math.abs(deltaSec);
-
-  let hours = Math.round(absSec / 3600);
-  if (hours >= 1) return { value: hours, unit: 'HOURS', past };
-  let minutes = Math.round(absSec / 60);
-  if (minutes >= 60) return { value: 1, unit: 'HOURS', past };
-  if (minutes >= 1) return { value: minutes, unit: 'MINUTES', past };
-  let seconds = Math.round(absSec);
-  if (seconds >= 60) return { value: 1, unit: 'MINUTES', past };
-  return { value: seconds, unit: 'SECONDS', past };
-}
 
 interface SwipeableTrainCardProps {
   train: Train;
@@ -247,7 +223,7 @@ function SwipeableTrainCard({ train, onPress, onDelete, isFirst, contentOpacity 
             <View style={styles.timeRow}>
               <View style={styles.timeInfo}>
                 <View style={[styles.arrowIcon, styles.departureIcon]}>
-                  <MaterialCommunityIcons name="arrow-top-right" size={8} color="rgba(255, 255, 255, 0.5)" />
+                  <MaterialCommunityIcons name="arrow-top-right" size={8} color={AppColors.secondary} />
                 </View>
                 <Text style={styles.timeCode}>{train.fromCode}</Text>
                 <TimeDisplay
@@ -260,7 +236,7 @@ function SwipeableTrainCard({ train, onPress, onDelete, isFirst, contentOpacity 
 
               <View style={styles.timeInfo}>
                 <View style={[styles.arrowIcon, styles.arrivalIcon]}>
-                  <MaterialCommunityIcons name="arrow-bottom-left" size={8} color="rgba(255, 255, 255, 0.5)" />
+                  <MaterialCommunityIcons name="arrow-bottom-left" size={8} color={AppColors.secondary} />
                 </View>
                 <Text style={styles.timeCode}>{train.toCode}</Text>
                 <TimeDisplay

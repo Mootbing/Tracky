@@ -540,9 +540,9 @@ export class TrainAPIService {
   /**
    * Get trains for a specific station
    */
-  static async getTrainsForStation(stopId: string): Promise<Train[]> {
+  static async getTrainsForStation(stopId: string, date?: Date): Promise<Train[]> {
     try {
-      const tripIds = gtfsParser.getTripsForStop(stopId);
+      const tripIds = gtfsParser.getTripsForStop(stopId, date);
       const trains = await Promise.all(tripIds.map(tripId => this.getTrainDetails(tripId)));
       return trains.filter((train): train is Train => train !== null);
     } catch (error) {

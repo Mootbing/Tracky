@@ -10,7 +10,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
 import { strFromU8, unzipSync } from 'fflate';
-import type { Route, Shape, Stop, StopTime, Trip } from '../types/train';
+import type { CalendarDateException, CalendarEntry, Route, Shape, Stop, StopTime, Trip } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { shapeLoader } from './shape-loader';
 import { logger } from '../utils/logger';
@@ -23,6 +23,8 @@ const GTFS_FILES = {
   stopTimes: 'stop_times.json',
   shapes: 'shapes.json',
   trips: 'trips.json',
+  calendar: 'calendar.json',
+  calendarDates: 'calendar_dates.json',
 };
 
 const STORAGE_KEYS = {
@@ -32,6 +34,8 @@ const STORAGE_KEYS = {
   STOP_TIMES: 'GTFS_STOP_TIMES_JSON',
   SHAPES: 'GTFS_SHAPES_JSON',
   TRIPS: 'GTFS_TRIPS_JSON',
+  CALENDAR: 'GTFS_CALENDAR_JSON',
+  CALENDAR_DATES: 'GTFS_CALENDAR_DATES_JSON',
 };
 
 function isOlderThanDays(dateMs: number, days: number): boolean {
@@ -63,6 +67,8 @@ async function readJSONFromFile<T>(filename: string): Promise<T | null> {
     else if (filename === 'stop_times.json') key = STORAGE_KEYS.STOP_TIMES;
     else if (filename === 'shapes.json') key = STORAGE_KEYS.SHAPES;
     else if (filename === 'trips.json') key = STORAGE_KEYS.TRIPS;
+    else if (filename === 'calendar.json') key = STORAGE_KEYS.CALENDAR;
+    else if (filename === 'calendar_dates.json') key = STORAGE_KEYS.CALENDAR_DATES;
     else return null;
     const content = await AsyncStorage.getItem(key);
     if (!content) return null;
@@ -205,8 +211,36 @@ function buildTrips(rows: Array<Record<string, string>>): Trip[] {
       trip_id: r['trip_id'],
       trip_short_name: r['trip_short_name'] || undefined,
       trip_headsign: r['trip_headsign'] || undefined,
+      service_id: r['service_id'] || '',
     }))
     .filter(t => !!t.trip_id);
+}
+
+function buildCalendar(rows: Array<Record<string, string>>): CalendarEntry[] {
+  return rows
+    .map(r => ({
+      service_id: r['service_id'],
+      monday: r['monday'] === '1',
+      tuesday: r['tuesday'] === '1',
+      wednesday: r['wednesday'] === '1',
+      thursday: r['thursday'] === '1',
+      friday: r['friday'] === '1',
+      saturday: r['saturday'] === '1',
+      sunday: r['sunday'] === '1',
+      start_date: parseInt(r['start_date'] || '0', 10),
+      end_date: parseInt(r['end_date'] || '0', 10),
+    }))
+    .filter(c => !!c.service_id);
+}
+
+function buildCalendarDates(rows: Array<Record<string, string>>): CalendarDateException[] {
+  return rows
+    .map(r => ({
+      service_id: r['service_id'],
+      date: parseInt(r['date'] || '0', 10),
+      exception_type: parseInt(r['exception_type'] || '0', 10),
+    }))
+    .filter(c => !!c.service_id && c.date > 0);
 }
 
 type ProgressUpdate = { step: string; progress: number; detail?: string };
@@ -239,8 +273,10 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       const stopTimes = await readJSONFromFile<Record<string, StopTime[]>>(GTFS_FILES.stopTimes);
       const shapes = await readJSONFromFile<Record<string, Shape[]>>(GTFS_FILES.shapes);
       const trips = await readJSONFromFile<Trip[]>(GTFS_FILES.trips);
+      const calendar = await readJSONFromFile<CalendarEntry[]>(GTFS_FILES.calendar);
+      const calendarDates = await readJSONFromFile<CalendarDateException[]>(GTFS_FILES.calendarDates);
       if (routes && stops && stopTimes) {
-        gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || []);
+        gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || [], calendar || [], calendarDates || []);
 
         // Initialize shape loader for map rendering
         shapeLoader.initialize(shapes || {});
@@ -262,6 +298,8 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     const stopTimesTxt = files['stop_times.txt'] ? strFromU8(files['stop_times.txt']) : '';
     const shapesTxt = files['shapes.txt'] ? strFromU8(files['shapes.txt']) : '';
     const tripsTxt = files['trips.txt'] ? strFromU8(files['trips.txt']) : '';
+    const calendarTxt = files['calendar.txt'] ? strFromU8(files['calendar.txt']) : '';
+    const calendarDatesTxt = files['calendar_dates.txt'] ? strFromU8(files['calendar_dates.txt']) : '';
 
     if (!routesTxt || !stopsTxt || !stopTimesTxt) {
       logger.error('[GTFS Refresh] Missing expected GTFS files (routes/stops/stop_times)');
@@ -276,8 +314,11 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     const trips = tripsTxt ? buildTrips(parseCSV(tripsTxt)) : [];
     await report('Parsing stop times', 0.7);
     const stopTimes = buildStopTimes(parseCSV(stopTimesTxt));
-    await report('Parsing shapes', 0.8);
+    await report('Parsing shapes', 0.75);
     const shapes = shapesTxt ? buildShapes(parseCSV(shapesTxt)) : {};
+    await report('Parsing calendar', 0.8);
+    const calendar = calendarTxt ? buildCalendar(parseCSV(calendarTxt)) : [];
+    const calendarDates = calendarDatesTxt ? buildCalendarDates(parseCSV(calendarDatesTxt)) : [];
 
     await report('Persisting cache', 0.9, 'Writing JSON to device storage');
 
@@ -287,9 +328,11 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     await AsyncStorage.setItem(STORAGE_KEYS.STOP_TIMES, JSON.stringify(stopTimes));
     await AsyncStorage.setItem(STORAGE_KEYS.SHAPES, JSON.stringify(shapes));
     await AsyncStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(trips));
+    await AsyncStorage.setItem(STORAGE_KEYS.CALENDAR, JSON.stringify(calendar));
+    await AsyncStorage.setItem(STORAGE_KEYS.CALENDAR_DATES, JSON.stringify(calendarDates));
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_FETCH, String(Date.now()));
 
-    gtfsParser.overrideData(routes, stops, stopTimes, shapes, trips);
+    gtfsParser.overrideData(routes, stops, stopTimes, shapes, trips, calendar, calendarDates);
 
     // Initialize shape loader for map rendering
     shapeLoader.initialize(shapes);
@@ -327,9 +370,11 @@ export async function loadCachedGTFS(): Promise<boolean> {
     const stopTimes = await readJSONFromFile<Record<string, StopTime[]>>(GTFS_FILES.stopTimes);
     const shapes = await readJSONFromFile<Record<string, Shape[]>>(GTFS_FILES.shapes);
     const trips = await readJSONFromFile<Trip[]>(GTFS_FILES.trips);
+    const calendar = await readJSONFromFile<CalendarEntry[]>(GTFS_FILES.calendar);
+    const calendarDates = await readJSONFromFile<CalendarDateException[]>(GTFS_FILES.calendarDates);
 
     if (routes && stops && stopTimes) {
-      gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || []);
+      gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || [], calendar || [], calendarDates || []);
       shapeLoader.initialize(shapes || {});
       logger.info('[GTFS] Loaded cached data on startup');
       return true;

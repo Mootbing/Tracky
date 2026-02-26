@@ -56,12 +56,10 @@ export const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background.secondary,
+    backgroundColor: COLORS.background.tertiary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border.secondary,
   },
   searchContainerCollapsed: { marginBottom: Spacing.md, paddingHorizontal: Spacing.sm },
   searchInput: {

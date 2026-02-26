@@ -1,11 +1,10 @@
-import { BlurView } from 'expo-blur';
 import * as Network from 'expo-network';
 import React from 'react';
 import { Alert, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { AppColors, BlurIntensity } from '../../constants/theme';
+import { AppColors } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PILL_WIDTH = 48;
@@ -169,8 +168,7 @@ export default function MapSettingsPill({
 
   return (
     <Animated.View style={[styles.container, { top }, animatedContainerStyle]}>
-      <View style={StyleSheet.absoluteFill}>
-        <BlurView intensity={BlurIntensity} style={StyleSheet.absoluteFill}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: AppColors.background.secondary }]}>
           {/* Collapsed Content - Settings + Recenter + (optional) Offline buttons */}
           <Animated.View
             style={[styles.collapsedContent, collapsedContentStyle]}
@@ -265,7 +263,6 @@ export default function MapSettingsPill({
               <Ionicons name="close" size={24} color={AppColors.primary} />
             </TouchableOpacity>
           </Animated.View>
-        </BlurView>
       </View>
     </Animated.View>
   );

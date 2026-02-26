@@ -4,11 +4,12 @@
  * Full train data is reconstructed from GTFS on load
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { SavedTrainRef, Train } from '../types/train';
+import type { CompletedTrip, SavedTrainRef, Train } from '../types/train';
 import { TrainAPIService } from './api';
 
 const STORAGE_KEYS = {
   SAVED_TRAINS: 'savedTrainRefs',
+  TRIP_HISTORY: 'tripHistory',
   USER_PREFERENCES: 'userPreferences',
 } as const;
 
@@ -181,6 +182,75 @@ export class TrainStorageService {
       return true;
     } catch (error) {
       logger.error('Error clearing trains:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get completed trip history
+   */
+  static async getTripHistory(): Promise<CompletedTrip[]> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.TRIP_HISTORY);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      logger.error('Error loading trip history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Move a train to trip history (saves display data and removes from saved trains)
+   */
+  static async moveToHistory(train: Train): Promise<boolean> {
+    try {
+      const entry: CompletedTrip = {
+        tripId: train.tripId || '',
+        trainNumber: train.trainNumber,
+        routeName: train.routeName,
+        from: train.from,
+        to: train.to,
+        fromCode: train.fromCode,
+        toCode: train.toCode,
+        departTime: train.departTime,
+        arriveTime: train.arriveTime,
+        date: train.date,
+        travelDate: Date.now(),
+        completedAt: Date.now(),
+      };
+
+      const history = await this.getTripHistory();
+      // Avoid duplicates
+      const exists = history.some(
+        h => h.tripId === entry.tripId && h.fromCode === entry.fromCode && h.toCode === entry.toCode && h.date === entry.date
+      );
+      if (!exists) {
+        history.unshift(entry); // newest first
+        await AsyncStorage.setItem(STORAGE_KEYS.TRIP_HISTORY, JSON.stringify(history));
+      }
+
+      // Remove from saved trains
+      await this.deleteTrainByTripId(entry.tripId, entry.fromCode, entry.toCode);
+      return true;
+    } catch (error) {
+      logger.error('Error moving train to history:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete a trip from history
+   */
+  static async deleteFromHistory(tripId: string, fromCode: string, toCode: string): Promise<boolean> {
+    try {
+      const history = await this.getTripHistory();
+      const updated = history.filter(
+        h => !(h.tripId === tripId && h.fromCode === fromCode && h.toCode === toCode)
+      );
+      await AsyncStorage.setItem(STORAGE_KEYS.TRIP_HISTORY, JSON.stringify(updated));
+      return true;
+    } catch (error) {
+      logger.error('Error deleting from history:', error);
       return false;
     }
   }

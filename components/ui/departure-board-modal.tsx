@@ -322,7 +322,7 @@ export default function DepartureBoardModal({
     const fetchDepartures = async () => {
       setLoading(true);
       try {
-        const trains = await TrainAPIService.getTrainsForStation(station.stop_id);
+        const trains = await TrainAPIService.getTrainsForStation(station.stop_id, selectedDate);
         // Sort by departure time
         trains.sort((a, b) => {
           const aMinutes = parseTimeToMinutes(a.departTime);
@@ -347,7 +347,7 @@ export default function DepartureBoardModal({
     };
 
     fetchDepartures();
-  }, [station.stop_id]);
+  }, [station.stop_id, selectedDate]);
 
   // Filter departures based on search, date, and filter mode
   const filteredDepartures = useMemo(() => {
@@ -918,10 +918,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   statusOnTime: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: '#1A332E',
   },
   statusDelayed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: '#3A1A1A',
   },
   statusText: {
     fontSize: 10,

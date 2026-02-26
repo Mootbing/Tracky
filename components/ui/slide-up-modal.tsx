@@ -1,10 +1,10 @@
-import { BlurView } from 'expo-blur';
 import React, { createContext, useEffect, useState } from 'react';
 import { Dimensions, Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { AppColors, BlurIntensity, BorderRadius, Spacing } from '../../constants/theme';
+import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -22,22 +22,29 @@ const DEFAULT_SNAP_POINTS = {
   MAX: SCREEN_HEIGHT * 0.95,
 };
 
+/** Imperative handle exposed by SlideUpModal via ref */
+export interface SlideUpModalHandle {
+  snapToPoint: (point: 'min' | 'half' | 'max') => void;
+  dismiss: (fast?: boolean) => void;
+  slideIn: (targetSnap?: 'min' | 'half' | 'max') => void;
+}
+
 export const SlideUpModalContext = createContext<{
   isFullscreen: boolean;
   isCollapsed: boolean;
-  scrollOffset: any;
-  panGesture: any;
-  modalHeight: any;
-  contentOpacity: any;
+  scrollOffset: SharedValue<number>;
+  panGesture: ReturnType<typeof Gesture.Pan> | null;
+  modalHeight: SharedValue<number>;
+  contentOpacity: SharedValue<number>;
   snapToPoint?: (point: 'min' | 'half' | 'max') => void;
   setGestureEnabled?: (enabled: boolean) => void;
 }>({
   isFullscreen: false,
   isCollapsed: false,
-  scrollOffset: { value: 0 } as any,
+  scrollOffset: { value: 0 } as SharedValue<number>,
   panGesture: null,
-  modalHeight: { value: DEFAULT_SNAP_POINTS.HALF } as any,
-  contentOpacity: { value: 1 } as any,
+  modalHeight: { value: DEFAULT_SNAP_POINTS.HALF } as SharedValue<number>,
+  contentOpacity: { value: 1 } as SharedValue<number>,
 });
 
 interface SlideUpModalProps {
@@ -53,16 +60,9 @@ interface SlideUpModalProps {
   startHidden?: boolean;
 }
 
-export default React.forwardRef<
-  {
-    snapToPoint: (point: 'min' | 'half' | 'max') => void;
-    dismiss: (fast?: boolean) => void;
-    slideIn: (targetSnap?: 'min' | 'half' | 'max') => void;
-  },
-  SlideUpModalProps
->(function SlideUpModal(
+export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function SlideUpModal(
   { children, onSnapChange, onHeightChange, onDismiss, minSnapPercent = 0.35, initialSnap = 'half', startHidden = false }: SlideUpModalProps,
-  ref: React.Ref<any>
+  ref: React.Ref<SlideUpModalHandle>
 ) {
   // Get safe area insets dynamically
   const screenHeight = Dimensions.get('screen').height;
@@ -307,21 +307,11 @@ export default React.forwardRef<
     // Calculate interpolation progress (0 at 50%, 1 at 95%)
     const progress = Math.max(0, Math.min(1, (currentHeight - halfHeight) / (maxHeight - halfHeight)));
 
-    // Interpolate background opacity
-    // At 50%: rgba(20, 20, 25, 0.75) - semi-transparent
-    // At 95%: rgba(20, 20, 25, 1.0) - fully opaque (black)
-    const baseOpacity = Platform.OS === 'android' ? 0.8 : 0.75;
-    const targetOpacity = 1.0;
-    const opacity = baseOpacity + (targetOpacity - baseOpacity) * progress;
-
-    // Interpolate border opacity (fade out)
-    // At 50%: 1.0 (fully visible)
-    // At 95%: 0.0 (invisible)
+    // Interpolate border opacity (fade out at fullscreen)
     const borderOpacity = 1 - progress;
 
     return {
-      // backgroundColor: `rgba(20, 20, 25, ${opacity})`,
-      borderColor: `rgba(255, 255, 255, ${0.15 * borderOpacity})`,
+      borderColor: borderOpacity > 0.01 ? AppColors.border.primary : 'transparent',
       borderWidth: 1,
     };
   });
@@ -376,13 +366,11 @@ export default React.forwardRef<
               isFullscreen && styles.blurContainerFullscreen,
             ]}
           >
-            <Animated.View style={[StyleSheet.absoluteFill, animatedBorderRadius, { overflow: 'hidden' }]}>
-              <BlurView intensity={BlurIntensity} style={StyleSheet.absoluteFill}>
-                <Animated.View style={styles.content}>
-                  <View style={styles.handleContainer} />
-                  <View style={styles.childrenContainer}>{children}</View>
-                </Animated.View>
-              </BlurView>
+            <Animated.View style={[StyleSheet.absoluteFill, animatedBorderRadius, { overflow: 'hidden', backgroundColor: AppColors.background.primary }]}>
+              <Animated.View style={styles.content}>
+                <View style={styles.handleContainer} />
+                <View style={styles.childrenContainer}>{children}</View>
+              </Animated.View>
             </Animated.View>
           </Animated.View>
         </SlideUpModalContext.Provider>
@@ -433,7 +421,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: '#71717A',
   },
   childrenContainer: {
     flex: 1,

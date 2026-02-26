@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useContext, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { TrainList } from '../components/TrainList';
 import { TwoStationSearch } from '../components/TwoStationSearch';
@@ -12,13 +12,17 @@ import { TrainStorageService } from '../services/storage';
 import type { SavedTrainRef, Train } from '../types/train';
 import { COLORS, styles } from './styles';
 import { parseTimeToDate } from '../utils/time-formatting';
+import { getCountdownForTrain } from '../utils/train-display';
 import { logger } from '../utils/logger';
 
-export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train) => void }) {
+export interface ModalContentHandle {
+  triggerRefresh: () => void;
+}
+
+export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect?: (train: Train) => void; onOpenProfile?: () => void }>(function ModalContent({ onTrainSelect, onOpenProfile }, ref) {
   const { isFullscreen, isCollapsed, scrollOffset, panGesture, snapToPoint, setGestureEnabled } =
     useContext(SlideUpModalContext);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const { savedTrains, setSavedTrains, setSelectedTrain } = useTrainContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingCache, setIsLoadingCache] = useState(true); // Start true - loading on mount
@@ -40,13 +44,35 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
   const hasInitialized = useRef(false);
 
   // Load saved trains from storage service (after GTFS is loaded)
+  // Also auto-archive past trips to history
   useEffect(() => {
     // Only load trains after GTFS data is ready
     if (isLoading) return;
 
     const loadSavedTrains = async () => {
       const trains = await TrainStorageService.getSavedTrains();
-      setSavedTrains(trains);
+
+      // Auto-archive past trips (travel date before today)
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const todayStart = now.getTime();
+
+      const pastTrains = trains.filter(t => {
+        if (!t.daysAway && t.daysAway !== 0) return false;
+        return t.daysAway < 0;
+      });
+
+      for (const train of pastTrains) {
+        await TrainStorageService.moveToHistory(train);
+      }
+
+      if (pastTrains.length > 0) {
+        // Reload after archiving
+        const updatedTrains = await TrainStorageService.getSavedTrains();
+        setSavedTrains(updatedTrains);
+      } else {
+        setSavedTrains(trains);
+      }
     };
     loadSavedTrains();
   }, [setSavedTrains, isLoading]);
@@ -155,7 +181,6 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
 
   // Manual refresh handler
   const handleRefresh = async () => {
-    setShowSettings(false);
     setIsRefreshing(true);
     setRefreshProgress(0.05);
     setRefreshStep('Checking GTFS cache');
@@ -176,9 +201,14 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
       });
       if (result.usedCache) {
         setIsRefreshing(false);
+        const lastFetchStr = await AsyncStorage.getItem('GTFS_LAST_FETCH');
+        const lastFetchMs = lastFetchStr ? parseInt(lastFetchStr, 10) : 0;
+        const cachedDateText = lastFetchMs
+          ? `Cached schedule is from ${new Date(lastFetchMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.`
+          : 'Cached schedule date is unknown.';
         Alert.alert(
-          'Use Cached GTFS?',
-          'Cached GTFS is being used. Do you want to force a full refresh and fetch the latest GTFS data?',
+          'Schedule Up to Date',
+          `${cachedDateText} Do you want to force a full refresh?`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Refresh Anyway', style: 'destructive', onPress: handleForceRefresh },
@@ -236,6 +266,11 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     }
   };
 
+  // Expose refresh to parent via ref
+  useImperativeHandle(ref, () => ({
+    triggerRefresh: handleRefresh,
+  }), []);
+
   // Sort saved trains by departure time (earliest first)
   const flights = [...savedTrains].sort((a, b) => {
     // First compare by travel date if available
@@ -257,16 +292,14 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
     return departA.getTime() - departB.getTime();
   });
 
-  // Exit search mode and settings when modal is collapsed
+  // Exit search mode when modal is collapsed
   useEffect(() => {
     if (isCollapsed) {
       if (isSearchFocused) setIsSearchFocused(false);
-      if (showSettings) setShowSettings(false);
     }
-  }, [isCollapsed, isSearchFocused, showSettings]);
+  }, [isCollapsed, isSearchFocused]);
 
   const handleOpenSearch = () => {
-    setShowSettings(false);
     snapToPoint?.('max');
     setIsSearchFocused(true);
   };
@@ -298,23 +331,21 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
               ? isLoadingCache
                 ? 'Loading'
                 : 'Fetching'
-              : showSettings
-                ? 'Settings'
-                : isSearchFocused
-                  ? 'Add Train'
-                  : 'My Trains'}
+              : isSearchFocused
+                ? 'Add Train'
+                : 'My Trains'}
           </Text>
         </View>
         {!isSearchFocused && !isLoading && (
           <TouchableOpacity
-            onPress={() => setShowSettings(s => !s)}
+            onPress={() => onOpenProfile?.()}
             style={styles.refreshButton}
             activeOpacity={0.7}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel="Settings"
+            accessibilityLabel="Profile"
           >
-            <Ionicons name={showSettings ? 'close' : 'settings-sharp'} size={22} color={COLORS.primary} />
+            <Ionicons name="person" size={22} color={COLORS.primary} />
           </TouchableOpacity>
         )}
 
@@ -367,8 +398,8 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
 
         {isSearchFocused && <Text style={styles.subtitle}>Enter departure and arrival stations</Text>}
 
-        {/* Search Button (when not searching and not in settings) */}
-        {!isLoading && !isSearchFocused && !showSettings && (
+        {/* Search Button (when not searching) */}
+        {!isLoading && !isSearchFocused && (
           <TouchableOpacity
             style={styles.searchContainer}
             activeOpacity={0.7}
@@ -396,29 +427,10 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
         simultaneousHandlers={panGesture}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Settings Panel */}
-        {showSettings && !isLoading && (
-          <View style={{ paddingBottom: 16 }}>
-            <TouchableOpacity
-              style={settingsStyles.item}
-              activeOpacity={0.7}
-              onPress={handleRefresh}
-            >
-              <View style={settingsStyles.itemIcon}>
-                <Ionicons name="refresh" size={20} color={COLORS.accentBlue} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={settingsStyles.itemTitle}>Refresh GTFS Data</Text>
-                <Text style={settingsStyles.itemSubtitle}>Download latest Amtrak schedules</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
-            </TouchableOpacity>
-          </View>
-        )}
         {isSearchFocused && !isCollapsed && (
           <TwoStationSearch onSelectTrip={handleSelectTrip} onClose={handleCloseSearch} />
         )}
-        {!isSearchFocused && !showSettings && !isLoading && (
+        {!isSearchFocused && !isLoading && (
           <TrainList
             flights={flights}
             onTrainSelect={train => {
@@ -431,62 +443,6 @@ export function ModalContent({ onTrainSelect }: { onTrainSelect?: (train: Train)
       </ScrollView>
     </View>
   );
-}
-
-const settingsStyles = StyleSheet.create({
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.secondary,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border.secondary,
-  },
-  itemIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: COLORS.background.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  itemTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginBottom: 2,
-  },
-  itemSubtitle: {
-    fontSize: 12,
-    color: COLORS.secondary,
-  },
 });
 
-// parseTimeToDate is now imported from utils/time-formatting
-
-function getCountdownForTrain(train: Train): {
-  value: number;
-  unit: 'DAYS' | 'HOURS' | 'MINUTES' | 'SECONDS';
-  past: boolean;
-} {
-  if (train.daysAway && train.daysAway > 0) {
-    return { value: Math.round(train.daysAway), unit: 'DAYS', past: false };
-  }
-  const now = new Date();
-  const baseDate = new Date(now);
-  const departDate = parseTimeToDate(train.departTime, baseDate);
-  let deltaSec = (departDate.getTime() - now.getTime()) / 1000;
-  const past = deltaSec < 0;
-  const absSec = Math.abs(deltaSec);
-
-  let hours = Math.round(absSec / 3600);
-  if (hours >= 1) return { value: hours, unit: 'HOURS', past };
-  let minutes = Math.round(absSec / 60);
-  if (minutes >= 60) return { value: 1, unit: 'HOURS', past };
-  if (minutes >= 1) return { value: minutes, unit: 'MINUTES', past };
-  let seconds = Math.round(absSec);
-  if (seconds >= 60) return { value: 1, unit: 'MINUTES', past };
-  return { value: seconds, unit: 'SECONDS', past };
-}
+// getCountdownForTrain and parseTimeToDate are now imported from shared utils

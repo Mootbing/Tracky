@@ -3,6 +3,7 @@
  * Groups nearby trains when zoomed out
  */
 
+import type { Train } from '../types/train';
 import { ClusteringConfig } from './clustering-config';
 
 export interface LiveTrainData {
@@ -15,6 +16,8 @@ export interface LiveTrainData {
     bearing?: number;
   };
   isSaved?: boolean;
+  savedTrain?: Train;
+  originalTrain?: Train;
 }
 
 export interface TrainCluster {

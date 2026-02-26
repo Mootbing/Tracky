@@ -37,13 +37,13 @@ export const AppColors = {
   error: '#EF4444',
   shadow: '#000',
   background: {
-    primary: 'rgba(255, 255, 255, 0.05)',
-    secondary: 'rgba(255, 255, 255, 0.1)',
-    tertiary: 'rgba(255, 255, 255, 0.15)',
+    primary: '#18181B',
+    secondary: '#1D1D1F',
+    tertiary: '#29292D',
   },
   border: {
-    primary: 'rgba(255, 255, 255, 0.1)',
-    secondary: 'rgba(255, 255, 255, 0.15)',
+    primary: '#2C2C30',
+    secondary: '#3A3A3F',
   },
 };
 
@@ -82,8 +82,6 @@ export const BorderRadius = {
   lg: 16,
   xl: 32,
 };
-
-export const BlurIntensity = 50;
 
 export const Fonts = Platform.select({
   ios: {

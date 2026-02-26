@@ -1,0 +1,76 @@
+import { useEffect, useRef, useState } from 'react';
+
+const DEFAULT_BATCH_SIZE = 10;
+const DEFAULT_BATCH_DELAY = 50; // ms between batches
+
+interface Identifiable {
+  id: string;
+}
+
+/**
+ * Progressive batching hook — drip-feeds new items into the render list
+ * so markers/overlays lazy-load in like routes do via useShapes.
+ *
+ * Items already on screen are updated immediately (fresh data from target),
+ * while genuinely new items are queued and added in small batches.
+ */
+export function useBatchedItems<T extends Identifiable>(
+  targetItems: T[],
+  batchSize = DEFAULT_BATCH_SIZE,
+  batchDelay = DEFAULT_BATCH_DELAY,
+): T[] {
+  const [rendered, setRendered] = useState<T[]>([]);
+  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingQueueRef = useRef<T[]>([]);
+
+  useEffect(() => {
+    // Cancel any in-progress batching
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+    }
+    pendingQueueRef.current = [];
+
+    const renderedIds = new Set(rendered.map(item => item.id));
+    const targetIds = new Set(targetItems.map(item => item.id));
+
+    // Items that already exist — use fresh target data (positions may have updated)
+    const keep = targetItems.filter(item => renderedIds.has(item.id));
+    // New items to progressively add
+    const toAdd = targetItems.filter(item => !renderedIds.has(item.id));
+
+    // Zooming in / fewer items — set immediately, removal is cheap
+    if (toAdd.length === 0) {
+      setRendered(keep);
+      return;
+    }
+
+    // Start with kept items, then progressively batch in new ones
+    setRendered(keep);
+    pendingQueueRef.current = [...toAdd];
+
+    const drainBatch = () => {
+      const queue = pendingQueueRef.current;
+      if (queue.length === 0) return;
+
+      const batch = queue.splice(0, batchSize);
+      setRendered(prev => [...prev, ...batch]);
+
+      if (queue.length > 0) {
+        batchTimerRef.current = setTimeout(drainBatch, batchDelay);
+      }
+    };
+
+    // Start first batch on next frame
+    batchTimerRef.current = setTimeout(drainBatch, batchDelay);
+
+    return () => {
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
+    };
+  }, [targetItems]);
+
+  return rendered;
+}

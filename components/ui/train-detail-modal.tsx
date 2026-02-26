@@ -10,7 +10,7 @@ import { useTrainContext } from '../../context/TrainContext';
 import type { Train } from '../../types/train';
 import { haversineDistance } from '../../utils/distance';
 import { gtfsParser } from '../../utils/gtfs-parser';
-import { getCountdownForTrain } from '../TrainList';
+import { getCountdownForTrain, calculateNights, pluralize, calculateDuration } from '../../utils/train-display';
 import { SlideUpModalContext } from './slide-up-modal';
 import TimeDisplay from './TimeDisplay';
 import { logger } from '../../utils/logger';
@@ -31,36 +31,6 @@ interface TrainDetailModalProps {
 
 // formatTime24to12, addDelayToTime, and timeToMinutes are now imported from utils/time-formatting
 const formatTime24to12 = formatTimeWithDayOffset;
-
-/**
- * Calculate number of nights for a journey based on day offsets
- */
-function calculateNights(departDayOffset: number, arriveDayOffset: number): number {
-  return Math.max(0, (arriveDayOffset || 0) - (departDayOffset || 0));
-}
-
-/**
- * Pluralize a word based on count
- * @param count - The number to check
- * @param singular - Singular form of the word
- * @param plural - Plural form (defaults to singular + 's')
- */
-function pluralize(count: number, singular: string, plural?: string): string {
-  return count === 1 ? singular : plural || `${singular}s`;
-}
-
-function calculateDuration(startTime: string, endTime: string): string {
-  const startMinutes = timeToMinutes(startTime);
-  let endMinutes = timeToMinutes(endTime);
-  // If end time is earlier than start time, assume it's the next day
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
-  }
-  const duration = endMinutes - startMinutes;
-  const hours = Math.floor(duration / 60);
-  const minutes = duration % 60;
-  return `${hours}h ${minutes}m`;
-}
 
 import { Alert } from 'react-native';
 
@@ -331,9 +301,18 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     }
   };
 
-  // Instead of returning early, render null or error in JSX
+  // If no train data or error, still show a close button so the user can exit
   if (!trainData || error) {
-    return <></>;
+    return (
+      <View style={styles.modalContent}>
+        <View style={[styles.header]}>
+          <View style={styles.headerContent} />
+          <TouchableOpacity onPress={onClose} style={styles.absoluteCloseButton} activeOpacity={0.6}>
+            <Ionicons name="close" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (

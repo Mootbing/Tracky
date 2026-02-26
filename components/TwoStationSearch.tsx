@@ -1,4 +1,4 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef } from 'react';
 import { Platform, Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
@@ -65,7 +65,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // Find trips when both stations AND date are selected
   useEffect(() => {
     if (fromStation && toStation && selectedDate) {
-      const trips = gtfsParser.findTripsWithStops(fromStation.stop_id, toStation.stop_id);
+      const trips = gtfsParser.findTripsWithStops(fromStation.stop_id, toStation.stop_id, selectedDate);
       setTripResults(trips);
     } else {
       setTripResults([]);
@@ -116,7 +116,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
     setShowDatePicker(true);
   };
 
-  const handleDateChange = (event: any, date?: Date) => {
+  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') {
       // On Android, the picker dismisses automatically on selection
       setShowDatePicker(false);
@@ -362,12 +362,10 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: AppColors.background.tertiary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: AppColors.border.secondary,
   },
   fullSearchInput: {
     flex: 1,
@@ -380,13 +378,11 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: AppColors.background.tertiary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: AppColors.border.secondary,
     gap: Spacing.sm,
     flexWrap: 'wrap',
   },
@@ -415,7 +411,7 @@ const styles = StyleSheet.create({
   datePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: AppColors.background.tertiary,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,

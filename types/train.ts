@@ -76,6 +76,26 @@ export interface Trip {
   trip_id: string;
   trip_short_name?: string;
   trip_headsign?: string;
+  service_id: string;
+}
+
+export interface CalendarEntry {
+  service_id: string;
+  monday: boolean;
+  tuesday: boolean;
+  wednesday: boolean;
+  thursday: boolean;
+  friday: boolean;
+  saturday: boolean;
+  sunday: boolean;
+  start_date: number; // YYYYMMDD integer
+  end_date: number;   // YYYYMMDD integer
+}
+
+export interface CalendarDateException {
+  service_id: string;
+  date: number;          // YYYYMMDD integer
+  exception_type: number; // 1 = added, 2 = removed
 }
 
 export interface Shape {
@@ -113,4 +133,23 @@ export interface SavedTrainRef {
   toCode?: string; // Optional: user's destination station (for segmented trips)
   travelDate?: number; // Optional: travel date as timestamp (for date-specific trips)
   savedAt: number; // Timestamp when saved
+}
+
+/**
+ * A completed trip stored in history.
+ * Contains display-ready data since GTFS data may no longer be available for past trips.
+ */
+export interface CompletedTrip {
+  tripId: string;
+  trainNumber: string;
+  routeName: string;
+  from: string;
+  to: string;
+  fromCode: string;
+  toCode: string;
+  departTime: string;
+  arriveTime: string;
+  date: string;
+  travelDate: number; // timestamp
+  completedAt: number; // timestamp when moved to history
 }

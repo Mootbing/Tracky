@@ -8,6 +8,8 @@ import { AnimatedStationMarker } from '../components/map/AnimatedStationMarker';
 import { LiveTrainMarker } from '../components/map/LiveTrainMarker';
 import MapSettingsPill, { MapType, RouteMode, StationMode, TrainMode } from '../components/map/MapSettingsPill';
 import DepartureBoardModal from '../components/ui/departure-board-modal';
+import ProfileModal from '../components/ui/ProfileModal';
+import SettingsModal from '../components/ui/SettingsModal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { AppColors } from '../constants/theme';
@@ -15,6 +17,7 @@ import { ModalProvider, useModalContext } from '../context/ModalContext';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
 import { useLiveTrains } from '../hooks/useLiveTrains';
 import { useRealtime } from '../hooks/useRealtime';
+import { useBatchedItems } from '../hooks/useBatchedItems';
 import { useShapes } from '../hooks/useShapes';
 import { useStations } from '../hooks/useStations';
 import { TrainAPIService } from '../services/api';
@@ -27,16 +30,19 @@ import { ClusteringConfig } from '../utils/clustering-config';
 import { clusterStations, getStationAbbreviation } from '../utils/station-clustering';
 import { clusterTrains } from '../utils/train-clustering';
 import { logger } from '../utils/logger';
-import { ModalContent } from './ModalContent';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ModalContent, ModalContentHandle } from './ModalContent';
 import { styles } from './styles';
 
-// Convert map region to viewport bounds for lazy loading
-function regionToViewportBounds(region: {
+interface MapRegion {
   latitude: number;
   longitude: number;
   latitudeDelta: number;
   longitudeDelta: number;
-}): ViewportBounds {
+}
+
+// Convert map region to viewport bounds for lazy loading
+function regionToViewportBounds(region: MapRegion): ViewportBounds {
   return {
     minLat: region.latitude - region.latitudeDelta / 2,
     maxLat: region.latitude + region.latitudeDelta / 2,
@@ -63,18 +69,25 @@ function getLatitudeOffsetForModal(latitudeDelta: number, modalSnap: 'min' | 'ha
 
 function MapScreenInner() {
   const mapRef = useRef<MapView>(null);
+  const modalContentRef = useRef<ModalContentHandle>(null);
 
   // Use centralized modal context
   const {
     showMainContent,
     showTrainDetailContent,
     showDepartureBoardContent,
+    showProfileContent,
+    showSettingsContent,
     mainModalRef,
     detailModalRef,
     departureBoardRef,
+    profileModalRef,
+    settingsModalRef,
     modalData,
     navigateToTrain,
     navigateToStation,
+    navigateToProfile,
+    navigateToSettings,
     navigateToMain,
     goBack,
     handleModalDismissed,
@@ -82,16 +95,9 @@ function MapScreenInner() {
     getInitialSnap,
     currentSnap,
   } = useModalContext();
-
-  const [region, setRegion] = useState<{
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  } | null>(null);
-  // Debounced viewport bounds for lazy loading (updates less frequently than region)
+  const [region, setRegion] = useState<MapRegion | null>(null);
+  // Viewport bounds for lazy loading (shapes are progressively rendered by useShapes)
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Debounced latitudeDelta for train clustering - prevents crash on rapid zoom
   const [debouncedLatDelta, setDebouncedLatDelta] = useState<number>(1);
   const trainDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -275,10 +281,27 @@ function MapScreenInner() {
   );
 
   // Handle train selection from departure board
+  // If train has a live position, zoom to it and open at half; otherwise open full
   const handleDepartureBoardTrainSelect = useCallback(
     (train: Train) => {
       setSelectedTrain(train);
-      navigateToTrain(train, { fromMarker: false, returnTo: 'departureBoard' });
+      const hasPosition = !!train.realtime?.position;
+
+      if (hasPosition) {
+        const latitudeDelta = 0.05;
+        const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+        mapRef.current?.animateToRegion(
+          {
+            latitude: train.realtime!.position!.lat - latitudeOffset,
+            longitude: train.realtime!.position!.lon,
+            latitudeDelta,
+            longitudeDelta: 0.05,
+          },
+          500
+        );
+      }
+
+      navigateToTrain(train, { fromMarker: hasPosition, returnTo: 'departureBoard' });
     },
     [setSelectedTrain, navigateToTrain]
   );
@@ -410,10 +433,10 @@ function MapScreenInner() {
 
   // Handle region changes with throttled region updates and debounced viewport bounds
   const lastRegionUpdateRef = useRef<number>(0);
-  const pendingRegionRef = useRef<any>(null);
+  const pendingRegionRef = useRef<MapRegion | null>(null);
   const regionThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleRegionChangeComplete = useCallback((newRegion: any) => {
+  const handleRegionChangeComplete = useCallback((newRegion: MapRegion) => {
     const now = Date.now();
     const THROTTLE_MS = 100; // Throttle region state updates
 
@@ -435,13 +458,9 @@ function MapScreenInner() {
       }, THROTTLE_MS);
     }
 
-    // Debounce viewport bounds updates (for lazy loading) with longer delay
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      setViewportBounds(regionToViewportBounds(newRegion));
-    }, 250); // 250ms debounce for viewport bounds
+    // Update viewport bounds immediately — useShapes handles progressive rendering
+    // so we don't need to debounce here
+    setViewportBounds(regionToViewportBounds(newRegion));
 
     // Debounce train clustering latitudeDelta to avoid expensive reclustering during fast zoom
     if (trainDebounceRef.current) {
@@ -462,9 +481,6 @@ function MapScreenInner() {
   // Cleanup timers on unmount
   React.useEffect(() => {
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
       if (regionThrottleTimerRef.current) {
         clearTimeout(regionThrottleTimerRef.current);
       }
@@ -522,6 +538,11 @@ function MapScreenInner() {
     return clusterStations(stations, region?.latitudeDelta ?? 0.0922);
   }, [stations, region?.latitudeDelta, stationMode]);
 
+  // Progressive batching — drip-feed markers onto the map like routes do
+  const batchedStationClusters = useBatchedItems(stationClusters, 15, 40);
+  const batchedLiveTrains = useBatchedItems(clusteredLiveTrains, 12, 50);
+  const batchedSavedTrains = useBatchedItems(clusteredSavedTrains, 12, 50);
+
   // Don't render until we have a region
   if (!region) {
     return (
@@ -560,7 +581,7 @@ function MapScreenInner() {
             );
           })}
 
-        {stationClusters.map(cluster => {
+        {batchedStationClusters.map(cluster => {
           // Show full name when zoomed in enough
           const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < ClusteringConfig.fullNameThreshold;
           const displayName = cluster.isCluster
@@ -596,7 +617,7 @@ function MapScreenInner() {
 
         {/* Render saved trains when mode is 'saved' */}
         {trainMode === 'saved' &&
-          clusteredSavedTrains.map(cluster => (
+          batchedSavedTrains.map(cluster => (
             <LiveTrainMarker
               key={cluster.id}
               trainNumber={cluster.trainNumber || ''}
@@ -609,9 +630,8 @@ function MapScreenInner() {
               isCluster={cluster.isCluster}
               clusterCount={cluster.trains.length}
               onPress={() => {
-                if (!cluster.isCluster && cluster.trains[0]) {
-                  const train = (cluster.trains[0] as any).originalTrain;
-                  handleTrainMarkerPress(train, cluster.lat, cluster.lon);
+                if (!cluster.isCluster && cluster.trains[0]?.originalTrain) {
+                  handleTrainMarkerPress(cluster.trains[0].originalTrain, cluster.lat, cluster.lon);
                 }
               }}
             />
@@ -619,7 +639,7 @@ function MapScreenInner() {
 
         {/* Render all live trains when mode is 'all' */}
         {trainMode === 'all' &&
-          clusteredLiveTrains.map(cluster => (
+          batchedLiveTrains.map(cluster => (
             <LiveTrainMarker
               key={cluster.id}
               trainNumber={cluster.trainNumber || ''}
@@ -633,7 +653,7 @@ function MapScreenInner() {
               clusterCount={cluster.trains.length}
               onPress={() => {
                 if (!cluster.isCluster && cluster.trains[0]) {
-                  const trainData = cluster.trains[0] as any;
+                  const trainData = cluster.trains[0];
                   // If it's a saved train, use its data directly
                   if (trainData.savedTrain && trainData.savedTrain.realtime?.position) {
                     handleTrainMarkerPress(trainData.savedTrain, cluster.lat, cluster.lon);
@@ -670,24 +690,13 @@ function MapScreenInner() {
       >
         {showMainContent && (
           <ModalContent
-            onTrainSelect={trainOrStation => {
-              // If it's a train, animate out main modal then show details
-              if (trainOrStation && trainOrStation.departTime) {
-                handleTrainSelect(trainOrStation as Train);
-              } else if (trainOrStation && (trainOrStation as any).lat && (trainOrStation as any).lon) {
-                // If it's a station, center map and collapse modal to 25%
-                mapRef.current?.animateToRegion(
-                  {
-                    latitude: (trainOrStation as any).lat,
-                    longitude: (trainOrStation as any).lon,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                  },
-                  500
-                );
-                mainModalRef.current?.snapToPoint?.('min');
+            ref={modalContentRef}
+            onTrainSelect={train => {
+              if (train) {
+                handleTrainSelect(train);
               }
             }}
+            onOpenProfile={() => navigateToProfile()}
           />
         )}
       </SlideUpModal>
@@ -729,6 +738,44 @@ function MapScreenInner() {
           />
         )}
       </SlideUpModal>
+
+      {/* Profile modal - always mounted, starts hidden, content conditional */}
+      <SlideUpModal
+        ref={profileModalRef}
+        minSnapPercent={0.50}
+        initialSnap={getInitialSnap('profile')}
+        startHidden
+        onDismiss={() => handleModalDismissed('profile')}
+        onSnapChange={handleSnapChange}
+      >
+        {showProfileContent && (
+          <ProfileModal
+            onClose={() => goBack()}
+            onOpenSettings={() => navigateToSettings()}
+          />
+        )}
+      </SlideUpModal>
+
+      {/* Settings modal - always mounted, starts hidden, content conditional */}
+      <SlideUpModal
+        ref={settingsModalRef}
+        minSnapPercent={0.50}
+        initialSnap={getInitialSnap('settings')}
+        startHidden
+        onDismiss={() => handleModalDismissed('settings')}
+        onSnapChange={handleSnapChange}
+      >
+        {showSettingsContent && (
+          <SettingsModal
+            onClose={() => goBack()}
+            onRefreshGTFS={() => {
+              // Navigate all the way back to main, then trigger refresh
+              navigateToMain();
+              setTimeout(() => modalContentRef.current?.triggerRefresh(), 300);
+            }}
+          />
+        )}
+      </SlideUpModal>
     </View>
   );
 }
@@ -737,7 +784,9 @@ export default function MapScreen() {
   return (
     <TrainProvider>
       <ModalProvider>
-        <MapScreenInner />
+        <ErrorBoundary>
+          <MapScreenInner />
+        </ErrorBoundary>
       </ModalProvider>
     </TrainProvider>
   );

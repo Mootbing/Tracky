@@ -3,7 +3,7 @@
  * Data is populated dynamically via gtfs-sync service - no bundled fallback data
  */
 
-import type { EnrichedStopTime, Route, SearchResult, Shape, Stop, StopTime, Trip } from '../types/train';
+import type { CalendarDateException, CalendarEntry, EnrichedStopTime, Route, SearchResult, Shape, Stop, StopTime, Trip } from '../types/train';
 
 export class GTFSParser {
   private routes: Map<string, Route> = new Map();
@@ -12,6 +12,9 @@ export class GTFSParser {
   private shapes: Map<string, Shape[]> = new Map();
   private trips: Map<string, Trip> = new Map(); // keyed by trip_id
   private tripsByNumber: Map<string, Trip[]> = new Map(); // keyed by trip_short_name for search
+  private calendarEntries: Map<string, CalendarEntry> = new Map(); // keyed by service_id
+  private calendarDateExceptions: Map<string, Map<number, number>> = new Map(); // service_id -> (date -> exception_type)
+  private hasCalendarData: boolean = false;
   private _isLoaded: boolean = false;
 
   constructor() {
@@ -28,7 +31,9 @@ export class GTFSParser {
     stops: Stop[],
     stopTimes: Record<string, StopTime[]>,
     shapes: Record<string, Shape[]> = {},
-    trips: Trip[] = []
+    trips: Trip[] = [],
+    calendar: CalendarEntry[] = [],
+    calendarDates: CalendarDateException[] = []
   ): void {
     this.routes.clear();
     this.stops.clear();
@@ -36,6 +41,8 @@ export class GTFSParser {
     this.shapes.clear();
     this.trips.clear();
     this.tripsByNumber.clear();
+    this.calendarEntries.clear();
+    this.calendarDateExceptions.clear();
 
     routes.forEach(route => {
       if (route && route.route_id) this.routes.set(route.route_id, route);
@@ -61,6 +68,24 @@ export class GTFSParser {
         }
       }
     });
+
+    // Populate calendar maps
+    calendar.forEach(entry => {
+      if (entry && entry.service_id) {
+        this.calendarEntries.set(entry.service_id, entry);
+      }
+    });
+    calendarDates.forEach(exception => {
+      if (exception && exception.service_id) {
+        let dateMap = this.calendarDateExceptions.get(exception.service_id);
+        if (!dateMap) {
+          dateMap = new Map();
+          this.calendarDateExceptions.set(exception.service_id, dateMap);
+        }
+        dateMap.set(exception.date, exception.exception_type);
+      }
+    });
+    this.hasCalendarData = this.calendarEntries.size > 0 || this.calendarDateExceptions.size > 0;
 
     this._isLoaded = this.routes.size > 0 && this.stops.size > 0;
   }
@@ -109,11 +134,59 @@ export class GTFSParser {
       .sort((a, b) => a.stop_sequence - b.stop_sequence);
   }
 
-  getTripsForStop(stopId: string): string[] {
+  /**
+   * Check if a service_id is active on a given date.
+   * Returns true if no calendar data is loaded (backwards compatible fallback).
+   */
+  isServiceActiveOnDate(serviceId: string, date: Date): boolean {
+    if (!this.hasCalendarData) return true;
+    if (!serviceId) return true;
+
+    // Convert date to YYYYMMDD integer for fast comparison
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const dateInt = year * 10000 + month * 100 + day;
+
+    // Check calendar_dates exceptions first (they override base schedule)
+    const exceptions = this.calendarDateExceptions.get(serviceId);
+    if (exceptions) {
+      const exceptionType = exceptions.get(dateInt);
+      if (exceptionType === 1) return true;  // explicitly added
+      if (exceptionType === 2) return false; // explicitly removed
+    }
+
+    // Check base calendar schedule
+    const entry = this.calendarEntries.get(serviceId);
+    if (!entry) return false; // no calendar entry and no exception = not active
+
+    // Check date range
+    if (dateInt < entry.start_date || dateInt > entry.end_date) return false;
+
+    // Check day of week (JS: 0=Sun, 1=Mon, ..., 6=Sat)
+    const dayOfWeek = date.getDay();
+    switch (dayOfWeek) {
+      case 0: return entry.sunday;
+      case 1: return entry.monday;
+      case 2: return entry.tuesday;
+      case 3: return entry.wednesday;
+      case 4: return entry.thursday;
+      case 5: return entry.friday;
+      case 6: return entry.saturday;
+      default: return false;
+    }
+  }
+
+  getTripsForStop(stopId: string, date?: Date): string[] {
     const trips: string[] = [];
     const seen = new Set<string>();
     this.stopTimes.forEach((times, tripId) => {
       if (times.some(t => t.stop_id === stopId) && !seen.has(tripId)) {
+        // If date provided, filter by service calendar
+        if (date) {
+          const trip = this.trips.get(tripId);
+          if (trip && !this.isServiceActiveOnDate(trip.service_id, date)) return;
+        }
         trips.push(tripId);
         seen.add(tripId);
       }
@@ -364,7 +437,8 @@ export class GTFSParser {
    */
   findTripsWithStops(
     fromStopId: string,
-    toStopId: string
+    toStopId: string,
+    date?: Date
   ): Array<{
     tripId: string;
     fromStop: EnrichedStopTime;
@@ -379,6 +453,12 @@ export class GTFSParser {
     }> = [];
 
     this.stopTimes.forEach((times, tripId) => {
+      // If date provided, filter by service calendar
+      if (date) {
+        const trip = this.trips.get(tripId);
+        if (trip && !this.isServiceActiveOnDate(trip.service_id, date)) return;
+      }
+
       const fromIdx = times.findIndex(t => t.stop_id === fromStopId);
       const toIdx = times.findIndex(t => t.stop_id === toStopId);
 

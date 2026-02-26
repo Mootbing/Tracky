@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import type { SlideUpModalHandle } from '../components/ui/slide-up-modal';
 import type { Stop, Train } from '../types/train';
 
 // Modal types that can be displayed
-export type ModalType = 'main' | 'trainDetail' | 'departureBoard';
+export type ModalType = 'main' | 'trainDetail' | 'departureBoard' | 'profile' | 'settings';
 
 // Modal configuration for each type
 export interface ModalConfig {
@@ -27,11 +28,15 @@ interface ModalContextType {
   showMainContent: boolean;
   showTrainDetailContent: boolean;
   showDepartureBoardContent: boolean;
+  showProfileContent: boolean;
+  showSettingsContent: boolean;
 
   // Modal refs for imperative control
-  mainModalRef: React.RefObject<any>;
-  detailModalRef: React.RefObject<any>;
-  departureBoardRef: React.RefObject<any>;
+  mainModalRef: React.RefObject<SlideUpModalHandle | null>;
+  detailModalRef: React.RefObject<SlideUpModalHandle | null>;
+  departureBoardRef: React.RefObject<SlideUpModalHandle | null>;
+  profileModalRef: React.RefObject<SlideUpModalHandle | null>;
+  settingsModalRef: React.RefObject<SlideUpModalHandle | null>;
 
   // Navigation stack for back navigation
   modalStack: ModalConfig[];
@@ -39,6 +44,8 @@ interface ModalContextType {
   // Transition functions
   navigateToTrain: (train: Train, options?: { fromMarker?: boolean; returnTo?: ModalType }) => void;
   navigateToStation: (station: Stop) => void;
+  navigateToProfile: () => void;
+  navigateToSettings: () => void;
   navigateToMain: () => void;
   goBack: () => void;
   dismissCurrent: () => void;
@@ -61,15 +68,19 @@ export const useModalContext = () => {
 
 export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Refs for modal imperative handles
-  const mainModalRef = useRef<any>(null);
-  const detailModalRef = useRef<any>(null);
-  const departureBoardRef = useRef<any>(null);
+  const mainModalRef = useRef<SlideUpModalHandle | null>(null);
+  const detailModalRef = useRef<SlideUpModalHandle | null>(null);
+  const departureBoardRef = useRef<SlideUpModalHandle | null>(null);
+  const profileModalRef = useRef<SlideUpModalHandle | null>(null);
+  const settingsModalRef = useRef<SlideUpModalHandle | null>(null);
 
   // Content visibility states — modal shells are always mounted,
   // these control whether content renders inside them
   const [showMainContent, setShowMainContent] = useState(true);
   const [showTrainDetailContent, setShowTrainDetailContent] = useState(false);
   const [showDepartureBoardContent, setShowDepartureBoardContent] = useState(false);
+  const [showProfileContent, setShowProfileContent] = useState(false);
+  const [showSettingsContent, setShowSettingsContent] = useState(false);
 
   // Active modal tracking
   const [activeModal, setActiveModal] = useState<ModalType>('main');
@@ -104,6 +115,8 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const getModalRef = useCallback((type: ModalType) => {
     if (type === 'main') return mainModalRef;
     if (type === 'trainDetail') return detailModalRef;
+    if (type === 'profile') return profileModalRef;
+    if (type === 'settings') return settingsModalRef;
     return departureBoardRef;
   }, []);
 
@@ -112,6 +125,8 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (type === 'main') setShowMainContent(true);
     else if (type === 'trainDetail') setShowTrainDetailContent(true);
     else if (type === 'departureBoard') setShowDepartureBoardContent(true);
+    else if (type === 'profile') setShowProfileContent(true);
+    else if (type === 'settings') setShowSettingsContent(true);
   }, []);
 
   // Navigate to train detail modal
@@ -184,6 +199,38 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [activeModal, modalData.station, getModalRef]
   );
 
+  // Navigate to profile modal
+  const navigateToProfile = useCallback(() => {
+    if (activeModal === 'profile') return;
+
+    nextModalSnapRef.current = 'half';
+
+    // Push current modal onto stack so back returns to it
+    setModalStack(prev => [...prev, { type: activeModal, initialSnap: 'half' }]);
+
+    setShowProfileContent(true);
+    setActiveModal('profile');
+
+    getModalRef(activeModal).current?.dismiss?.(true);
+    profileModalRef.current?.slideIn?.('half');
+  }, [activeModal, getModalRef]);
+
+  // Navigate to settings modal (full screen)
+  const navigateToSettings = useCallback(() => {
+    if (activeModal === 'settings') return;
+
+    nextModalSnapRef.current = 'max';
+
+    // Push current modal onto stack so back returns to it
+    setModalStack(prev => [...prev, { type: activeModal, initialSnap: 'half' }]);
+
+    setShowSettingsContent(true);
+    setActiveModal('settings');
+
+    getModalRef(activeModal).current?.dismiss?.(true);
+    settingsModalRef.current?.slideIn?.('max');
+  }, [activeModal, getModalRef]);
+
   // Navigate back to main modal
   const navigateToMain = useCallback(() => {
     nextModalSnapRef.current = 'half';
@@ -247,10 +294,12 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    // Otherwise, hide content of the dismissed modal to free resources
-    if (type === 'main') setShowMainContent(false);
-    else if (type === 'trainDetail') setShowTrainDetailContent(false);
+    // Hide content of the dismissed modal to free resources
+    // Main modal stays mounted to avoid re-initialization flash (GTFS loading state)
+    if (type === 'trainDetail') setShowTrainDetailContent(false);
     else if (type === 'departureBoard') setShowDepartureBoardContent(false);
+    else if (type === 'profile') setShowProfileContent(false);
+    else if (type === 'settings') setShowSettingsContent(false);
   }, [getModalRef]);
 
   const value: ModalContextType = {
@@ -260,12 +309,18 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showMainContent,
     showTrainDetailContent,
     showDepartureBoardContent,
+    showProfileContent,
+    showSettingsContent,
     mainModalRef,
     detailModalRef,
     departureBoardRef,
+    profileModalRef,
+    settingsModalRef,
     modalStack,
     navigateToTrain,
     navigateToStation,
+    navigateToProfile,
+    navigateToSettings,
     navigateToMain,
     goBack,
     dismissCurrent,
