@@ -91,6 +91,16 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
     });
   }, []);
 
+  const allSelected = calendars.length > 0 && selectedCalendarIds.size === calendars.length;
+
+  const handleToggleAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedCalendarIds(new Set());
+    } else {
+      setSelectedCalendarIds(new Set(calendars.map(c => c.id)));
+    }
+  }, [allSelected, calendars]);
+
   const handleSyncNow = useCallback(async () => {
     const ids = Array.from(selectedCalendarIds);
     if (ids.length === 0) {
@@ -176,7 +186,14 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           {/* Selecting state — calendar picker */}
           {syncState === 'selecting' && (
             <View style={styles.syncPanel}>
-              <Text style={styles.sectionLabel}>Calendars</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionLabel}>Calendars</Text>
+                <TouchableOpacity onPress={handleToggleAll} activeOpacity={0.7}>
+                  <Text style={styles.toggleAllText}>
+                    {allSelected ? 'Unselect All' : 'Select All'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <ScrollView style={styles.calendarList} nestedScrollEnabled>
                 {calendars.map(cal => (
                   <TouchableOpacity
@@ -228,7 +245,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                 activeOpacity={0.7}
                 onPress={handleSyncNow}
               >
-                <Ionicons name="sync" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Ionicons name="sync" size={18} color={AppColors.background.primary} style={{ marginRight: 6 }} />
                 <Text style={styles.syncButtonText}>Sync Now</Text>
               </TouchableOpacity>
             </View>
@@ -333,13 +350,23 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     padding: 14,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: AppColors.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: Spacing.sm,
+  },
+  toggleAllText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: AppColors.accentBlue,
   },
   calendarList: {
     maxHeight: 180,
@@ -386,7 +413,7 @@ const styles = StyleSheet.create({
     color: AppColors.secondary,
   },
   segmentLabelActive: {
-    color: '#fff',
+    color: AppColors.background.primary,
   },
   syncButton: {
     flexDirection: 'row',
@@ -400,7 +427,7 @@ const styles = StyleSheet.create({
   syncButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: AppColors.background.primary,
   },
   syncingRow: {
     flexDirection: 'row',
