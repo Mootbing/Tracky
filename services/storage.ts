@@ -11,7 +11,13 @@ const STORAGE_KEYS = {
   SAVED_TRAINS: 'savedTrainRefs',
   TRIP_HISTORY: 'tripHistory',
   USER_PREFERENCES: 'userPreferences',
+  CALENDAR_SYNC_PREFS: 'calendarSyncPrefs',
 } as const;
+
+export interface CalendarSyncPrefs {
+  calendarIds: string[];
+  scanDays: number;
+}
 
 import { formatTime } from '../utils/time-formatting';
 import { formatDateForDisplay, calculateDaysAway } from '../utils/date-helpers';
@@ -200,6 +206,28 @@ export class TrainStorageService {
   }
 
   /**
+   * Add a completed trip to history with dedup check.
+   * Returns true if the entry was added, false if it already existed.
+   */
+  static async addToHistory(entry: CompletedTrip): Promise<boolean> {
+    try {
+      const history = await this.getTripHistory();
+      const exists = history.some(
+        h => h.tripId === entry.tripId && h.fromCode === entry.fromCode && h.toCode === entry.toCode && h.date === entry.date
+      );
+      if (exists) {
+        return false;
+      }
+      history.unshift(entry);
+      await AsyncStorage.setItem(STORAGE_KEYS.TRIP_HISTORY, JSON.stringify(history));
+      return true;
+    } catch (error) {
+      logger.error('Error adding to history:', error);
+      return false;
+    }
+  }
+
+  /**
    * Move a train to trip history (saves display data and removes from saved trains)
    */
   static async moveToHistory(train: Train): Promise<boolean> {
@@ -219,15 +247,7 @@ export class TrainStorageService {
         completedAt: Date.now(),
       };
 
-      const history = await this.getTripHistory();
-      // Avoid duplicates
-      const exists = history.some(
-        h => h.tripId === entry.tripId && h.fromCode === entry.fromCode && h.toCode === entry.toCode && h.date === entry.date
-      );
-      if (!exists) {
-        history.unshift(entry); // newest first
-        await AsyncStorage.setItem(STORAGE_KEYS.TRIP_HISTORY, JSON.stringify(history));
-      }
+      await this.addToHistory(entry);
 
       // Remove from saved trains
       await this.deleteTrainByTripId(entry.tripId, entry.fromCode, entry.toCode);
@@ -251,6 +271,32 @@ export class TrainStorageService {
       return true;
     } catch (error) {
       logger.error('Error deleting from history:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get saved calendar sync preferences
+   */
+  static async getCalendarSyncPrefs(): Promise<CalendarSyncPrefs | null> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.CALENDAR_SYNC_PREFS);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      logger.error('Error loading calendar sync prefs:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Save calendar sync preferences
+   */
+  static async saveCalendarSyncPrefs(prefs: CalendarSyncPrefs): Promise<boolean> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.CALENDAR_SYNC_PREFS, JSON.stringify(prefs));
+      return true;
+    } catch (error) {
+      logger.error('Error saving calendar sync prefs:', error);
       return false;
     }
   }

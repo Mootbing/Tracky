@@ -36,6 +36,13 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Tracky needs calendar access to find past train trips and add them to your travel history.",
+          "calendarFullAccessPermission": "Tracky needs full calendar access to scan for past train trips."
+        }
       ]
     ],
     "experiments": {
