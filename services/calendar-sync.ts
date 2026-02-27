@@ -96,11 +96,23 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date): MatchedTrip
   const eventDate = new Date(eventStartDate);
   eventDate.setHours(0, 0, 0, 0);
 
-  const stations = gtfsParser.searchStations(destination);
-  if (stations.length === 0) return null;
+  // Try full destination first, then strip trailing state abbreviation (e.g. "Philadelphia PA" → "Philadelphia")
+  let stations = gtfsParser.searchStations(destination);
+  if (stations.length === 0) {
+    const withoutState = destination.replace(/\s+[A-Za-z]{2}$/, '').trim();
+    if (withoutState !== destination && withoutState.length > 0) {
+      stations = gtfsParser.searchStations(withoutState);
+    }
+  }
+  if (stations.length === 0) {
+    logger.info(`Calendar sync: no station found for "${destination}"`);
+    return null;
+  }
   const destStation = stations[0];
+  logger.info(`Calendar sync: "${destination}" → station "${destStation.stop_name}" (${destStation.stop_id})`);
 
   const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, eventDate);
+  logger.info(`Calendar sync: ${tripIds.length} trips at ${destStation.stop_id} on ${eventDate.toLocaleDateString()}, event time ${eventStartDate.getHours()}:${String(eventStartDate.getMinutes()).padStart(2, '0')}`);
 
   for (const tripId of tripIds) {
     const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
