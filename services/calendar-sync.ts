@@ -91,10 +91,25 @@ function gtfsTimeToMinutes(gtfsTime: string): number {
 }
 
 /**
+ * Search for a station, trying full name first then stripping trailing state abbreviation.
+ */
+function resolveStation(name: string) {
+  let stations = gtfsParser.searchStations(name);
+  if (stations.length === 0) {
+    const withoutState = name.replace(/\s+[A-Za-z]{2}$/, '').trim();
+    if (withoutState !== name && withoutState.length > 0) {
+      stations = gtfsParser.searchStations(withoutState);
+    }
+  }
+  return stations.length > 0 ? stations[0] : null;
+}
+
+/**
  * Match a single calendar event against GTFS data.
+ * Uses event location as origin station and title destination.
  * Returns the matched trip info or null if no match found.
  */
-function matchEventToTrip(eventTitle: string, eventStartDate: Date): MatchedTrip | null {
+function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocation?: string): MatchedTrip | null {
   const match = eventTitle.match(TRAIN_EVENT_PATTERN);
   if (!match) return null;
 
@@ -103,23 +118,53 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date): MatchedTrip
   const eventDate = new Date(eventStartDate);
   eventDate.setHours(0, 0, 0, 0);
 
-  // Try full destination first, then strip trailing state abbreviation (e.g. "Philadelphia PA" → "Philadelphia")
-  let stations = gtfsParser.searchStations(destination);
-  if (stations.length === 0) {
-    const withoutState = destination.replace(/\s+[A-Za-z]{2}$/, '').trim();
-    if (withoutState !== destination && withoutState.length > 0) {
-      stations = gtfsParser.searchStations(withoutState);
-    }
-  }
-  if (stations.length === 0) {
-    logger.info(`Calendar sync: no station found for "${destination}"`);
+  const destStation = resolveStation(destination);
+  if (!destStation) {
+    logger.info(`Calendar sync: no station found for destination "${destination}"`);
     return null;
   }
-  const destStation = stations[0];
-  logger.info(`Calendar sync: "${destination}" → station "${destStation.stop_name}" (${destStation.stop_id})`);
+  logger.info(`Calendar sync: destination "${destination}" → "${destStation.stop_name}" (${destStation.stop_id})`);
 
+  // If event has a location, use it as the origin station
+  const originLocation = eventLocation?.trim();
+  if (originLocation) {
+    const originStation = resolveStation(originLocation);
+    if (originStation) {
+      logger.info(`Calendar sync: origin "${originLocation}" → "${originStation.stop_name}" (${originStation.stop_id})`);
+
+      // Use findTripsWithStops for precise origin→destination matching
+      const trips = gtfsParser.findTripsWithStops(originStation.stop_id, destStation.stop_id, eventDate);
+      logger.info(`Calendar sync: ${trips.length} trips from ${originStation.stop_id} to ${destStation.stop_id} on ${eventDate.toLocaleDateString()}`);
+
+      for (const trip of trips) {
+        const departMinutes = gtfsTimeToMinutes(trip.fromStop.departure_time);
+        if (Math.abs(departMinutes - eventMinutes) <= TIME_TOLERANCE_MINUTES) {
+          const trainNumber = gtfsParser.getTrainNumber(trip.tripId);
+          const routeId = gtfsParser.getRouteIdForTrip(trip.tripId);
+          const routeName = routeId ? gtfsParser.getRouteName(routeId) : 'Unknown Route';
+
+          return {
+            tripId: trip.tripId,
+            fromStopId: trip.fromStop.stop_id,
+            fromStopName: trip.fromStop.stop_name,
+            toStopId: trip.toStop.stop_id,
+            toStopName: trip.toStop.stop_name,
+            departTime: formatTime(trip.fromStop.departure_time),
+            arriveTime: formatTime(trip.toStop.arrival_time),
+            trainNumber,
+            routeName,
+            eventDate,
+          };
+        }
+      }
+    } else {
+      logger.info(`Calendar sync: no station found for origin "${originLocation}", falling back to time matching`);
+    }
+  }
+
+  // Fallback: no location or origin not found — infer origin by matching departure time at any stop
   const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, eventDate);
-  logger.info(`Calendar sync: ${tripIds.length} trips at ${destStation.stop_id} on ${eventDate.toLocaleDateString()}, event time ${eventStartDate.getHours()}:${String(eventStartDate.getMinutes()).padStart(2, '0')}`);
+  logger.info(`Calendar sync: fallback — ${tripIds.length} trips at ${destStation.stop_id}, event time ${eventStartDate.getHours()}:${String(eventStartDate.getMinutes()).padStart(2, '0')}`);
 
   for (const tripId of tripIds) {
     const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
@@ -211,7 +256,7 @@ export async function syncPastTrips(
   );
 
   for (const event of trainEvents) {
-    const matched = matchEventToTrip(event.title, new Date(event.startDate));
+    const matched = matchEventToTrip(event.title, new Date(event.startDate), event.location ?? undefined);
     if (!matched) continue;
 
     const entry: CompletedTrip = {
@@ -280,7 +325,7 @@ export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult
   );
 
   for (const event of trainEvents) {
-    const matched = matchEventToTrip(event.title, new Date(event.startDate));
+    const matched = matchEventToTrip(event.title, new Date(event.startDate), event.location ?? undefined);
     if (!matched) continue;
 
     result.matched++;
