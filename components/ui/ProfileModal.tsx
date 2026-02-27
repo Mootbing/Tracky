@@ -1,5 +1,15 @@
+import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, BorderRadius, FontSizes, Spacing } from '../../constants/theme';
@@ -10,6 +20,174 @@ import { SlideUpModalContext } from './slide-up-modal';
 interface ProfileModalProps {
   onClose: () => void;
   onOpenSettings: () => void;
+}
+
+const FIRST_THRESHOLD = -80;
+const SECOND_THRESHOLD = -200;
+
+function SwipeableHistoryCard({
+  trip,
+  onDelete,
+}: {
+  trip: CompletedTrip;
+  onDelete: () => void;
+}) {
+  const translateX = useSharedValue(0);
+  const hasTriggeredSecondHaptic = useSharedValue(false);
+  const isDeleting = useSharedValue(false);
+
+  const triggerSecondHaptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  };
+
+  const triggerDeleteHaptic = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleDelete = () => {
+    triggerDeleteHaptic();
+    onDelete();
+  };
+
+  const performDelete = () => {
+    isDeleting.value = true;
+    translateX.value = withTiming(-500, { duration: 200 }, () => {
+      runOnJS(handleDelete)();
+    });
+  };
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-10, 10])
+    .onUpdate(event => {
+      if (isDeleting.value) return;
+      const clampedX = Math.min(0, event.translationX);
+      translateX.value = clampedX;
+
+      if (clampedX <= SECOND_THRESHOLD && !hasTriggeredSecondHaptic.value) {
+        hasTriggeredSecondHaptic.value = true;
+        runOnJS(triggerSecondHaptic)();
+      } else if (clampedX > SECOND_THRESHOLD && hasTriggeredSecondHaptic.value) {
+        hasTriggeredSecondHaptic.value = false;
+      }
+    })
+    .onEnd(() => {
+      if (isDeleting.value) return;
+
+      if (translateX.value <= SECOND_THRESHOLD) {
+        runOnJS(performDelete)();
+      } else if (translateX.value <= FIRST_THRESHOLD) {
+        translateX.value = withSpring(FIRST_THRESHOLD, {
+          damping: 50,
+          stiffness: 200,
+        });
+      } else {
+        translateX.value = withSpring(0, {
+          damping: 50,
+          stiffness: 200,
+        });
+      }
+      hasTriggeredSecondHaptic.value = false;
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    if (isDeleting.value) return;
+    if (translateX.value < -10) {
+      translateX.value = withSpring(0, { damping: 50, stiffness: 200 });
+    }
+  });
+
+  const composedGesture = Gesture.Race(panGesture, tapGesture);
+
+  const cardAnimatedStyle = useAnimatedStyle(() => {
+    const absX = Math.abs(translateX.value);
+    const fadeProgress = interpolate(
+      absX,
+      [Math.abs(FIRST_THRESHOLD), Math.abs(SECOND_THRESHOLD)],
+      [1, 0],
+      'clamp',
+    );
+    return {
+      transform: [{ translateX: translateX.value }],
+      opacity: fadeProgress,
+    };
+  });
+
+  const deleteContainerAnimatedStyle = useAnimatedStyle(() => {
+    const absX = Math.abs(translateX.value);
+    const progress = Math.min(1, absX / Math.abs(FIRST_THRESHOLD));
+    return {
+      opacity: progress,
+      width: absX > 0 ? absX : 0,
+    };
+  });
+
+  const deleteButtonAnimatedStyle = useAnimatedStyle(() => {
+    const absX = Math.abs(translateX.value);
+    const pastSecond = absX >= Math.abs(SECOND_THRESHOLD);
+    return {
+      justifyContent: pastSecond ? 'flex-start' : 'center',
+      paddingLeft: pastSecond ? 16 : 0,
+    };
+  });
+
+  const handleDeletePress = () => {
+    performDelete();
+  };
+
+  return (
+    <View style={swipeStyles.container}>
+      {/* Delete button behind the card */}
+      <Animated.View style={[swipeStyles.deleteButtonContainer, deleteContainerAnimatedStyle]}>
+        <View style={swipeStyles.deleteButtonWrapper}>
+          <GestureDetector gesture={Gesture.Tap().onEnd(() => runOnJS(handleDeletePress)())}>
+            <Animated.View style={[swipeStyles.deleteButton, deleteButtonAnimatedStyle]}>
+              <Ionicons name="trash" size={22} color="#fff" />
+            </Animated.View>
+          </GestureDetector>
+        </View>
+      </Animated.View>
+
+      {/* The actual card */}
+      <GestureDetector gesture={composedGesture}>
+        <Animated.View style={[styles.historyCard, { marginBottom: 0 }, cardAnimatedStyle]}>
+          <View style={styles.historyHeader}>
+            <Image
+              source={require('../../assets/images/amtrak.png')}
+              style={styles.amtrakLogo}
+              fadeDuration={0}
+            />
+            <Text style={styles.historyTrainNumber}>
+              {trip.routeName || 'Amtrak'} {trip.trainNumber}
+            </Text>
+            <Text style={styles.historyDate}>{trip.date}</Text>
+          </View>
+
+          <Text style={styles.historyRoute}>
+            {trip.from} to {trip.to}
+          </Text>
+
+          <View style={styles.historyTimeRow}>
+            <View style={styles.timeInfo}>
+              <View style={[styles.arrowIcon, styles.departureIcon]}>
+                <MaterialCommunityIcons name="arrow-top-right" size={8} color={AppColors.secondary} />
+              </View>
+              <Text style={styles.timeCode}>{trip.fromCode}</Text>
+              <Text style={styles.timeValue}>{trip.departTime}</Text>
+            </View>
+
+            <View style={styles.timeInfo}>
+              <View style={[styles.arrowIcon, styles.arrivalIcon]}>
+                <MaterialCommunityIcons name="arrow-bottom-left" size={8} color={AppColors.secondary} />
+              </View>
+              <Text style={styles.timeCode}>{trip.toCode}</Text>
+              <Text style={styles.timeValue}>{trip.arriveTime}</Text>
+            </View>
+          </View>
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
 }
 
 export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalProps) {
@@ -71,43 +249,47 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           </View>
         ) : (
           history.map((trip, index) => (
-            <View key={`${trip.tripId}-${trip.fromCode}-${index}`} style={styles.historyCard}>
-              <View style={styles.historyHeader}>
-                <Image source={require('../../assets/images/amtrak.png')} style={styles.amtrakLogo} fadeDuration={0} />
-                <Text style={styles.historyTrainNumber}>
-                  {trip.routeName || 'Amtrak'} {trip.trainNumber}
-                </Text>
-                <Text style={styles.historyDate}>{trip.date}</Text>
-              </View>
-
-              <Text style={styles.historyRoute}>
-                {trip.from} to {trip.to}
-              </Text>
-
-              <View style={styles.historyTimeRow}>
-                <View style={styles.timeInfo}>
-                  <View style={[styles.arrowIcon, styles.departureIcon]}>
-                    <MaterialCommunityIcons name="arrow-top-right" size={8} color={AppColors.secondary} />
-                  </View>
-                  <Text style={styles.timeCode}>{trip.fromCode}</Text>
-                  <Text style={styles.timeValue}>{trip.departTime}</Text>
-                </View>
-
-                <View style={styles.timeInfo}>
-                  <View style={[styles.arrowIcon, styles.arrivalIcon]}>
-                    <MaterialCommunityIcons name="arrow-bottom-left" size={8} color={AppColors.secondary} />
-                  </View>
-                  <Text style={styles.timeCode}>{trip.toCode}</Text>
-                  <Text style={styles.timeValue}>{trip.arriveTime}</Text>
-                </View>
-              </View>
-            </View>
+            <SwipeableHistoryCard
+              key={`${trip.tripId}-${trip.fromCode}-${index}`}
+              trip={trip}
+              onDelete={() => handleDeleteHistory(trip)}
+            />
           ))
         )}
       </ScrollView>
     </View>
   );
 }
+
+const swipeStyles = StyleSheet.create({
+  container: {
+    position: 'relative',
+    marginBottom: Spacing.md,
+  },
+  deleteButtonContainer: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    paddingRight: 4,
+    paddingLeft: 12,
+  },
+  deleteButtonWrapper: {
+    height: 44,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    flex: 1,
+    borderRadius: 22,
+    backgroundColor: AppColors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+});
 
 const styles = StyleSheet.create({
   titleRow: {

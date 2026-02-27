@@ -53,14 +53,19 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
     const loadSavedTrains = async () => {
       const trains = await TrainStorageService.getSavedTrains();
 
-      // Auto-archive past trips (travel date before today)
+      // Auto-archive past trips (travel date before today, or arrived today)
       const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const todayStart = now.getTime();
 
       const pastTrains = trains.filter(t => {
         if (!t.daysAway && t.daysAway !== 0) return false;
-        return t.daysAway < 0;
+        // Yesterday or earlier — definitely past
+        if (t.daysAway < 0) return true;
+        // Today — check if arrival time has passed
+        if (t.daysAway === 0 && t.arriveTime) {
+          const arriveDate = parseTimeToDate(t.arriveTime, now);
+          if (arriveDate.getTime() < now.getTime()) return true;
+        }
+        return false;
       });
 
       for (const train of pastTrains) {
