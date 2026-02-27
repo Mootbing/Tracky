@@ -144,8 +144,18 @@ async function fetchTrainEvents(
   startDate: Date,
   endDate: Date,
 ): Promise<Calendar.Event[]> {
+  logger.info(`Calendar sync: fetching from ${calendarIds.length} calendar(s), ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
   const events = await Calendar.getEventsAsync(calendarIds, startDate, endDate);
-  return events.filter(e => TRAIN_EVENT_PATTERN.test(e.title));
+  logger.info(`Calendar sync: ${events.length} total events found`);
+  const matched: Calendar.Event[] = [];
+  for (const e of events) {
+    if (TRAIN_EVENT_PATTERN.test(e.title)) {
+      logger.info(`Calendar sync: matched "${e.title}"`);
+      matched.push(e);
+    }
+  }
+  logger.info(`Calendar sync: ${matched.length}/${events.length} matched train pattern`);
+  return matched;
 }
 
 /**
