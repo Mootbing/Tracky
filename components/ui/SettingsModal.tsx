@@ -142,24 +142,8 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
 
       {/* Settings Items */}
       <View>
-        {/* GTFS Refresh */}
-        <TouchableOpacity
-          style={styles.item}
-          activeOpacity={0.7}
-          onPress={onRefreshGTFS}
-        >
-          <View style={styles.itemIcon}>
-            <Ionicons name="refresh" size={20} color={AppColors.accentBlue} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemTitle}>Refresh Amtrak Schedule</Text>
-            <Text style={styles.itemSubtitle}>Refetch GTFS data</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={AppColors.secondary} />
-        </TouchableOpacity>
-
         {/* Calendar Sync */}
-        <View style={{ marginTop: Spacing.md }}>
+        <View>
           <TouchableOpacity
             style={styles.item}
             activeOpacity={0.7}
@@ -276,6 +260,22 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             </View>
           )}
         </View>
+
+        {/* GTFS Refresh */}
+        <TouchableOpacity
+          style={[styles.item, { marginTop: Spacing.md }]}
+          activeOpacity={0.7}
+          onPress={onRefreshGTFS}
+        >
+          <View style={styles.itemIcon}>
+            <Ionicons name="refresh" size={20} color={AppColors.accentBlue} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemTitle}>Refresh Amtrak Schedule</Text>
+            <Text style={styles.itemSubtitle}>Refetch GTFS data</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={AppColors.secondary} />
+        </TouchableOpacity>
       </View>
     </View>
   );
