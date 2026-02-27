@@ -315,7 +315,6 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.secondary,
     borderRadius: BorderRadius.md,
     padding: 14,
     borderWidth: 1,
@@ -325,7 +324,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: AppColors.background.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
@@ -342,7 +340,6 @@ const styles = StyleSheet.create({
   },
   // Calendar sync panel
   syncPanel: {
-    backgroundColor: AppColors.background.secondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: AppColors.border.secondary,
