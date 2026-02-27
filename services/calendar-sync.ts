@@ -1,10 +1,10 @@
 /**
- * Calendar sync service for importing past trips from device calendars.
+ * Calendar sync service for importing trips from device calendars.
  * Scans for events like "Train to Philadelphia" and matches them against GTFS data.
  */
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
-import type { CompletedTrip } from '../types/train';
+import type { CompletedTrip, SavedTrainRef } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { formatTime } from '../utils/time-formatting';
 import { formatDateForDisplay } from '../utils/date-helpers';
@@ -22,6 +22,19 @@ export interface SyncResult {
   matched: number;
   added: number;
   skipped: number;
+}
+
+interface MatchedTrip {
+  tripId: string;
+  fromStopId: string;
+  fromStopName: string;
+  toStopId: string;
+  toStopName: string;
+  departTime: string;
+  arriveTime: string;
+  trainNumber: string;
+  routeName: string;
+  eventDate: Date;
 }
 
 const TRAIN_EVENT_PATTERN = /^train\s+to\s+(.+)$/i;
@@ -70,8 +83,73 @@ function gtfsTimeToMinutes(gtfsTime: string): number {
 }
 
 /**
- * Main sync function — scans selected calendars for train events
- * and matches them against GTFS schedule data.
+ * Match a single calendar event against GTFS data.
+ * Returns the matched trip info or null if no match found.
+ */
+function matchEventToTrip(eventTitle: string, eventStartDate: Date): MatchedTrip | null {
+  const match = eventTitle.match(TRAIN_EVENT_PATTERN);
+  if (!match) return null;
+
+  const destination = match[1].trim();
+  const eventMinutes = eventStartDate.getHours() * 60 + eventStartDate.getMinutes();
+  const eventDate = new Date(eventStartDate);
+  eventDate.setHours(0, 0, 0, 0);
+
+  const stations = gtfsParser.searchStations(destination);
+  if (stations.length === 0) return null;
+  const destStation = stations[0];
+
+  const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, eventDate);
+
+  for (const tripId of tripIds) {
+    const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
+    if (stopTimes.length < 2) continue;
+
+    for (const stop of stopTimes) {
+      const stopMinutes = gtfsTimeToMinutes(stop.departure_time);
+      if (Math.abs(stopMinutes - eventMinutes) <= TIME_TOLERANCE_MINUTES) {
+        const destStopTime = stopTimes.find(s => s.stop_id === destStation.stop_id);
+        if (!destStopTime) continue;
+        if (stop.stop_sequence >= destStopTime.stop_sequence) continue;
+
+        const trainNumber = gtfsParser.getTrainNumber(tripId);
+        const routeId = gtfsParser.getRouteIdForTrip(tripId);
+        const routeName = routeId ? gtfsParser.getRouteName(routeId) : 'Unknown Route';
+
+        return {
+          tripId,
+          fromStopId: stop.stop_id,
+          fromStopName: stop.stop_name,
+          toStopId: destStopTime.stop_id,
+          toStopName: destStopTime.stop_name,
+          departTime: formatTime(stop.departure_time),
+          arriveTime: formatTime(destStopTime.arrival_time),
+          trainNumber,
+          routeName,
+          eventDate,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetch train events from calendars within a date range.
+ */
+async function fetchTrainEvents(
+  calendarIds: string[],
+  startDate: Date,
+  endDate: Date,
+): Promise<Calendar.Event[]> {
+  const events = await Calendar.getEventsAsync(calendarIds, startDate, endDate);
+  return events.filter(e => TRAIN_EVENT_PATTERN.test(e.title));
+}
+
+/**
+ * Sync past trips — scans selected calendars for past train events
+ * and adds matched trips to history.
  */
 export async function syncPastTrips(
   calendarIds: string[],
@@ -84,7 +162,6 @@ export async function syncPastTrips(
     return result;
   }
 
-  // Date range: from (today - scanDays) to yesterday
   const now = new Date();
   const endDate = new Date(now);
   endDate.setDate(endDate.getDate() - 1);
@@ -94,93 +171,107 @@ export async function syncPastTrips(
   startDate.setDate(startDate.getDate() - scanDays);
   startDate.setHours(0, 0, 0, 0);
 
-  // Fetch events from all selected calendars
-  const events = await Calendar.getEventsAsync(calendarIds, startDate, endDate);
-
-  // Filter for train events
-  const trainEvents = events.filter(e => TRAIN_EVENT_PATTERN.test(e.title));
+  const trainEvents = await fetchTrainEvents(calendarIds, startDate, endDate);
   if (trainEvents.length === 0) return result;
 
-  // Load existing history for dedup
   const existingHistory = await TrainStorageService.getTripHistory();
   const existingKeys = new Set(
     existingHistory.map(h => `${h.tripId}|${h.fromCode}|${h.toCode}|${h.date}`),
   );
 
   for (const event of trainEvents) {
-    const match = event.title.match(TRAIN_EVENT_PATTERN);
-    if (!match) continue;
+    const matched = matchEventToTrip(event.title, new Date(event.startDate));
+    if (!matched) continue;
 
-    const destination = match[1].trim();
-    const eventStart = new Date(event.startDate);
-    const eventMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
-    const eventDate = new Date(eventStart);
-    eventDate.setHours(0, 0, 0, 0);
+    const entry: CompletedTrip = {
+      tripId: matched.tripId,
+      trainNumber: matched.trainNumber,
+      routeName: matched.routeName,
+      from: matched.fromStopName,
+      to: matched.toStopName,
+      fromCode: matched.fromStopId,
+      toCode: matched.toStopId,
+      departTime: matched.departTime,
+      arriveTime: matched.arriveTime,
+      date: formatDateForDisplay(matched.eventDate),
+      travelDate: matched.eventDate.getTime(),
+      completedAt: Date.now(),
+    };
 
-    // Find matching destination station
-    const stations = gtfsParser.searchStations(destination);
-    if (stations.length === 0) continue;
-    const destStation = stations[0];
+    const key = `${entry.tripId}|${entry.fromCode}|${entry.toCode}|${entry.date}`;
+    result.matched++;
 
-    // Find trips that stop at this destination on this date
-    const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, eventDate);
-
-    let matched = false;
-    for (const tripId of tripIds) {
-      const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
-      if (stopTimes.length < 2) continue;
-
-      // Find a stop whose departure time is within tolerance of the event start
-      for (const stop of stopTimes) {
-        const stopMinutes = gtfsTimeToMinutes(stop.departure_time);
-        if (Math.abs(stopMinutes - eventMinutes) <= TIME_TOLERANCE_MINUTES) {
-          // This stop is the inferred boarding station
-          // Find the destination stop in the sequence
-          const destStopTime = stopTimes.find(s => s.stop_id === destStation.stop_id);
-          if (!destStopTime) continue;
-
-          // Boarding stop must come before destination
-          if (stop.stop_sequence >= destStopTime.stop_sequence) continue;
-
-          const trainNumber = gtfsParser.getTrainNumber(tripId);
-          const routeId = gtfsParser.getRouteIdForTrip(tripId);
-          const routeName = routeId ? gtfsParser.getRouteName(routeId) : 'Unknown Route';
-
-          const entry: CompletedTrip = {
-            tripId,
-            trainNumber,
-            routeName,
-            from: stop.stop_name,
-            to: destStopTime.stop_name,
-            fromCode: stop.stop_id,
-            toCode: destStopTime.stop_id,
-            departTime: formatTime(stop.departure_time),
-            arriveTime: formatTime(destStopTime.arrival_time),
-            date: formatDateForDisplay(eventDate),
-            travelDate: eventDate.getTime(),
-            completedAt: Date.now(),
-          };
-
-          const key = `${entry.tripId}|${entry.fromCode}|${entry.toCode}|${entry.date}`;
-          result.matched++;
-
-          if (existingKeys.has(key)) {
-            result.skipped++;
-          } else {
-            const added = await TrainStorageService.addToHistory(entry);
-            if (added) {
-              result.added++;
-              existingKeys.add(key);
-            } else {
-              result.skipped++;
-            }
-          }
-
-          matched = true;
-          break; // Found a match for this trip, move on
-        }
+    if (existingKeys.has(key)) {
+      result.skipped++;
+    } else {
+      const added = await TrainStorageService.addToHistory(entry);
+      if (added) {
+        result.added++;
+        existingKeys.add(key);
+      } else {
+        result.skipped++;
       }
-      if (matched) break; // Found a match for this event, move on
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Sync future trips — scans calendars for upcoming train events
+ * and adds matched trips to saved trains (My Trains).
+ * Called automatically on app load.
+ */
+export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult> {
+  const result: SyncResult = { matched: 0, added: 0, skipped: 0 };
+
+  if (!gtfsParser.isLoaded) {
+    logger.error('Calendar sync (future): GTFS data not loaded');
+    return result;
+  }
+
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(now);
+  endDate.setDate(endDate.getDate() + 90);
+  endDate.setHours(23, 59, 59, 999);
+
+  const trainEvents = await fetchTrainEvents(calendarIds, startDate, endDate);
+  if (trainEvents.length === 0) return result;
+
+  // Load existing saved trains for dedup
+  const existingRefs = await TrainStorageService.getSavedTrainRefs();
+  const existingKeys = new Set(
+    existingRefs.map(r => `${r.tripId}|${r.fromCode ?? ''}|${r.toCode ?? ''}|${r.travelDate ?? 0}`),
+  );
+
+  for (const event of trainEvents) {
+    const matched = matchEventToTrip(event.title, new Date(event.startDate));
+    if (!matched) continue;
+
+    result.matched++;
+
+    const ref: SavedTrainRef = {
+      tripId: matched.tripId,
+      fromCode: matched.fromStopId,
+      toCode: matched.toStopId,
+      travelDate: matched.eventDate.getTime(),
+      savedAt: Date.now(),
+    };
+
+    const key = `${ref.tripId}|${ref.fromCode ?? ''}|${ref.toCode ?? ''}|${ref.travelDate ?? 0}`;
+    if (existingKeys.has(key)) {
+      result.skipped++;
+    } else {
+      const saved = await TrainStorageService.saveTrainRef(ref);
+      if (saved) {
+        result.added++;
+        existingKeys.add(key);
+      } else {
+        result.skipped++;
+      }
     }
   }
 

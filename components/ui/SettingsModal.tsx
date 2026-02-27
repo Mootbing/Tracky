@@ -169,7 +169,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               <Ionicons name="calendar-outline" size={20} color={AppColors.accentBlue} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>Sync Past Trips</Text>
+              <Text style={styles.itemTitle}>Sync Trips from Calendar</Text>
               <Text style={styles.itemSubtitle}>Import from device calendar</Text>
             </View>
             {syncState === 'idle' && (

@@ -7,6 +7,7 @@ import { TwoStationSearch } from '../components/TwoStationSearch';
 import { SlideUpModalContext } from '../components/ui/slide-up-modal';
 import { useTrainContext } from '../context/TrainContext';
 import { useFrequentlyUsed } from '../hooks/useFrequentlyUsed';
+import { hasCalendarPermission, syncFutureTrips } from '../services/calendar-sync';
 import { ensureFreshGTFS, hasCachedGTFS, isCacheStale, loadCachedGTFS } from '../services/gtfs-sync';
 import { TrainStorageService } from '../services/storage';
 import type { SavedTrainRef, Train } from '../types/train';
@@ -72,6 +73,23 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         setSavedTrains(updatedTrains);
       } else {
         setSavedTrains(trains);
+      }
+
+      // Auto-sync future trips from calendar (if permission already granted)
+      try {
+        const permitted = await hasCalendarPermission();
+        if (permitted) {
+          const prefs = await TrainStorageService.getCalendarSyncPrefs();
+          if (prefs && prefs.calendarIds.length > 0) {
+            const syncResult = await syncFutureTrips(prefs.calendarIds);
+            if (syncResult.added > 0) {
+              const refreshed = await TrainStorageService.getSavedTrains();
+              setSavedTrains(refreshed);
+            }
+          }
+        }
+      } catch (e) {
+        logger.error('Auto calendar sync failed:', e);
       }
     };
     loadSavedTrains();
