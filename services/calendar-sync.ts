@@ -19,6 +19,7 @@ export interface DeviceCalendar {
 }
 
 export interface SyncResult {
+  parsed: number;
   matched: number;
   added: number;
   skipped: number;
@@ -37,7 +38,7 @@ interface MatchedTrip {
   eventDate: Date;
 }
 
-const TRAIN_EVENT_PATTERN = /^train\s+to\s+(.+)$/i;
+const TRAIN_EVENT_PATTERN = /train\s+to\s+([a-z\s.'-]+)/i;
 const TIME_TOLERANCE_MINUTES = 15;
 
 /**
@@ -155,7 +156,7 @@ export async function syncPastTrips(
   calendarIds: string[],
   scanDays: number,
 ): Promise<SyncResult> {
-  const result: SyncResult = { matched: 0, added: 0, skipped: 0 };
+  const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0 };
 
   if (!gtfsParser.isLoaded) {
     logger.error('Calendar sync: GTFS data not loaded');
@@ -172,6 +173,7 @@ export async function syncPastTrips(
   startDate.setHours(0, 0, 0, 0);
 
   const trainEvents = await fetchTrainEvents(calendarIds, startDate, endDate);
+  result.parsed = trainEvents.length;
   if (trainEvents.length === 0) return result;
 
   const existingHistory = await TrainStorageService.getTripHistory();
@@ -223,7 +225,7 @@ export async function syncPastTrips(
  * Called automatically on app load.
  */
 export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult> {
-  const result: SyncResult = { matched: 0, added: 0, skipped: 0 };
+  const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0 };
 
   if (!gtfsParser.isLoaded) {
     logger.error('Calendar sync (future): GTFS data not loaded');
@@ -239,6 +241,7 @@ export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult
   endDate.setHours(23, 59, 59, 999);
 
   const trainEvents = await fetchTrainEvents(calendarIds, startDate, endDate);
+  result.parsed = trainEvents.length;
   if (trainEvents.length === 0) return result;
 
   // Load existing saved trains for dedup

@@ -267,7 +267,8 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               <View style={styles.doneRow}>
                 <Ionicons name="checkmark-circle" size={22} color={AppColors.accentBlue} />
                 <Text style={styles.doneText}>
-                  Added {syncResult.added} trip{syncResult.added !== 1 ? 's' : ''} to history
+                  Parsed {syncResult.parsed} event{syncResult.parsed !== 1 ? 's' : ''}.
+                  {' '}Found {syncResult.added} trip{syncResult.added !== 1 ? 's' : ''}
                   {syncResult.skipped > 0 &&
                     ` (${syncResult.skipped} already existed)`}
                 </Text>
