@@ -18,11 +18,18 @@ export interface DeviceCalendar {
   source: string;
 }
 
+export interface AddedTripInfo {
+  from: string;
+  to: string;
+  date: string;
+}
+
 export interface SyncResult {
   parsed: number;
   matched: number;
   added: number;
   skipped: number;
+  addedTrips: AddedTripInfo[];
 }
 
 interface MatchedTrip {
@@ -178,7 +185,7 @@ export async function syncPastTrips(
   calendarIds: string[],
   scanDays: number,
 ): Promise<SyncResult> {
-  const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0 };
+  const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0, addedTrips: [] };
 
   if (!gtfsParser.isLoaded) {
     logger.error('Calendar sync: GTFS data not loaded');
@@ -247,7 +254,7 @@ export async function syncPastTrips(
  * Called automatically on app load.
  */
 export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult> {
-  const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0 };
+  const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0, addedTrips: [] };
 
   if (!gtfsParser.isLoaded) {
     logger.error('Calendar sync (future): GTFS data not loaded');
@@ -294,6 +301,11 @@ export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult
       if (saved) {
         result.added++;
         existingKeys.add(key);
+        result.addedTrips.push({
+          from: matched.fromStopName,
+          to: matched.toStopName,
+          date: formatDateForDisplay(matched.eventDate),
+        });
       } else {
         result.skipped++;
       }

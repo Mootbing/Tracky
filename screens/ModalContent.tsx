@@ -85,6 +85,13 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
             if (syncResult.added > 0) {
               const refreshed = await TrainStorageService.getSavedTrains();
               setSavedTrains(refreshed);
+              const tripLines = syncResult.addedTrips
+                .map(t => `${t.from} → ${t.to} (${t.date})`)
+                .join('\n');
+              Alert.alert(
+                'Trips Found from Calendar',
+                tripLines,
+              );
             }
           }
         }
