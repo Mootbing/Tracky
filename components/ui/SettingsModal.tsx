@@ -1,16 +1,19 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    ScrollView,
+    ScrollView as RNScrollView,
     StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
+import { light as hapticLight, selection as hapticSelection } from '../../utils/haptics';
+import { SlideUpModalContext } from './slide-up-modal';
 import {
     type DeviceCalendar,
     type SyncResult,
@@ -36,6 +39,7 @@ const SCAN_OPTIONS = [
 ] as const;
 
 export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalProps) {
+  const { isFullscreen, scrollOffset, panRef } = useContext(SlideUpModalContext);
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [calendars, setCalendars] = useState<DeviceCalendar[]>([]);
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
@@ -132,7 +136,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
       <View style={styles.header}>
         <Text style={styles.title}>Settings</Text>
         <TouchableOpacity
-          onPress={onClose}
+          onPress={() => { hapticLight(); onClose(); }}
           style={styles.closeButton}
           activeOpacity={0.7}
         >
@@ -140,7 +144,16 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        scrollEnabled={isFullscreen}
+        waitFor={panRef}
+        bounces={false}
+        onScroll={e => {
+          if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
         {/* AUTOMATIONS Section */}
         <Text style={styles.sectionHeader}>AUTOMATIONS</Text>
 
@@ -149,7 +162,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <TouchableOpacity
             style={styles.settingsItem}
             activeOpacity={0.7}
-            onPress={handleCalendarSyncTap}
+            onPress={() => { hapticLight(); handleCalendarSyncTap(); }}
           >
             <View style={styles.itemIconContainer}>
               <Ionicons name="calendar-outline" size={22} color={AppColors.primary} />
@@ -173,19 +186,19 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             <View style={styles.expandedPanel}>
               <View style={styles.panelHeader}>
                 <Text style={styles.panelLabel}>SELECT CALENDARS</Text>
-                <TouchableOpacity onPress={handleToggleAll} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => { hapticSelection(); handleToggleAll(); }} activeOpacity={0.7}>
                   <Text style={styles.toggleAllText}>
                     {allSelected ? 'Unselect All' : 'Select All'}
                   </Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.calendarList} nestedScrollEnabled>
+              <RNScrollView style={styles.calendarList} nestedScrollEnabled>
                 {calendars.map(cal => (
                   <TouchableOpacity
                     key={cal.id}
                     style={styles.calendarRow}
                     activeOpacity={0.7}
-                    onPress={() => toggleCalendar(cal.id)}
+                    onPress={() => { hapticSelection(); toggleCalendar(cal.id); }}
                   >
                     <View style={[styles.calendarDot, { backgroundColor: cal.color }]} />
                     <View style={{ flex: 1 }}>
@@ -194,12 +207,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                     </View>
                     <Switch
                       value={selectedCalendarIds.has(cal.id)}
-                      onValueChange={() => toggleCalendar(cal.id)}
+                      onValueChange={() => { hapticSelection(); toggleCalendar(cal.id); }}
                       trackColor={{ false: AppColors.border.primary, true: AppColors.primary }}
                     />
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </RNScrollView>
 
               <Text style={[styles.panelLabel, { marginTop: Spacing.lg }]}>SCAN RANGE</Text>
               <View style={styles.dropdownContainer}>
@@ -207,7 +220,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                   <TouchableOpacity
                     key={opt.value}
                     style={styles.dropdownOption}
-                    onPress={() => setScanDays(opt.value)}
+                    onPress={() => { hapticSelection(); setScanDays(opt.value); }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.dropdownOptionText}>{opt.label}</Text>
@@ -221,7 +234,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               <TouchableOpacity
                 style={styles.syncButton}
                 activeOpacity={0.7}
-                onPress={handleSyncNow}
+                onPress={() => { hapticLight(); handleSyncNow(); }}
               >
                 <Text style={styles.syncButtonText}>Sync Now</Text>
               </TouchableOpacity>
@@ -260,7 +273,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <TouchableOpacity
             style={styles.settingsItem}
             activeOpacity={0.7}
-            onPress={onRefreshGTFS}
+            onPress={() => { hapticLight(); onRefreshGTFS(); }}
           >
             <View style={styles.itemIconContainer}>
               <Ionicons name="refresh" size={22} color={AppColors.primary} />

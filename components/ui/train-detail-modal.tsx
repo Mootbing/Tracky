@@ -1,19 +1,20 @@
 import React from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, Spacing } from '../../constants/theme';
-import { formatTimeWithDayOffset, addDelayToTime, timeToMinutes } from '../../utils/time-formatting';
+import { addDelayToTime, formatTimeWithDayOffset, timeToMinutes } from '../../utils/time-formatting';
 
 import { useTrainContext } from '../../context/TrainContext';
 import type { Train } from '../../types/train';
 import { haversineDistance } from '../../utils/distance';
 import { gtfsParser } from '../../utils/gtfs-parser';
-import { getCountdownForTrain, calculateNights, pluralize, calculateDuration } from '../../utils/train-display';
+import { logger } from '../../utils/logger';
+import { calculateDuration, getCountdownForTrain, pluralize } from '../../utils/train-display';
 import { SlideUpModalContext } from './slide-up-modal';
 import TimeDisplay from './TimeDisplay';
-import { logger } from '../../utils/logger';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -34,6 +35,13 @@ const formatTime24to12 = formatTimeWithDayOffset;
 
 import { Alert } from 'react-native';
 
+// Weather interface for arrival weather widget
+interface WeatherData {
+  temperature: number;
+  condition: string;
+  icon: string;
+}
+
 export default function TrainDetailModal({ train, onClose, onStationSelect, onTrainSelect }: TrainDetailModalProps) {
   // Use context if train is not provided
   const { selectedTrain } = useTrainContext();
@@ -45,8 +53,12 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
 
   // For live trains: track past stops, next stop, and future stops
   const [allStops, setAllStops] = React.useState<{ time: string; dayOffset: number; name: string; code: string }[]>([]);
-  const [isRouteExpanded, setIsRouteExpanded] = React.useState(false);
+  const [isWhereIsMyTrainExpanded, setIsWhereIsMyTrainExpanded] = React.useState(false);
   const [isHeaderExpanded, setIsHeaderExpanded] = React.useState(false);
+  
+  // Weather state
+  const [weatherData, setWeatherData] = React.useState<WeatherData | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = React.useState(false);
 
   // Check if train is currently live (has realtime position)
   const isLiveTrain = trainData?.realtime?.position !== undefined;
@@ -146,8 +158,55 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     }
   }, [error, onClose]);
 
+  // Fetch weather data for destination
+  React.useEffect(() => {
+    const fetchWeather = async () => {
+      if (!trainData) return;
+      
+      try {
+        setIsLoadingWeather(true);
+        const destStop = gtfsParser.getStop(trainData.toCode);
+        if (!destStop) return;
+
+        // Using Open-Meteo API (free, no API key required)
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${destStop.stop_lat}&longitude=${destStop.stop_lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
+        const response = await fetch(weatherUrl);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const weatherCode = data.current?.weather_code || 0;
+          
+          // Map weather codes to conditions
+          const getWeatherCondition = (code: number): { condition: string; icon: string } => {
+            if (code === 0) return { condition: 'Clear', icon: 'sunny' };
+            if (code <= 3) return { condition: 'Partly Cloudy', icon: 'partly-sunny' };
+            if (code <= 48) return { condition: 'Foggy', icon: 'cloud' };
+            if (code <= 67) return { condition: 'Rainy', icon: 'rainy' };
+            if (code <= 77) return { condition: 'Snowy', icon: 'snow' };
+            if (code <= 99) return { condition: 'Stormy', icon: 'thunderstorm' };
+            return { condition: 'Scattered Clouds', icon: 'cloud' };
+          };
+
+          const weatherInfo = getWeatherCondition(weatherCode);
+          setWeatherData({
+            temperature: Math.round(data.current?.temperature_2m || 0),
+            condition: weatherInfo.condition,
+            icon: weatherInfo.icon,
+          });
+        }
+      } catch (e) {
+        logger.error('Failed to fetch weather:', e);
+      } finally {
+        setIsLoadingWeather(false);
+      }
+    };
+
+    fetchWeather();
+  }, [trainData]);
+
+
   // Use context from SlideUpModal for proper scroll/gesture coordination
-  const { isCollapsed, isFullscreen, scrollOffset, contentOpacity } = React.useContext(SlideUpModalContext);
+  const { isCollapsed, isFullscreen, scrollOffset, contentOpacity, panRef } = React.useContext(SlideUpModalContext);
   const [isScrolled, setIsScrolled] = React.useState(false);
 
   // Animated style for content that fades between half and collapsed states
@@ -335,24 +394,20 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
               {isCollapsed ? (
                 // When modal is collapsed, always show short format
                 <Text style={styles.routeTitle} numberOfLines={1}>
-                  {isRouteExpanded && allStops.length >= 2
-                    ? `${allStops[0].code} → ${allStops[allStops.length - 1].code}`
-                    : `${trainData.fromCode} → ${trainData.toCode}`}
+                  {trainData.fromCode} to {trainData.toCode}
                 </Text>
               ) : isHeaderExpanded ? (
                 <>
                   <Text style={styles.routeTitle}>
-                    {isRouteExpanded && allStops.length >= 2 ? allStops[0].name : trainData.from}
+                    {trainData.from}
                   </Text>
                   <Text style={styles.routeTitle}>
-                    to {isRouteExpanded && allStops.length >= 2 ? allStops[allStops.length - 1].name : trainData.to}
+                    to {trainData.to}
                   </Text>
                 </>
               ) : (
                 <Text style={styles.routeTitle} numberOfLines={1}>
-                  {isRouteExpanded && allStops.length >= 2
-                    ? `${allStops[0].code} → ${allStops[allStops.length - 1].code}`
-                    : `${trainData.fromCode} → ${trainData.toCode}`}
+                  {trainData.fromCode} to {trainData.toCode}
                 </Text>
               )}
             </TouchableOpacity>
@@ -370,13 +425,15 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
           style={styles.scrollContent}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: isHalfHeight ? SCREEN_HEIGHT * 0.5 : 100 }}
           showsVerticalScrollIndicator={true}
+          scrollEnabled={isFullscreen}
+          waitFor={panRef}
           onScroll={e => {
             const offsetY = e.nativeEvent.contentOffset.y;
             if (scrollOffset) scrollOffset.value = offsetY;
             setIsScrolled(offsetY > 0);
           }}
           scrollEventThrottle={16}
-          bounces={true}
+          bounces={false}
           nestedScrollEnabled={true}
         >
           {/* Departs in (granular, like card) */}

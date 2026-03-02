@@ -5,6 +5,7 @@ import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withS
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { AppColors } from '../../constants/theme';
+import { light as hapticLight, warning as hapticWarning } from '../../utils/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PILL_WIDTH = 48;
@@ -118,6 +119,7 @@ export default function MapSettingsPill({
   }, []);
 
   const handleOfflinePress = () => {
+    hapticWarning();
     Alert.alert(
       'No Internet Connection',
       'GTFS schedule data may be stale until your connection is restored. Live train positions will not update.',
@@ -126,11 +128,13 @@ export default function MapSettingsPill({
   };
 
   const handleSettingsPress = () => {
+    hapticLight();
     setIsExpanded(true);
     expandProgress.value = withSpring(1, SPRING_CONFIG);
   };
 
   const handleClose = () => {
+    hapticLight();
     expandProgress.value = withSpring(0, SPRING_CONFIG, () => {
       runOnJS(setIsExpanded)(false);
     });
@@ -177,7 +181,7 @@ export default function MapSettingsPill({
             <TouchableOpacity style={styles.pillButton} onPress={handleSettingsPress} activeOpacity={0.7}>
               <Ionicons name="map-outline" size={24} color={AppColors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.pillButton} onPress={onRecenter} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.pillButton} onPress={() => { hapticLight(); onRecenter(); }} activeOpacity={0.7}>
               <MaterialIcons name="my-location" size={22} color={AppColors.primary} />
             </TouchableOpacity>
             {!isConnected && (
@@ -200,7 +204,7 @@ export default function MapSettingsPill({
             {/* Routes */}
             <TouchableOpacity
               style={styles.settingOption}
-              onPress={() => setRouteMode(getNextRouteMode(routeMode))}
+              onPress={() => { hapticLight(); setRouteMode(getNextRouteMode(routeMode)); }}
               activeOpacity={0.7}
             >
               <MaterialIcons name="route" size={20} color={getModeColor(routeMode)} />
@@ -212,7 +216,7 @@ export default function MapSettingsPill({
             {/* Stations */}
             <TouchableOpacity
               style={styles.settingOption}
-              onPress={() => setStationMode(getNextStationMode(stationMode))}
+              onPress={() => { hapticLight(); setStationMode(getNextStationMode(stationMode)); }}
               activeOpacity={0.7}
             >
               <Ionicons
@@ -233,7 +237,7 @@ export default function MapSettingsPill({
             {/* Map Type */}
             <TouchableOpacity
               style={styles.settingOption}
-              onPress={() => setMapType(mapType === 'standard' ? 'satellite' : 'standard')}
+              onPress={() => { hapticLight(); setMapType(mapType === 'standard' ? 'satellite' : 'standard'); }}
               activeOpacity={0.7}
             >
               {mapType === 'standard' ? (
@@ -249,7 +253,7 @@ export default function MapSettingsPill({
             {/* Trains */}
             <TouchableOpacity
               style={styles.settingOption}
-              onPress={() => setTrainMode(getNextTrainMode(trainMode))}
+              onPress={() => { hapticLight(); setTrainMode(getNextTrainMode(trainMode)); }}
               activeOpacity={0.7}
             >
               <Ionicons name="train" size={20} color={getModeColor(trainMode)} />

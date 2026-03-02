@@ -1,9 +1,10 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AppColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { light as hapticLight, selection as hapticSelection, success as hapticSuccess } from '../utils/haptics';
 import { getTrainDisplayName } from '../services/api';
 import type { EnrichedStopTime, Stop } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
@@ -80,6 +81,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   }, [fromStation, toStation, selectedDate]);
 
   const handleSelectStation = (station: Stop) => {
+    hapticSelection();
     if (activeField === 'from') {
       setFromStation(station);
       setActiveField('to');
@@ -92,6 +94,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   };
 
   const handleClearFrom = () => {
+    hapticLight();
     setFromStation(null);
     setToStation(null);
     setSelectedDate(null);
@@ -102,6 +105,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   };
 
   const handleClearTo = () => {
+    hapticLight();
     setToStation(null);
     setSelectedDate(null);
     setTripResults([]);
@@ -111,6 +115,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   };
 
   const handleClearDate = () => {
+    hapticLight();
     setSelectedDate(null);
     setTripResults([]);
     setShowDatePicker(true);
@@ -151,38 +156,40 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
             onChangeText={setSearchQuery}
             autoFocus
           />
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity onPress={() => { hapticLight(); onClose(); }}>
             <Ionicons name="close-circle" size={20} color={AppColors.secondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Station Search Results */}
-        {showingStationSearch && (
-          <View style={styles.resultsContainer}>
-            <Text style={styles.sectionLabel}>SELECT DEPARTURE STATION</Text>
-            {!isDataLoaded ? (
-              <Text style={styles.noResults}>Loading station data...</Text>
-            ) : stationResults.length === 0 ? (
-              <Text style={styles.noResults}>No stations found</Text>
-            ) : (
-              stationResults.map(station => (
-                <TouchableOpacity
-                  key={station.stop_id}
-                  style={styles.stationItem}
-                  onPress={() => handleSelectStation(station)}
-                >
-                  <View style={styles.stationIcon}>
-                    <Ionicons name="location" size={20} color={AppColors.primary} />
-                  </View>
-                  <View style={styles.stationInfo}>
-                    <Text style={styles.stationName}>{station.stop_name}</Text>
-                    <Text style={styles.stationCode}>{station.stop_id}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        )}
+        {/* Station Search Results (scrollable) */}
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {showingStationSearch && (
+            <View style={styles.resultsContainer}>
+              <Text style={styles.sectionLabel}>SELECT DEPARTURE STATION</Text>
+              {!isDataLoaded ? (
+                <Text style={styles.noResults}>Loading station data...</Text>
+              ) : stationResults.length === 0 ? (
+                <Text style={styles.noResults}>No stations found</Text>
+              ) : (
+                stationResults.map(station => (
+                  <TouchableOpacity
+                    key={station.stop_id}
+                    style={styles.stationItem}
+                    onPress={() => handleSelectStation(station)}
+                  >
+                    <View style={styles.stationIcon}>
+                      <Ionicons name="location" size={20} color={AppColors.primary} />
+                    </View>
+                    <View style={styles.stationInfo}>
+                      <Text style={styles.stationName}>{station.stop_name}</Text>
+                      <Text style={styles.stationCode}>{station.stop_id}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
+        </ScrollView>
       </View>
     );
   }
@@ -239,117 +246,121 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         </TouchableOpacity>
       </View>
 
-      {/* Station Search Results (for arrival) */}
-      {showingStationSearch && (
-        <View style={styles.resultsContainer}>
-          <Text style={styles.sectionLabel}>SELECT ARRIVAL STATION</Text>
-          {!isDataLoaded ? (
-            <Text style={styles.noResults}>Loading station data...</Text>
-          ) : stationResults.length === 0 ? (
-            <Text style={styles.noResults}>No stations found</Text>
-          ) : (
-            stationResults.map(station => (
-              <TouchableOpacity
-                key={station.stop_id}
-                style={styles.stationItem}
-                onPress={() => handleSelectStation(station)}
-              >
-                <View style={styles.stationIcon}>
-                  <Ionicons name="location" size={20} color={AppColors.primary} />
-                </View>
-                <View style={styles.stationInfo}>
-                  <Text style={styles.stationName}>{station.stop_name}</Text>
-                  <Text style={styles.stationCode}>{station.stop_id}</Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      )}
-
-      {/* Date Picker Section */}
-      {showingDatePicker && (
-        <View style={styles.datePickerContainer}>
-          <Text style={styles.sectionLabel}>SELECT TRAVEL DATE</Text>
-          <View style={styles.datePickerWrapper}>
-            <DateTimePicker
-              value={tempDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onChange={handleDateChange}
-              minimumDate={new Date()}
-              themeVariant="dark"
-              accentColor="#FFFFFF"
-              style={styles.datePicker}
-            />
-          </View>
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={styles.confirmDateButton}
-              onPress={() => {
-                setSelectedDate(tempDate);
-                setShowDatePicker(false);
-              }}
-            >
-              <Text style={styles.confirmDateText}>Confirm Date</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Trip Results */}
-      {showingResults && (
-        <View style={styles.resultsContainer}>
-          <Text style={styles.sectionLabel}>
-            {tripResults.length} TRAIN{tripResults.length !== 1 ? 'S' : ''} FOUND
-          </Text>
-          {tripResults.length === 0 ? (
-            <Text style={styles.noResults}>No direct trains between these stations</Text>
-          ) : (
-            tripResults.map(trip => {
-              const { displayName, routeName } = getTrainDisplayName(trip.tripId);
-              const isAcela = routeName?.toLowerCase().includes('acela');
-              return (
+      {/* Scrollable results area */}
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {/* Station Search Results (for arrival) */}
+        {showingStationSearch && (
+          <View style={styles.resultsContainer}>
+            <Text style={styles.sectionLabel}>SELECT ARRIVAL STATION</Text>
+            {!isDataLoaded ? (
+              <Text style={styles.noResults}>Loading station data...</Text>
+            ) : stationResults.length === 0 ? (
+              <Text style={styles.noResults}>No stations found</Text>
+            ) : (
+              stationResults.map(station => (
                 <TouchableOpacity
-                  key={trip.tripId}
-                  style={styles.tripItem}
-                  onPress={() => onSelectTrip(trip.tripId, fromStation.stop_id, toStation.stop_id, selectedDate)}
+                  key={station.stop_id}
+                  style={styles.stationItem}
+                  onPress={() => handleSelectStation(station)}
                 >
-                  <View style={styles.tripIcon}>
-                    {isAcela ? (
-                      <Ionicons name="train" size={20} color={AppColors.primary} />
-                    ) : (
-                      <FontAwesome6 name="train" size={16} color={AppColors.primary} />
-                    )}
+                  <View style={styles.stationIcon}>
+                    <Ionicons name="location" size={20} color={AppColors.primary} />
                   </View>
-                  <View style={styles.tripInfo}>
-                    <Text style={styles.tripName}>{displayName}</Text>
-                    <View style={styles.tripTimes}>
-                      <Text style={styles.tripTime}>{formatTime(trip.fromStop.departure_time)}</Text>
-                      <Ionicons name="arrow-forward" size={12} color={AppColors.secondary} />
-                      <Text style={styles.tripTime}>{formatTime(trip.toStop.arrival_time)}</Text>
-                    </View>
-                    {trip.intermediateStops.length > 0 && (
-                      <Text style={styles.tripStops}>
-                        {trip.intermediateStops.length} stop{trip.intermediateStops.length !== 1 ? 's' : ''}
-                      </Text>
-                    )}
+                  <View style={styles.stationInfo}>
+                    <Text style={styles.stationName}>{station.stop_name}</Text>
+                    <Text style={styles.stationCode}>{station.stop_id}</Text>
                   </View>
-                  <Ionicons name="add" size={24} color={AppColors.primary} />
                 </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
-      )}
+              ))
+            )}
+          </View>
+        )}
 
-      {/* Hint when from is selected but no to search */}
-      {!showingStationSearch && !showingResults && !showingDatePicker && searchQuery.length === 0 && !toStation && (
-        <View style={styles.hintContainer}>
-          <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} />
-          <Text style={styles.hintText}>Now enter your arrival station</Text>
-        </View>
-      )}
+        {/* Date Picker Section */}
+        {showingDatePicker && (
+          <View style={styles.datePickerContainer}>
+            <Text style={styles.sectionLabel}>SELECT TRAVEL DATE</Text>
+            <View style={styles.datePickerWrapper}>
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                onChange={handleDateChange}
+                minimumDate={new Date()}
+                themeVariant="dark"
+                accentColor="#FFFFFF"
+                style={styles.datePicker}
+              />
+            </View>
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.confirmDateButton}
+                onPress={() => {
+                  hapticSuccess();
+                  setSelectedDate(tempDate);
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={styles.confirmDateText}>Confirm Date</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Trip Results */}
+        {showingResults && (
+          <View style={styles.resultsContainer}>
+            <Text style={styles.sectionLabel}>
+              {tripResults.length} TRAIN{tripResults.length !== 1 ? 'S' : ''} FOUND
+            </Text>
+            {tripResults.length === 0 ? (
+              <Text style={styles.noResults}>No direct trains between these stations</Text>
+            ) : (
+              tripResults.map(trip => {
+                const { displayName, routeName } = getTrainDisplayName(trip.tripId);
+                const isAcela = routeName?.toLowerCase().includes('acela');
+                return (
+                  <TouchableOpacity
+                    key={trip.tripId}
+                    style={styles.tripItem}
+                    onPress={() => { hapticSuccess(); onSelectTrip(trip.tripId, fromStation.stop_id, toStation.stop_id, selectedDate); }}
+                  >
+                    <View style={styles.tripIcon}>
+                      {isAcela ? (
+                        <Ionicons name="train" size={20} color={AppColors.primary} />
+                      ) : (
+                        <FontAwesome6 name="train" size={16} color={AppColors.primary} />
+                      )}
+                    </View>
+                    <View style={styles.tripInfo}>
+                      <Text style={styles.tripName}>{displayName}</Text>
+                      <View style={styles.tripTimes}>
+                        <Text style={styles.tripTime}>{formatTime(trip.fromStop.departure_time)}</Text>
+                        <Ionicons name="arrow-forward" size={12} color={AppColors.secondary} />
+                        <Text style={styles.tripTime}>{formatTime(trip.toStop.arrival_time)}</Text>
+                      </View>
+                      {trip.intermediateStops.length > 0 && (
+                        <Text style={styles.tripStops}>
+                          {trip.intermediateStops.length} stop{trip.intermediateStops.length !== 1 ? 's' : ''}
+                        </Text>
+                      )}
+                    </View>
+                    <Ionicons name="add" size={24} color={AppColors.primary} />
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {/* Hint when from is selected but no to search */}
+        {!showingStationSearch && !showingResults && !showingDatePicker && searchQuery.length === 0 && !toStation && (
+          <View style={styles.hintContainer}>
+            <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} />
+            <Text style={styles.hintText}>Now enter your arrival station</Text>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }

@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { light as hapticLight } from '../utils/haptics';
 import { TrainTrack } from 'lucide-react-native';
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
@@ -103,6 +104,10 @@ function SwipeableTrainCard({ train, onPress, onDelete, isFirst, contentOpacity 
       hasTriggeredSecondHaptic.value = false;
     });
 
+  const triggerLightHaptic = () => {
+    hapticLight();
+  };
+
   const tapGesture = Gesture.Tap().onEnd(() => {
     if (isDeleting.value) return;
 
@@ -113,6 +118,7 @@ function SwipeableTrainCard({ train, onPress, onDelete, isFirst, contentOpacity 
         stiffness: 200,
       });
     } else {
+      runOnJS(triggerLightHaptic)();
       runOnJS(onPress)();
     }
   });

@@ -1,7 +1,8 @@
 import * as Haptics from 'expo-haptics';
+import { light as hapticLight } from '../../utils/haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Alert, Image, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
   runOnJS,
@@ -199,7 +200,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const { isFullscreen, scrollOffset, panGesture } = React.useContext(SlideUpModalContext);
+  const { isFullscreen, scrollOffset, panRef } = React.useContext(SlideUpModalContext);
 
   const currentYear = new Date().getFullYear();
 
@@ -321,6 +322,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   }, [filteredAndSortedHistory, sortField, sortDirection]);
 
   const handleSharePassport = useCallback(async () => {
+    hapticLight();
     const yearText = selectedYear || 'All-Time';
     const message = `🚂 My Train Passport ${yearText}\n\n` +
       `✈️ Trips: ${stats.totalTrips}\n` +
@@ -337,6 +339,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   }, [selectedYear, stats]);
 
   const handleShareDelays = useCallback(async () => {
+    hapticLight();
     const yearText = selectedYear || 'All-Time';
     const totalHours = Math.floor(stats.totalDelayMinutes / 60);
     const avgMinutes = Math.round(stats.averageDelayMinutes);
@@ -353,6 +356,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   }, [selectedYear, stats]);
 
   const handleShareMostRidden = useCallback(async () => {
+    hapticLight();
     if (!stats.mostRiddenRoute) return;
     
     const message = `🚂 Most Ridden Route\n\n` +
@@ -460,11 +464,12 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         scrollEnabled={isFullscreen}
+        bounces={false}
         onScroll={e => {
           scrollOffset.value = e.nativeEvent.contentOffset.y;
         }}
         scrollEventThrottle={16}
-        simultaneousHandlers={panGesture}
+        waitFor={panRef}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Passport Card */}

@@ -13,6 +13,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
+import { medium as hapticMedium } from '../../utils/haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -33,7 +34,7 @@ export const SlideUpModalContext = createContext<{
   isFullscreen: boolean;
   isCollapsed: boolean;
   scrollOffset: SharedValue<number>;
-  panGesture: ReturnType<typeof Gesture.Pan> | null;
+  panRef: React.RefObject<any>;
   modalHeight: SharedValue<number>;
   contentOpacity: SharedValue<number>;
   snapToPoint?: (point: 'min' | 'half' | 'max') => void;
@@ -42,7 +43,7 @@ export const SlideUpModalContext = createContext<{
   isFullscreen: false,
   isCollapsed: false,
   scrollOffset: { value: 0 } as SharedValue<number>,
-  panGesture: null,
+  panRef: { current: null },
   modalHeight: { value: DEFAULT_SNAP_POINTS.HALF } as SharedValue<number>,
   contentOpacity: { value: 1 } as SharedValue<number>,
 });
@@ -96,6 +97,10 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   const [isFullscreen, setIsFullscreen] = useState(initialSnap === 'max');
   const [isCollapsed, setIsCollapsed] = useState(initialSnap === 'min');
   const [gestureEnabled, setGestureEnabled] = useState(true);
+  const panRef = React.useRef<any>(undefined);
+  const panStartY = useSharedValue(0);
+  const panStartX = useSharedValue(0);
+  const panDecided = useSharedValue(false);
 
   // Content opacity - fades elements between HALF (50%) and MIN (collapsed) height
   // At HALF height: opacity = 1 (fully visible)
@@ -200,72 +205,101 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   };
 
   const panGesture = Gesture.Pan()
+    .withRef(panRef)
+    .manualActivation(true)
     .enableTrackpadTwoFingerGesture(true)
     .maxPointers(1)
     .enabled(gestureEnabled)
-    .activeOffsetY([-15, 15])
-    .failOffsetX([-20, 20])
+    .onTouchesDown((event, stateManager) => {
+      if (event.numberOfTouches > 1) {
+        stateManager.fail();
+        return;
+      }
+      panStartY.value = event.allTouches[0].absoluteY;
+      panStartX.value = event.allTouches[0].absoluteX;
+      panDecided.value = false;
+    })
+    .onTouchesMove((event, stateManager) => {
+      if (panDecided.value || event.numberOfTouches === 0) return;
+      if (event.numberOfTouches > 1) {
+        stateManager.fail();
+        panDecided.value = true;
+        return;
+      }
+
+      const dy = event.allTouches[0].absoluteY - panStartY.value;
+      const dx = event.allTouches[0].absoluteX - panStartX.value;
+
+      // Fail on horizontal movement
+      if (Math.abs(dx) > 20) {
+        stateManager.fail();
+        panDecided.value = true;
+        return;
+      }
+
+      // Wait for enough vertical movement to decide
+      if (Math.abs(dy) < 15) return;
+
+      // Decision: should the pan gesture handle this, or the ScrollView?
+      if (currentSnap.value !== 'max') {
+        // Not fullscreen — pan always handles (move modal)
+        stateManager.activate();
+        panDecided.value = true;
+      } else if (scrollOffset.value > 1) {
+        // Fullscreen + content scrolled — let ScrollView handle it
+        stateManager.fail();
+        panDecided.value = true;
+      } else if (dy > 0) {
+        // Fullscreen + at scroll top + swiping DOWN — pan handles (retract modal)
+        stateManager.activate();
+        panDecided.value = true;
+      } else {
+        // Fullscreen + at scroll top + swiping UP — let ScrollView scroll content
+        stateManager.fail();
+        panDecided.value = true;
+      }
+    })
     .onStart(() => {
       context.value = { y: translateY.value };
     })
     .onUpdate(event => {
-      // At fullscreen, only handle downward gesture if scrolled to top
-      // This allows upward scrolling in the content
-      if (currentSnap.value === 'max') {
-        // If scrolled down in content, don't intercept any gestures
-        if (scrollOffset.value > 0) {
-          return;
-        }
-        // If at top but swiping up (trying to scroll content), don't intercept
-        if (event.translationY < 0) {
-          return;
-        }
-      }
-
-      // Update position within bounds
       const newY = context.value.y + event.translationY;
       translateY.value = Math.max(SCREEN_HEIGHT - SNAP_POINTS.MAX, Math.min(SCREEN_HEIGHT - SNAP_POINTS.MIN, newY));
     })
     .onEnd(event => {
       const velocity = event.velocityY;
-      const currentY = translateY.value;
-      const currentHeight = SCREEN_HEIGHT - currentY;
+      const currentHeight = SCREEN_HEIGHT - translateY.value;
 
-      // Quick swipe detection (velocity-based)
       const QUICK_SWIPE_VELOCITY = 1000;
-      const isQuickSwipeUp = velocity < -QUICK_SWIPE_VELOCITY;
-      const isQuickSwipeDown = velocity > QUICK_SWIPE_VELOCITY;
 
       let targetSnap: 'min' | 'half' | 'max';
 
-      if (isQuickSwipeUp) {
-        // Quick swipe up -> fullscreen
+      if (velocity < -QUICK_SWIPE_VELOCITY) {
         targetSnap = 'max';
-      } else if (isQuickSwipeDown) {
-        // Quick swipe down -> collapse
+      } else if (velocity > QUICK_SWIPE_VELOCITY) {
         targetSnap = 'min';
       } else {
-        // Careful/slow swipe -> snap to closest
         const distances = [
-          { point: SNAP_POINTS.MIN, distance: Math.abs(currentHeight - SNAP_POINTS.MIN), key: 'min' as const },
-          { point: SNAP_POINTS.HALF, distance: Math.abs(currentHeight - SNAP_POINTS.HALF), key: 'half' as const },
-          { point: SNAP_POINTS.MAX, distance: Math.abs(currentHeight - SNAP_POINTS.MAX), key: 'max' as const },
+          { distance: Math.abs(currentHeight - SNAP_POINTS.MIN), key: 'min' as const },
+          { distance: Math.abs(currentHeight - SNAP_POINTS.HALF), key: 'half' as const },
+          { distance: Math.abs(currentHeight - SNAP_POINTS.MAX), key: 'max' as const },
         ];
-
-        const closest = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev));
-
-        targetSnap = closest.key;
+        targetSnap = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev)).key;
       }
 
-      // Apply the snap
       const targetHeight = SNAP_POINTS[targetSnap.toUpperCase() as 'MIN' | 'HALF' | 'MAX'];
       const targetY = SCREEN_HEIGHT - targetHeight;
 
       currentSnap.value = targetSnap;
       modalHeight.value = targetHeight;
 
+      if (targetSnap !== 'max') {
+        scrollOffset.value = 0;
+      }
+
       runOnJS(setIsFullscreen)(targetSnap === 'max');
       runOnJS(setIsCollapsed)(targetSnap === 'min');
+      runOnJS(hapticMedium)();
 
       if (onSnapChange) {
         runOnJS(onSnapChange)(targetSnap);
@@ -279,8 +313,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
         damping: 60,
         stiffness: 500,
       });
-    })
-    .simultaneousWithExternalGesture();
+    });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -350,7 +383,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
             isFullscreen,
             isCollapsed,
             scrollOffset,
-            panGesture,
+            panRef,
             modalHeight,
             contentOpacity,
             snapToPoint,

@@ -1,18 +1,18 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
+import { light as hapticLight, selection as hapticSelection } from '../../utils/haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
     Platform,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -190,6 +190,10 @@ function SwipeableDepartureItem({ train, stationTime, stationId, onPress, onSave
       hasTriggeredHaptic.value = false;
     });
 
+  const triggerLightHaptic = () => {
+    hapticLight();
+  };
+
   const tapGesture = Gesture.Tap().onEnd(() => {
     if (isSaving.value) return;
 
@@ -200,6 +204,7 @@ function SwipeableDepartureItem({ train, stationTime, stationId, onPress, onSave
         stiffness: 200,
       });
     } else {
+      runOnJS(triggerLightHaptic)();
       runOnJS(onPress)();
     }
   });
@@ -305,7 +310,7 @@ export default function DepartureBoardModal({
   const [isScrolled, setIsScrolled] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'beginning' | 'terminating'>('all');
 
-  const { isCollapsed, isFullscreen, scrollOffset, contentOpacity } = React.useContext(SlideUpModalContext);
+  const { isCollapsed, isFullscreen, scrollOffset, contentOpacity, panRef, snapToPoint } = React.useContext(SlideUpModalContext);
 
   // Animated style for content that fades between half and collapsed states
   const fadeAnimatedStyle = useAnimatedStyle(() => {
@@ -499,7 +504,7 @@ export default function DepartureBoardModal({
               {station.stop_name}
             </Text>
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.6}>
+          <TouchableOpacity onPress={() => { hapticLight(); onClose(); }} style={styles.closeButton} activeOpacity={0.6}>
             <Ionicons name="close" size={24} color={AppColors.primary} />
           </TouchableOpacity>
         </View>
@@ -514,11 +519,12 @@ export default function DepartureBoardModal({
               placeholderTextColor={AppColors.tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onFocus={() => { hapticLight(); if (!isFullscreen) snapToPoint?.('max'); }}
               autoCapitalize="none"
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <TouchableOpacity onPress={() => { hapticLight(); setSearchQuery(''); }}>
                 <Ionicons name="close-circle" size={18} color={AppColors.secondary} />
               </TouchableOpacity>
             )}
@@ -530,16 +536,16 @@ export default function DepartureBoardModal({
             <View style={styles.dateSelector}>
               <TouchableOpacity
                 style={[styles.dateArrow, !canGoBack && styles.dateArrowDisabled]}
-                onPress={() => canGoBack && navigateDate('prev')}
+                onPress={() => { if (canGoBack) { hapticLight(); navigateDate('prev'); } }}
                 disabled={!canGoBack}
               >
                 <Ionicons name="chevron-back" size={20} color={canGoBack ? AppColors.primary : AppColors.tertiary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.dateDisplay} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.dateDisplay} onPress={() => { hapticLight(); setShowDatePicker(true); }} activeOpacity={0.7}>
                 <Ionicons name="calendar-outline" size={16} color={AppColors.secondary} />
                 <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.dateArrow} onPress={() => navigateDate('next')}>
+              <TouchableOpacity style={styles.dateArrow} onPress={() => { hapticLight(); navigateDate('next'); }}>
                 <Ionicons name="chevron-forward" size={20} color={AppColors.primary} />
               </TouchableOpacity>
             </View>
@@ -552,14 +558,14 @@ export default function DepartureBoardModal({
                   styles.filterButtonLeft,
                   filterMode === 'all' && styles.filterButtonActive,
                 ]}
-                onPress={() => setFilterMode('all')}
+                onPress={() => { hapticSelection(); setFilterMode('all'); }}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.filterText, filterMode === 'all' && styles.filterTextActive]}>All</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.filterButton, filterMode === 'beginning' && styles.filterButtonActive]}
-                onPress={() => setFilterMode('beginning')}
+                onPress={() => { hapticSelection(); setFilterMode('beginning'); }}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -574,7 +580,7 @@ export default function DepartureBoardModal({
                   styles.filterButtonRight,
                   filterMode === 'terminating' && styles.filterButtonActive,
                 ]}
-                onPress={() => setFilterMode('terminating')}
+                onPress={() => { hapticSelection(); setFilterMode('terminating'); }}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -602,7 +608,7 @@ export default function DepartureBoardModal({
               accentColor="#FFFFFF"
             />
             {Platform.OS === 'ios' && (
-              <TouchableOpacity style={styles.datePickerDoneButton} onPress={handleDatePickerDone}>
+              <TouchableOpacity style={styles.datePickerDoneButton} onPress={() => { hapticLight(); handleDatePickerDone(); }}>
                 <Text style={styles.datePickerDoneText}>Done</Text>
               </TouchableOpacity>
             )}
@@ -613,13 +619,15 @@ export default function DepartureBoardModal({
           style={styles.scrollContent}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: isHalfHeight ? SCREEN_HEIGHT * 0.5 : 100 }}
           showsVerticalScrollIndicator={true}
+          scrollEnabled={isFullscreen}
+          waitFor={panRef}
           onScroll={e => {
             const offsetY = e.nativeEvent.contentOffset.y;
             if (scrollOffset) scrollOffset.value = offsetY;
             setIsScrolled(offsetY > 0);
           }}
           scrollEventThrottle={16}
-          bounces={true}
+          bounces={false}
           nestedScrollEnabled={true}
         >
           {/* Departures List */}

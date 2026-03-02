@@ -14,6 +14,7 @@ import SettingsModal from '../components/ui/SettingsModal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { AppColors } from '../constants/theme';
+import { light as hapticLight } from '../utils/haptics';
 import { GTFSRefreshProvider, useGTFSRefresh } from '../context/GTFSRefreshContext';
 import { ModalProvider, useModalContext } from '../context/ModalContext';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
@@ -185,6 +186,7 @@ function MapScreenInner() {
   // Handle train marker press on the map - center map on train and show detail at 50%
   const handleTrainMarkerPress = useCallback(
     (train: Train, lat: number, lon: number) => {
+      hapticLight();
       // Center map on train position with offset for 50% modal
       const latitudeDelta = 0.05;
       const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
@@ -207,6 +209,7 @@ function MapScreenInner() {
   // Handle live train marker press - zoom immediately, fetch train details in parallel
   const handleLiveTrainMarkerPress = useCallback(
     async (tripId: string, lat: number, lon: number) => {
+      hapticLight();
       // Start map zoom immediately — don't wait for API
       const latitudeDelta = 0.05;
       const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
@@ -242,6 +245,7 @@ function MapScreenInner() {
       isCluster: boolean;
       stations: Array<{ id: string; name: string; lat: number; lon: number }>;
     }) => {
+      hapticLight();
       // If it's a cluster, just zoom in
       if (cluster.isCluster) {
         mapRef.current?.animateToRegion(

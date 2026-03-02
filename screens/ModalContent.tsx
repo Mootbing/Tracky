@@ -11,6 +11,7 @@ import { hasCalendarPermission, syncFutureTrips } from '../services/calendar-syn
 import { TrainStorageService } from '../services/storage';
 import type { SavedTrainRef, Train } from '../types/train';
 import { COLORS, styles } from './styles';
+import { light as hapticLight } from '../utils/haptics';
 import { parseTimeToDate } from '../utils/time-formatting';
 import { logger } from '../utils/logger';
 
@@ -197,7 +198,7 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         </View>
         {!isSearchFocused && !isLoading && (
           <TouchableOpacity
-            onPress={() => onOpenProfile?.()}
+            onPress={() => { hapticLight(); onOpenProfile?.(); }}
             style={styles.refreshButton}
             activeOpacity={0.7}
             accessible={true}
@@ -224,7 +225,7 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
           <TouchableOpacity
             style={styles.searchContainer}
             activeOpacity={0.7}
-            onPress={handleOpenSearch}
+            onPress={() => { hapticLight(); handleOpenSearch(); }}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Add a train"
@@ -235,33 +236,37 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         )}
       </View>
 
+      {/* Search lives outside ScrollView so the input stays fixed */}
+      {isSearchFocused && !isCollapsed && (
+        <TwoStationSearch onSelectTrip={handleSelectTrip} onClose={handleCloseSearch} />
+      )}
+
       {/* Scrollable Content */}
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={isFullscreen}
-        onScroll={e => {
-          const offsetY = e.nativeEvent.contentOffset.y;
-          scrollOffset.value = offsetY;
-        }}
-        scrollEventThrottle={16}
-        simultaneousHandlers={panGesture}
-        keyboardShouldPersistTaps="handled"
-      >
-        {isSearchFocused && !isCollapsed && (
-          <TwoStationSearch onSelectTrip={handleSelectTrip} onClose={handleCloseSearch} />
-        )}
-        {!isSearchFocused && !isLoading && (
-          <TrainList
-            flights={flights}
-            onTrainSelect={train => {
-              setSelectedTrain(train);
-              if (typeof onTrainSelect === 'function') onTrainSelect(train);
-            }}
-            onDeleteTrain={handleDeleteTrain}
-          />
-        )}
-      </ScrollView>
+      {!isSearchFocused && (
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={isFullscreen}
+          onScroll={e => {
+            const offsetY = e.nativeEvent.contentOffset.y;
+            scrollOffset.value = offsetY;
+          }}
+          scrollEventThrottle={16}
+          simultaneousHandlers={panGesture}
+          keyboardShouldPersistTaps="handled"
+        >
+          {!isLoading && (
+            <TrainList
+              flights={flights}
+              onTrainSelect={train => {
+                setSelectedTrain(train);
+                if (typeof onTrainSelect === 'function') onTrainSelect(train);
+              }}
+              onDeleteTrain={handleDeleteTrain}
+            />
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 });

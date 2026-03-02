@@ -4,6 +4,7 @@ import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, styles } from '../screens/styles';
+import { selection as hapticSelection } from '../utils/haptics';
 
 export interface FrequentlyUsedItemProps {
   id: string;
@@ -27,7 +28,7 @@ export function FrequentlyUsedList({
           key={item.id}
           style={styles.frequentlyUsedItem}
           activeOpacity={0.7}
-          onPress={() => onSelect(item)}
+          onPress={() => { hapticSelection(); onSelect(item); }}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={`${item.name}, ${item.subtitle}`}
