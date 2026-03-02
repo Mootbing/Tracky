@@ -90,6 +90,7 @@ export class TrainStorageService {
 
           // Update date and daysAway based on travel date
           if (ref.travelDate) {
+            train.travelDate = ref.travelDate;
             train.date = formatDateForDisplay(ref.travelDate);
             train.daysAway = calculateDaysAway(ref.travelDate);
           }
@@ -156,15 +157,19 @@ export class TrainStorageService {
   /**
    * Delete a train by tripId (and optional segment)
    */
-  static async deleteTrainByTripId(tripId: string, fromCode?: string, toCode?: string): Promise<boolean> {
+  static async deleteTrainByTripId(tripId: string, fromCode?: string, toCode?: string, travelDate?: number): Promise<boolean> {
     try {
-      logger.info(`[Storage] Deleting train ${tripId} (${fromCode || '?'} → ${toCode || '?'})`);
+      logger.info(`[Storage] Deleting train ${tripId} (${fromCode || '?'} → ${toCode || '?'}, date=${travelDate || '?'})`);
       const refs = await this.getSavedTrainRefs();
       const updatedRefs = refs.filter(r => {
         if (r.tripId !== tripId) return true;
         // If segment codes provided, only delete matching segment
         if (fromCode !== undefined || toCode !== undefined) {
-          return r.fromCode !== fromCode || r.toCode !== toCode;
+          if (r.fromCode !== fromCode || r.toCode !== toCode) return true;
+        }
+        // If travelDate provided, only delete matching date
+        if (travelDate !== undefined) {
+          return r.travelDate !== travelDate;
         }
         return false;
       });
@@ -254,7 +259,7 @@ export class TrainStorageService {
     try {
       const history = await this.getTripHistory();
       const exists = history.some(
-        h => h.tripId === entry.tripId && h.fromCode === entry.fromCode && h.toCode === entry.toCode && h.date === entry.date
+        h => h.tripId === entry.tripId && h.fromCode === entry.fromCode && h.toCode === entry.toCode && h.travelDate === entry.travelDate
       );
       if (exists) {
         return false;
@@ -322,7 +327,7 @@ export class TrainStorageService {
         departTime: train.departTime,
         arriveTime: train.arriveTime,
         date: train.date,
-        travelDate: Date.now(),
+        travelDate: train.travelDate || Date.now(),
         completedAt: Date.now(),
         delay: train.realtime?.delay,
         distance,
@@ -333,7 +338,7 @@ export class TrainStorageService {
       await this.addToHistory(entry);
 
       // Remove from saved trains
-      await this.deleteTrainByTripId(entry.tripId, entry.fromCode, entry.toCode);
+      await this.deleteTrainByTripId(entry.tripId, entry.fromCode, entry.toCode, train.travelDate);
       return true;
     } catch (error) {
       logger.error('Error moving train to history:', error);
@@ -344,12 +349,17 @@ export class TrainStorageService {
   /**
    * Delete a trip from history
    */
-  static async deleteFromHistory(tripId: string, fromCode: string, toCode: string): Promise<boolean> {
+  static async deleteFromHistory(tripId: string, fromCode: string, toCode: string, travelDate?: number): Promise<boolean> {
     try {
       const history = await this.getTripHistory();
-      const updated = history.filter(
-        h => !(h.tripId === tripId && h.fromCode === fromCode && h.toCode === toCode)
-      );
+      const updated = history.filter(h => {
+        if (h.tripId !== tripId || h.fromCode !== fromCode || h.toCode !== toCode) return true;
+        // If travelDate provided, only delete matching date
+        if (travelDate !== undefined) {
+          return h.travelDate !== travelDate;
+        }
+        return false;
+      });
       await AsyncStorage.setItem(STORAGE_KEYS.TRIP_HISTORY, JSON.stringify(updated));
       return true;
     } catch (error) {

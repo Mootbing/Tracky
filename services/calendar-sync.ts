@@ -258,7 +258,7 @@ export async function syncPastTrips(calendarIds: string[], scanDays: number): Pr
   if (trainEvents.length === 0) return result;
 
   const existingHistory = await TrainStorageService.getTripHistory();
-  const existingKeys = new Set(existingHistory.map(h => `${h.tripId}|${h.fromCode}|${h.toCode}|${h.date}`));
+  const existingKeys = new Set(existingHistory.map(h => `${h.tripId}|${h.fromCode}|${h.toCode}|${h.travelDate}`));
 
   for (const event of trainEvents) {
     const matched = matchEventToTrip(event.title, new Date(event.startDate), event.location ?? undefined);
@@ -306,7 +306,7 @@ export async function syncPastTrips(calendarIds: string[], scanDays: number): Pr
       distance,
     };
 
-    const key = `${entry.tripId}|${entry.fromCode}|${entry.toCode}|${entry.date}`;
+    const key = `${entry.tripId}|${entry.fromCode}|${entry.toCode}|${entry.travelDate}`;
     result.matched++;
 
     if (existingKeys.has(key)) {

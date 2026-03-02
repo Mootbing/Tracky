@@ -195,7 +195,7 @@ export const ModalContent = React.forwardRef<
   };
 
   const handleDeleteTrain = async (train: Train) => {
-    await TrainStorageService.deleteTrainByTripId(train.tripId || '', train.fromCode, train.toCode);
+    await TrainStorageService.deleteTrainByTripId(train.tripId || '', train.fromCode, train.toCode, train.travelDate);
     const updatedTrains = await TrainStorageService.getSavedTrains();
     setSavedTrains(updatedTrains);
   };

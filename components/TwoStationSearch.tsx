@@ -1,6 +1,6 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Calendar, DateData } from 'react-native-calendars';
 import { ScrollView } from 'react-native-gesture-handler';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -29,6 +29,27 @@ import { formatTime } from '../utils/time-formatting';
 
 const formatDateForPill = formatDateForDisplay;
 
+function toDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+const calendarTheme = {
+  calendarBackground: AppColors.background.primary,
+  dayTextColor: AppColors.primary,
+  monthTextColor: AppColors.primary,
+  arrowColor: AppColors.primary,
+  selectedDayBackgroundColor: '#FFFFFF',
+  selectedDayTextColor: '#000000',
+  textDisabledColor: 'rgba(255, 255, 255, 0.2)',
+  todayTextColor: AppColors.primary,
+  todayBackgroundColor: AppColors.background.tertiary,
+  textSectionTitleColor: AppColors.secondary,
+  textDayFontWeight: 'bold' as const,
+  textMonthFontWeight: 'bold' as const,
+  textDayHeaderFontWeight: 'bold' as const,
+  textMonthFontSize: 18,
+};
+
 interface UnifiedResults {
   trains: SearchResult[];
   routes: SearchResult[];
@@ -48,7 +69,6 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // --- Shared state ---
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [tempDate, setTempDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(gtfsParser.isLoaded);
   const searchInputRef = useRef<TextInput>(null);
@@ -80,13 +100,6 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
     if (!selectedTrainNumber || !isDataLoaded) return null;
     return gtfsParser.getServiceInfoForTrain(selectedTrainNumber);
   }, [selectedTrainNumber, isDataLoaded]);
-
-  // Live check: does the selected train run on the currently browsed tempDate?
-  const tempDateNotRunning = useMemo(() => {
-    if (!selectedTrainNumber || !isDataLoaded) return false;
-    const trips = gtfsParser.getTripsByNumber(selectedTrainNumber);
-    return trips.length > 0 && !trips.some(trip => gtfsParser.isServiceActiveOnDate(trip.service_id, tempDate));
-  }, [selectedTrainNumber, isDataLoaded, tempDate]);
 
   // Check if GTFS data is loaded
   useEffect(() => {
@@ -231,17 +244,51 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
     setTimeout(() => searchInputRef.current?.focus(), 100);
   };
 
-  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-      if (date) {
-        setSelectedDate(date);
-      }
-    } else {
-      if (date) {
-        setTempDate(date);
+  const calendarMinDate = useMemo(() => {
+    if (trainServiceInfo) return toDateString(trainServiceInfo.minDate);
+    return toDateString(new Date());
+  }, [trainServiceInfo]);
+
+  const calendarMaxDate = useMemo(() => {
+    if (trainServiceInfo) return toDateString(trainServiceInfo.maxDate);
+    return undefined;
+  }, [trainServiceInfo]);
+
+  const calendarMarkedDates = useMemo(() => {
+    const marks: Record<string, { disabled?: boolean; disabledColor?: string; selected?: boolean; selectedColor?: string }> = {};
+
+    if (selectedTrainNumber && trainServiceInfo && isDataLoaded) {
+      const trips = gtfsParser.getTripsByNumber(selectedTrainNumber);
+      if (trips.length > 0) {
+        const current = new Date(trainServiceInfo.minDate);
+        const end = trainServiceInfo.maxDate;
+        while (current <= end) {
+          const active = trips.some(trip => gtfsParser.isServiceActiveOnDate(trip.service_id, current));
+          if (!active) {
+            marks[toDateString(current)] = { disabled: true, disabledColor: '#555555' };
+          }
+          current.setDate(current.getDate() + 1);
+        }
       }
     }
+
+    if (selectedDate) {
+      const key = toDateString(selectedDate);
+      marks[key] = { ...marks[key], selected: true, selectedColor: '#FFFFFF' };
+    }
+
+    return marks;
+  }, [selectedTrainNumber, trainServiceInfo, isDataLoaded, selectedDate]);
+
+  const handleDayPress = (day: DateData) => {
+    // Don't allow selecting disabled (greyed-out) dates
+    const mark = calendarMarkedDates[day.dateString];
+    if (mark?.disabled) return;
+
+    hapticSuccess();
+    const [y, m, d] = day.dateString.split('-').map(Number);
+    setSelectedDate(new Date(y, m - 1, d));
+    setShowDatePicker(false);
   };
 
   const handleSelectTrain = (trainNumber: string, displayName: string) => {
@@ -516,39 +563,16 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
             <View style={styles.datePickerContainer}>
               <Text style={styles.sectionLabel}>SELECT TRAVEL DATE</Text>
               <View style={styles.datePickerWrapper}>
-                <DateTimePicker
-                  value={tempDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={handleDateChange}
-                  {...(trainServiceInfo ? { minimumDate: trainServiceInfo.minDate, maximumDate: trainServiceInfo.maxDate } : {})}
-                  themeVariant="dark"
-                  accentColor="#FFFFFF"
-                  style={styles.datePicker}
+                <Calendar
+                  theme={calendarTheme}
+                  markedDates={calendarMarkedDates}
+                  minDate={calendarMinDate}
+                  maxDate={calendarMaxDate}
+                  onDayPress={handleDayPress}
+                  hideExtraDays
+                  enableSwipeMonths
                 />
               </View>
-              {tempDateNotRunning && (
-                <View style={styles.dateWarning}>
-                  <Ionicons name="alert-circle-outline" size={16} color="#F59E0B" />
-                  <Text style={styles.dateWarningText}>
-                    This train doesn't run on {tempDate.toLocaleDateString('en-US', { weekday: 'long' })}s
-                  </Text>
-                </View>
-              )}
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity
-                  style={[styles.confirmDateButton, tempDateNotRunning && styles.confirmDateButtonDisabled]}
-                  onPress={() => {
-                    if (tempDateNotRunning) return;
-                    hapticSuccess();
-                    setSelectedDate(tempDate);
-                    setShowDatePicker(false);
-                  }}
-                  disabled={tempDateNotRunning}
-                >
-                  <Text style={[styles.confirmDateText, tempDateNotRunning && styles.confirmDateTextDisabled]}>Confirm Date</Text>
-                </TouchableOpacity>
-              )}
             </View>
           )}
 
@@ -704,28 +728,14 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           <View style={styles.datePickerContainer}>
             <Text style={styles.sectionLabel}>SELECT TRAVEL DATE</Text>
             <View style={styles.datePickerWrapper}>
-              <DateTimePicker
-                value={tempDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={handleDateChange}
-                themeVariant="dark"
-                accentColor="#FFFFFF"
-                style={styles.datePicker}
+              <Calendar
+                theme={calendarTheme}
+                markedDates={calendarMarkedDates}
+                onDayPress={handleDayPress}
+                hideExtraDays
+                enableSwipeMonths
               />
             </View>
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity
-                style={styles.confirmDateButton}
-                onPress={() => {
-                  hapticSuccess();
-                  setSelectedDate(tempDate);
-                  setShowDatePicker(false);
-                }}
-              >
-                <Text style={styles.confirmDateText}>Confirm Date</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
@@ -938,44 +948,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: AppColors.border.primary,
-    alignItems: 'center',
-  },
-  datePicker: {
-    width: '100%',
-  },
-  confirmDateButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    marginTop: Spacing.md,
-    alignItems: 'center',
-  },
-  confirmDateText: {
-    color: '#000000',
-    fontSize: FontSizes.searchLabel,
-    fontWeight: '600',
-  },
-  confirmDateButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  confirmDateTextDisabled: {
-    color: 'rgba(0, 0, 0, 0.4)',
-  },
-  dateWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderRadius: BorderRadius.sm,
-  },
-  dateWarningText: {
-    color: '#F59E0B',
-    fontSize: FontSizes.trainDate,
-    fontWeight: '500',
+    overflow: 'hidden' as const,
   },
   tripItem: {
     flexDirection: 'row',

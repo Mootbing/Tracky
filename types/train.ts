@@ -15,6 +15,7 @@ export interface Train {
   departDayOffset?: number; // 0 = same day, 1 = next day, etc.
   arriveDayOffset?: number; // 0 = same day, 1 = next day, etc.
   date: string;
+  travelDate?: number;
   daysAway: number;
   routeName: string;
   arriveNext?: boolean;

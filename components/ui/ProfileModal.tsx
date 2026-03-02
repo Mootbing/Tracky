@@ -215,7 +215,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   }, []);
 
   const handleDeleteHistory = useCallback(async (trip: CompletedTrip) => {
-    await TrainStorageService.deleteFromHistory(trip.tripId, trip.fromCode, trip.toCode);
+    await TrainStorageService.deleteFromHistory(trip.tripId, trip.fromCode, trip.toCode, trip.travelDate);
     const updated = await TrainStorageService.getTripHistory();
     setHistory(updated);
   }, []);
