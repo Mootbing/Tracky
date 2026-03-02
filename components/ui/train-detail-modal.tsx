@@ -181,7 +181,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
       try {
         const history = await TrainStorageService.getTripHistory();
         const matchingTrips = history.filter(
-          trip => trip.fromCode === trainData.fromCode && trip.toCode === trainData.toCode
+          trip => trip.trainNumber === trainData.trainNumber
         );
         
         const totalDistance = matchingTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
@@ -576,8 +576,8 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
 
                   return (
                     <View key={index} style={styles.timelineStop}>
-                      {!isOrigin && (isPast || isCurrent) && <View style={[styles.timelineConnector, styles.timelineConnectorPast]} />}
-                      {!isOrigin && !(isPast || isCurrent) && <View style={styles.timelineConnectorGap} />}
+                      {!isOrigin && isPast && <View style={[styles.timelineConnector, styles.timelineConnectorPast]} />}
+                      {!isOrigin && !isPast && <View style={styles.timelineConnectorGap} />}
                       {isCurrent && !isOrigin && (
                         <View style={styles.timelineTrainPosition}>
                           {trainData?.routeName?.toLowerCase().includes('acela') ? (
@@ -698,10 +698,10 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
 
           {/* My History on This Route Section */}
           <View style={styles.historySection}>
-            <Text style={styles.sectionTitle}>My History on This Route</Text>
+            <Text style={styles.sectionTitle}>My History on This Train</Text>
             {trainData && (
               <Text style={styles.historyRouteSubtitle}>
-                {trainData.fromCode} → {trainData.toCode}
+                Train {trainData.trainNumber}
               </Text>
             )}
             
@@ -1020,7 +1020,7 @@ const styles = StyleSheet.create({
   timelineTrainPosition: {
     position: 'absolute',
     left: 0,
-    top: 0,
+    top: -12,
     width: 24,
     height: 24,
     justifyContent: 'center',

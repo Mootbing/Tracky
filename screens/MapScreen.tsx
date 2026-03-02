@@ -556,8 +556,8 @@ function MapScreenInner() {
 
   // Calculate dynamic stroke width based on zoom level
   const baseStrokeWidth = useMemo(() => {
-    return getStrokeWidthForZoom(region?.latitudeDelta ?? 0.0922);
-  }, [region?.latitudeDelta]);
+    return getStrokeWidthForZoom(debouncedLatDelta);
+  }, [debouncedLatDelta]);
 
   // Routes are always visible (no zoom-based fading)
   const shouldRenderRoutes = routeMode !== 'hidden';
@@ -576,8 +576,8 @@ function MapScreenInner() {
       }));
     }
     // 'auto' mode - use clustering
-    return clusterStations(stations, region?.latitudeDelta ?? 0.0922);
-  }, [stations, region?.latitudeDelta, stationMode]);
+    return clusterStations(stations, debouncedLatDelta);
+  }, [stations, debouncedLatDelta, stationMode]);
 
   // Progressive batching — drip-feed markers onto the map like routes do
   const batchedStationClusters = useBatchedItems(stationClusters, 15, 40);
@@ -624,7 +624,7 @@ function MapScreenInner() {
 
         {batchedStationClusters.map(cluster => {
           // Show full name when zoomed in enough
-          const showFullName = !cluster.isCluster && (region?.latitudeDelta ?? 1) < ClusteringConfig.fullNameThreshold;
+          const showFullName = !cluster.isCluster && debouncedLatDelta < ClusteringConfig.fullNameThreshold;
           const displayName = cluster.isCluster
             ? `${cluster.stations.length}+`
             : showFullName

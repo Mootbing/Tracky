@@ -50,10 +50,9 @@ export function useShapes(bounds?: ViewportBounds) {
 
     // Use ref for rendered IDs to avoid stale closure reads
     const renderedIds = renderedIdsRef.current;
-    const targetIds = new Set(targetShapes.map(s => s.id));
 
     // Shapes to keep (already rendered and still in target)
-    const keep = renderedShapes.filter(s => targetIds.has(s.id));
+    const keep = targetShapes.filter(s => renderedIds.has(s.id));
 
     // New shapes to add (in target but not yet rendered)
     const toAdd = targetShapes.filter(s => !renderedIds.has(s.id));

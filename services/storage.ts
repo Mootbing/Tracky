@@ -201,6 +201,16 @@ export class TrainStorageService {
     }
   }
 
+  static async clearTripHistory(): Promise<boolean> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.TRIP_HISTORY);
+      return true;
+    } catch (error) {
+      logger.error('Error clearing trip history:', error);
+      return false;
+    }
+  }
+
   /**
    * Get completed trip history
    */

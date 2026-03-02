@@ -209,16 +209,31 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
     );
   }, []);
 
-  const handleDeleteAllRoutes = useCallback(() => {
-    Alert.alert('Delete All Routes', 'This will permanently delete all your saved trips. This cannot be undone.', [
+  const handleDeletePastRoutes = useCallback(() => {
+    Alert.alert('Delete All Past Routes', 'This will permanently delete your entire trip history. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete All',
         style: 'destructive',
         onPress: async () => {
-          logger.info('[Settings] User deleted all routes');
+          logger.info('[Settings] User deleted all past routes');
+          await TrainStorageService.clearTripHistory();
+          Alert.alert('Done', 'All past routes deleted.');
+        },
+      },
+    ]);
+  }, []);
+
+  const handleDeleteActiveRoutes = useCallback(() => {
+    Alert.alert('Delete All Active & Future Routes', 'This will permanently delete all your active and upcoming trips. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete All',
+        style: 'destructive',
+        onPress: async () => {
+          logger.info('[Settings] User deleted all active & future routes');
           await TrainStorageService.clearAllTrains();
-          Alert.alert('Done', 'All routes deleted.');
+          Alert.alert('Done', 'All active & future routes deleted.');
         },
       },
     ]);
@@ -408,14 +423,29 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               activeOpacity={0.7}
               onPress={() => {
                 hapticLight();
-                handleDeleteAllRoutes();
+                handleDeletePastRoutes();
               }}
             >
               <View style={styles.itemIconContainer}>
                 <Ionicons name="trash-outline" size={22} color={AppColors.error} />
               </View>
               <View style={styles.itemContent}>
-                <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete All Routes</Text>
+                <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete All Past Routes</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsItem}
+              activeOpacity={0.7}
+              onPress={() => {
+                hapticLight();
+                handleDeleteActiveRoutes();
+              }}
+            >
+              <View style={styles.itemIconContainer}>
+                <Ionicons name="trash-outline" size={22} color={AppColors.error} />
+              </View>
+              <View style={styles.itemContent}>
+                <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete All Active & Future Routes</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity
