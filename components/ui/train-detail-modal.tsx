@@ -471,70 +471,73 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
           
           <View style={styles.fullWidthLine} />
 
-          {/* Departure Info */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoHeader}>
-              <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
-              <TouchableOpacity
-                style={styles.stationTouchable}
-                onPress={() => handleStationPress(trainData.fromCode)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                <Text style={styles.locationName}> • {trainData.from}</Text>
-              </TouchableOpacity>
-            </View>
-            <TimeDisplay
-              time={trainData.departTime}
-              dayOffset={0}
-              style={styles.timeText}
-              superscriptStyle={styles.timeSuperscript}
-            />
-            <View style={styles.durationLineRow}>
-              <View style={styles.durationContentRow}>
-                <MaterialCommunityIcons
-                  name="clock-outline"
-                  size={14}
-                  color={COLORS.secondary}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={styles.durationText}>{duration}</Text>
-                {distanceMiles !== null && (
-                  <Text style={[styles.durationText, { marginLeft: 0 }]}>
-                    {' '}
-                    • {Math.round(convertDistance(distanceMiles, distanceUnit)).toLocaleString()} {distanceSuffix(distanceUnit)}
-                  </Text>
-                )}
-                {allStops.length > 0 && (
-                  <Text style={[styles.durationText, { marginLeft: 0 }]}>
-                    {' '}
-                    • {allStops.length - 1} {pluralize(allStops.length - 1, 'stop')}
-                  </Text>
-                )}
+          {/* Departure / Arrival Board */}
+          <View style={styles.departArriveBoard}>
+            {/* Departure Info */}
+            <View style={styles.infoSection}>
+              <View style={styles.infoHeader}>
+                <MaterialCommunityIcons name="arrow-top-right" size={16} color={COLORS.primary} />
+                <TouchableOpacity
+                  style={styles.stationTouchable}
+                  onPress={() => handleStationPress(trainData.fromCode)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.locationCode}>{trainData.fromCode}</Text>
+                  <Text style={styles.locationName}> • {trainData.from}</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.horizontalLine} />
+              <TimeDisplay
+                time={trainData.departTime}
+                dayOffset={0}
+                style={styles.timeText}
+                superscriptStyle={styles.timeSuperscript}
+              />
+              <View style={styles.durationLineRow}>
+                <View style={styles.durationContentRow}>
+                  <MaterialCommunityIcons
+                    name="clock-outline"
+                    size={14}
+                    color={COLORS.secondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.durationText}>{duration}</Text>
+                  {distanceMiles !== null && (
+                    <Text style={[styles.durationText, { marginLeft: 0 }]}>
+                      {' '}
+                      • {Math.round(convertDistance(distanceMiles, distanceUnit)).toLocaleString()} {distanceSuffix(distanceUnit)}
+                    </Text>
+                  )}
+                  {allStops.length > 0 && (
+                    <Text style={[styles.durationText, { marginLeft: 0 }]}>
+                      {' '}
+                      • {allStops.length - 1} {pluralize(allStops.length - 1, 'stop')}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.horizontalLine} />
+              </View>
             </View>
-          </View>
 
-          {/* Arrival Info */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoHeader}>
-              <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
-              <TouchableOpacity
-                style={styles.stationTouchable}
-                onPress={() => handleStationPress(trainData.toCode)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                <Text style={styles.locationName}> • {trainData.to}</Text>
-              </TouchableOpacity>
+            {/* Arrival Info */}
+            <View style={styles.infoSection}>
+              <View style={styles.infoHeader}>
+                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={COLORS.primary} />
+                <TouchableOpacity
+                  style={styles.stationTouchable}
+                  onPress={() => handleStationPress(trainData.toCode)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.locationCode}>{trainData.toCode}</Text>
+                  <Text style={styles.locationName}> • {trainData.to}</Text>
+                </TouchableOpacity>
+              </View>
+              <TimeDisplay
+                time={trainData.arriveTime}
+                dayOffset={trainData.arriveDayOffset || 0}
+                style={styles.timeText}
+                superscriptStyle={styles.timeSuperscript}
+              />
             </View>
-            <TimeDisplay
-              time={trainData.arriveTime}
-              dayOffset={trainData.arriveDayOffset || 0}
-              style={styles.timeText}
-              superscriptStyle={styles.timeSuperscript}
-            />
           </View>
 
           <View style={styles.fullWidthLine} />
@@ -598,16 +601,6 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                           <Text style={[styles.timelineStopName, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}>
                             {stop.name}
                           </Text>
-                          {isCurrent && (() => {
-                            const now = new Date();
-                            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                            const stopMinutes = timeToMinutes(stop.time) + stop.dayOffset * 24 * 60;
-                            const diffMin = Math.max(0, Math.round(stopMinutes - currentMinutes));
-                            const arrivalText = diffMin >= 60
-                              ? `Arrival in ${Math.floor(diffMin / 60)}h${diffMin % 60 > 0 ? `${diffMin % 60}m` : ''}`
-                              : `Arrival in ${diffMin} min`;
-                            return <Text style={styles.arrivalCountdown}>{arrivalText}</Text>;
-                          })()}
                           <View style={styles.timelineStopCodeRow}>
                             <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}>
                               {stop.code}
@@ -619,6 +612,16 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                                 <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}> {stopWeather[stop.code].temp}°{tempUnit}</Text>
                               </>
                             )}
+                            {isCurrent && (() => {
+                              const now = new Date();
+                              const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                              const stopMinutes = timeToMinutes(stop.time) + stop.dayOffset * 24 * 60;
+                              const diffMin = Math.max(0, Math.round(stopMinutes - currentMinutes));
+                              const arrivalText = diffMin >= 60
+                                ? `In ${Math.floor(diffMin / 60)}h${diffMin % 60 > 0 ? `${diffMin % 60}m` : ''}`
+                                : `In ${diffMin} min`;
+                              return <Text style={styles.arrivalCountdown}> • {arrivalText}</Text>;
+                            })()}
                           </View>
                         </TouchableOpacity>
                         <TimeDisplay
@@ -1038,7 +1041,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginTop: 1,
   },
   timelineTextCurrent: {
     color: '#FFFFFF',
@@ -1181,9 +1183,13 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     fontWeight: '400',
   },
+  departArriveBoard: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
+  },
   infoSection: {
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   infoHeader: {
     flexDirection: 'row',

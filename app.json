@@ -8,7 +8,10 @@
     "scheme": "tracky",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tracky.app"
@@ -22,9 +25,12 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.tracky.app"
+      "package": "com.tracky.app",
+      "permissions": [
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
+      ]
     },
-
     "plugins": [
       "expo-router",
       [
@@ -50,6 +56,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "00c33d90-9f8b-406e-934e-bf66c9663310"
+      }
+    },
+    "owner": "jxu24"
   }
 }

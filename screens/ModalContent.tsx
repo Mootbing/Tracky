@@ -52,7 +52,9 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
     if (isLoadingCache) return;
 
     const loadSavedTrains = async () => {
+      logger.info('[App] Loading saved trains from storage');
       const trains = await TrainStorageService.getSavedTrains();
+      logger.info(`[App] Loaded ${trains.length} saved trains`);
 
       // Auto-archive past trips (travel date before today, or arrived today)
       const now = new Date();
@@ -69,6 +71,9 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         return false;
       });
 
+      if (pastTrains.length > 0) {
+        logger.info(`[App] Auto-archiving ${pastTrains.length} past trains`);
+      }
       for (const train of pastTrains) {
         await TrainStorageService.moveToHistory(train);
       }
@@ -87,7 +92,9 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         if (permitted) {
           const prefs = await TrainStorageService.getCalendarSyncPrefs();
           if (prefs && prefs.calendarIds.length > 0) {
+            logger.info(`[Calendar] Auto-syncing future trips from ${prefs.calendarIds.length} calendars`);
             const syncResult = await syncFutureTrips(prefs.calendarIds);
+            logger.info(`[Calendar] Sync result: ${syncResult.added} added, ${syncResult.skipped} skipped`);
             if (syncResult.added > 0) {
               const refreshed = await TrainStorageService.getSavedTrains();
               setSavedTrains(refreshed);

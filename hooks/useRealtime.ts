@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { TrainAPIService } from '../services/api';
 import type { Train } from '../types/train';
+import { logger } from '../utils/logger';
 
 export function useRealtime(trains: Train[], setTrains: (t: Train[]) => void, intervalMs: number = 20000) {
   // Use ref to avoid resetting interval when trains change
@@ -15,6 +16,7 @@ export function useRealtime(trains: Train[], setTrains: (t: Train[]) => void, in
 
     const refresh = async () => {
       if (trainsRef.current.length === 0) return;
+      logger.debug(`[Realtime] Refreshing ${trainsRef.current.length} saved trains`);
       const updated = await Promise.all(trainsRef.current.map(t => TrainAPIService.refreshRealtimeData(t)));
       if (mounted) setTrainsRef.current(updated);
     };

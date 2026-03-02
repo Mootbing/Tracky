@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { SlideUpModalHandle } from '../components/ui/slide-up-modal';
 import type { Stop, Train } from '../types/train';
+import { logger } from '../utils/logger';
 
 // Modal types that can be displayed
 export type ModalType = 'main' | 'trainDetail' | 'departureBoard' | 'profile' | 'settings';
@@ -154,6 +155,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       // Set data and show content immediately
+      logger.info(`[Nav] Open train detail: #${train.trainNumber} ${train.from} → ${train.to}`);
       setModalData(prev => ({ ...prev, train }));
       setShowTrainDetailContent(true);
       setActiveModal('trainDetail');
@@ -182,6 +184,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       nextModalSnapRef.current = 'half';
 
       // Set data and show content immediately
+      logger.info(`[Nav] Open departure board: ${station.stop_name} (${station.stop_id})`);
       setModalData(prev => ({ ...prev, station }));
       setShowDepartureBoardContent(true);
       setActiveModal('departureBoard');
@@ -202,6 +205,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Navigate to profile modal
   const navigateToProfile = useCallback(() => {
     if (activeModal === 'profile') return;
+    logger.info('[Nav] Open profile');
 
     nextModalSnapRef.current = 'half';
 
@@ -218,6 +222,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Navigate to settings modal (full screen)
   const navigateToSettings = useCallback(() => {
     if (activeModal === 'settings') return;
+    logger.info('[Nav] Open settings');
 
     nextModalSnapRef.current = 'max';
 

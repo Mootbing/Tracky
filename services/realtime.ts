@@ -218,6 +218,7 @@ export class RealtimeService {
       // Fetch fresh data from Transitdocs
       const buffer = await fetchProtobuf(TRANSITDOCS_GTFS_RT_URL);
       const positions = parseVehiclePositions(buffer);
+      logger.info(`[Realtime] Fetched ${positions.size} vehicle positions`);
 
       // Update cache
       positionsCache = { data: positions, timestamp: now };

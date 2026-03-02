@@ -38,6 +38,7 @@ export const GTFSRefreshProvider: React.FC<{ children: React.ReactNode; onRefres
   onRefreshCompleteRef.current = onRefreshComplete;
 
   const runRefresh = useCallback(async (force: boolean) => {
+    logger.info(`[GTFS] Starting refresh (force=${force})`);
     setIsRefreshing(true);
     setRefreshProgress(0.05);
     setRefreshStep(force ? 'Forcing refresh' : 'Checking schedule');
@@ -56,6 +57,7 @@ export const GTFSRefreshProvider: React.FC<{ children: React.ReactNode; onRefres
       }
       setRefreshProgress(1);
       setRefreshStep('Refresh complete');
+      logger.info(`[GTFS] Refresh complete (usedCache=${result.usedCache})`);
       onRefreshCompleteRef.current?.();
       // Brief display of completion then clear
       setTimeout(() => {

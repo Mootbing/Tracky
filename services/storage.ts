@@ -149,6 +149,7 @@ export class TrainStorageService {
       savedAt: Date.now(),
     };
 
+    logger.info(`[Storage] Saving train ${train.trainNumber} (${train.from} → ${train.to})`);
     return this.saveTrainRef(ref);
   }
 
@@ -157,6 +158,7 @@ export class TrainStorageService {
    */
   static async deleteTrainByTripId(tripId: string, fromCode?: string, toCode?: string): Promise<boolean> {
     try {
+      logger.info(`[Storage] Deleting train ${tripId} (${fromCode || '?'} → ${toCode || '?'})`);
       const refs = await this.getSavedTrainRefs();
       const updatedRefs = refs.filter(r => {
         if (r.tripId !== tripId) return true;
@@ -327,6 +329,7 @@ export class TrainStorageService {
         duration,
       };
 
+      logger.info(`[Storage] Archiving train ${train.trainNumber} to history (${train.from} → ${train.to})`);
       await this.addToHistory(entry);
 
       // Remove from saved trains

@@ -55,6 +55,7 @@ export function useLiveTrains(intervalMs: number = 15000, enabled: boolean = tru
       setLiveTrains(trains);
       setLastUpdated(Date.now());
       setError(null);
+      logger.debug(`[LiveTrains] Updated ${trains.length} active trains`);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch live trains'));
       logger.error('Error fetching live trains:', err);

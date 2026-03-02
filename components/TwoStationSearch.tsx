@@ -8,6 +8,7 @@ import { light as hapticLight, selection as hapticSelection, success as hapticSu
 import { getTrainDisplayName } from '../services/api';
 import type { EnrichedStopTime, Route, SearchResult, Stop, Trip } from '../types/train';
 import { gtfsParser } from '../utils/gtfs-parser';
+import { logger } from '../utils/logger';
 
 interface TripResult {
   tripId: string;
@@ -104,7 +105,9 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // Find trips when both stations AND date are selected (station flow)
   useEffect(() => {
     if (fromStation && toStation && selectedDate) {
+      logger.info(`[Search] Finding trips: ${fromStation.stop_name} → ${toStation.stop_name} on ${selectedDate.toLocaleDateString()}`);
       const trips = gtfsParser.findTripsWithStops(fromStation.stop_id, toStation.stop_id, selectedDate);
+      logger.info(`[Search] Found ${trips.length} trips`);
       setTripResults(trips);
     } else {
       setTripResults([]);
