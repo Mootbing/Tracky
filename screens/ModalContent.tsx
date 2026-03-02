@@ -1,19 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useContext, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { TrainList } from '../components/TrainList';
 import { TwoStationSearch } from '../components/TwoStationSearch';
 import { SlideUpModalContext } from '../components/ui/slide-up-modal';
+import { useGTFSRefresh } from '../context/GTFSRefreshContext';
 import { useTrainContext } from '../context/TrainContext';
 import { useFrequentlyUsed } from '../hooks/useFrequentlyUsed';
 import { hasCalendarPermission, syncFutureTrips } from '../services/calendar-sync';
-import { ensureFreshGTFS, hasCachedGTFS, isCacheStale, loadCachedGTFS } from '../services/gtfs-sync';
 import { TrainStorageService } from '../services/storage';
 import type { SavedTrainRef, Train } from '../types/train';
 import { COLORS, styles } from './styles';
 import { parseTimeToDate } from '../utils/time-formatting';
-import { getCountdownForTrain } from '../utils/train-display';
 import { logger } from '../utils/logger';
 
 export interface ModalContentHandle {
@@ -21,16 +19,12 @@ export interface ModalContentHandle {
 }
 
 export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect?: (train: Train) => void; onOpenProfile?: () => void }>(function ModalContent({ onTrainSelect, onOpenProfile }, ref) {
-  const { isFullscreen, isCollapsed, scrollOffset, panGesture, snapToPoint, setGestureEnabled } =
+  const { isFullscreen, isCollapsed, scrollOffset, panGesture, snapToPoint } =
     useContext(SlideUpModalContext);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { savedTrains, setSavedTrains, setSelectedTrain } = useTrainContext();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingCache, setIsLoadingCache] = useState(true); // Start true - loading on mount
-  const [refreshProgress, setRefreshProgress] = useState(0);
-  const [refreshStep, setRefreshStep] = useState('');
-  const [refreshPhases, setRefreshPhases] = useState<string[]>([]);
   const { refresh: refreshFrequentlyUsed } = useFrequentlyUsed();
+  const { isLoadingCache, initializeGTFS, triggerRefresh } = useGTFSRefresh();
 
   // Refs to avoid stale closures in useEffect
   const refreshFrequentlyUsedRef = useRef(refreshFrequentlyUsed);
@@ -38,17 +32,16 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
   const snapToPointRef = useRef(snapToPoint);
   snapToPointRef.current = snapToPoint;
 
-  // Combined loading state for UI
-  const isLoading = isRefreshing || isLoadingCache;
-
   // Track if initialization has run
   const hasInitialized = useRef(false);
 
-  // Load saved trains from storage service (after GTFS is loaded)
+  // Only block UI for initial cache load (no cache at all)
+  const isLoading = isLoadingCache;
+
+  // Load saved trains from storage service (after GTFS cache is loaded)
   // Also auto-archive past trips to history
   useEffect(() => {
-    // Only load trains after GTFS data is ready
-    if (isLoading) return;
+    if (isLoadingCache) return;
 
     const loadSavedTrains = async () => {
       const trains = await TrainStorageService.getSavedTrains();
@@ -105,92 +98,17 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
       }
     };
     loadSavedTrains();
-  }, [setSavedTrains, isLoading]);
-
-  // Disable modal resizing when loading or refreshing GTFS data
-  useEffect(() => {
-    setGestureEnabled?.(!isLoading);
-  }, [isLoading, setGestureEnabled]);
+  }, [setSavedTrains, isLoadingCache]);
 
   // Load cached GTFS and check if refresh is needed on mount (runs once)
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
-    const initializeGTFS = async () => {
-      setIsLoadingCache(true);
-      setRefreshStep('Loading cached data...');
-      setRefreshProgress(0.1);
-      snapToPointRef.current?.('min');
-
-      try {
-        // First, try to load from cache
-        const loaded = await loadCachedGTFS();
-
-        if (loaded) {
-          // Cache loaded successfully, check if it's stale
-          const stale = await isCacheStale();
-          if (stale) {
-            // Cache is stale, need to refresh
-            setIsLoadingCache(false);
-            setIsRefreshing(true);
-            setRefreshProgress(0.05);
-            setRefreshStep('Checking GTFS cache');
-
-            setRefreshPhases([]);
-            await ensureFreshGTFS(update => {
-              setRefreshProgress(update.progress);
-              setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
-              setRefreshPhases(prev => {
-                if (prev.length === 0 || prev[prev.length - 1] !== update.step) {
-                  return [...prev, update.step];
-                }
-                return prev;
-              });
-            });
-            await refreshFrequentlyUsedRef.current();
-            setRefreshProgress(1);
-            setRefreshStep('Refresh complete');
-            setIsRefreshing(false);
-          } else {
-            // Cache is fresh, we're done
-            setRefreshProgress(1);
-            setRefreshStep('Ready');
-            setIsLoadingCache(false);
-          }
-        } else {
-          // No cache, need to fetch fresh data
-          setIsLoadingCache(false);
-          setIsRefreshing(true);
-          setRefreshProgress(0.05);
-          setRefreshStep('Downloading schedule data');
-
-          setRefreshPhases([]);
-          await ensureFreshGTFS(update => {
-            setRefreshProgress(update.progress);
-            setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
-            setRefreshPhases(prev => {
-              if (prev.length === 0 || prev[prev.length - 1] !== update.step) {
-                return [...prev, update.step];
-              }
-              return prev;
-            });
-          });
-          await refreshFrequentlyUsedRef.current();
-          setRefreshProgress(1);
-          setRefreshStep('Refresh complete');
-          setIsRefreshing(false);
-        }
-      } catch (error) {
-        logger.error('GTFS initialization failed:', error);
-        setRefreshStep('Failed to load data');
-        setIsLoadingCache(false);
-        setIsRefreshing(false);
-      }
-    };
-
-    initializeGTFS();
-  }, []);
+    initializeGTFS(() => {
+      refreshFrequentlyUsedRef.current();
+    });
+  }, [initializeGTFS]);
 
   // Save train with segmentation support
   const saveTrainWithSegment = async (tripId: string, fromCode: string, toCode: string, travelDate: Date) => {
@@ -209,97 +127,10 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
     return saved;
   };
 
-  // Manual refresh handler
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    setRefreshProgress(0.05);
-    setRefreshStep('Checking GTFS cache');
-    setIsSearchFocused(false);
-    snapToPoint?.('min');
-    try {
-      setRefreshPhases([]);
-      const result = await ensureFreshGTFS(update => {
-        setRefreshProgress(update.progress);
-        setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
-        setRefreshPhases(prev => {
-          // Only add if not already present as last
-          if (prev.length === 0 || prev[prev.length - 1] !== update.step) {
-            return [...prev, update.step];
-          }
-          return prev;
-        });
-      });
-      if (result.usedCache) {
-        setIsRefreshing(false);
-        const lastFetchStr = await AsyncStorage.getItem('GTFS_LAST_FETCH');
-        const lastFetchMs = lastFetchStr ? parseInt(lastFetchStr, 10) : 0;
-        const cachedDateText = lastFetchMs
-          ? `Cached schedule is from ${new Date(lastFetchMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.`
-          : 'Cached schedule date is unknown.';
-        Alert.alert(
-          'Schedule Up to Date',
-          `${cachedDateText} Do you want to force a full refresh?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Refresh Anyway', style: 'destructive', onPress: handleForceRefresh },
-          ]
-        );
-        return;
-      }
-      await refreshFrequentlyUsed();
-      setRefreshProgress(1);
-      setRefreshStep('Refresh complete');
-      setRefreshPhases(prev => (prev[prev.length - 1] === 'Refresh complete' ? prev : [...prev, 'Refresh complete']));
-      Alert.alert('Refresh Complete', 'GTFS data has been refreshed successfully.');
-    } catch (error) {
-      logger.error('Manual refresh failed:', error);
-      setRefreshStep('Refresh failed');
-      setRefreshPhases(prev => (prev[prev.length - 1] === 'Refresh failed' ? prev : [...prev, 'Refresh failed']));
-      Alert.alert('Refresh Failed', 'An error occurred while refreshing GTFS data.');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleForceRefresh = async () => {
-    setIsRefreshing(true);
-    setRefreshProgress(0.05);
-    setRefreshStep('Forcing GTFS refresh');
-    setIsSearchFocused(false);
-    snapToPoint?.('min');
-    try {
-      setRefreshPhases([]);
-      // Force refresh by clearing last fetch
-      await AsyncStorage.removeItem('GTFS_LAST_FETCH');
-      await ensureFreshGTFS(update => {
-        setRefreshProgress(update.progress);
-        setRefreshStep(update.step + (update.detail ? ` • ${update.detail}` : ''));
-        setRefreshPhases(prev => {
-          if (prev.length === 0 || prev[prev.length - 1] !== update.step) {
-            return [...prev, update.step];
-          }
-          return prev;
-        });
-      });
-      await refreshFrequentlyUsed();
-      setRefreshProgress(1);
-      setRefreshStep('Refresh complete');
-      setRefreshPhases(prev => (prev[prev.length - 1] === 'Refresh complete' ? prev : [...prev, 'Refresh complete']));
-      Alert.alert('Refresh Complete', 'GTFS data has been refreshed successfully.');
-    } catch (error) {
-      logger.error('Manual refresh failed:', error);
-      setRefreshStep('Refresh failed');
-      setRefreshPhases(prev => (prev[prev.length - 1] === 'Refresh failed' ? prev : [...prev, 'Refresh failed']));
-      Alert.alert('Refresh Failed', 'An error occurred while refreshing GTFS data.');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   // Expose refresh to parent via ref
-  useImperativeHandle(ref, () => ({
-    triggerRefresh: handleRefresh,
-  }), []);
+  React.useImperativeHandle(ref, () => ({
+    triggerRefresh,
+  }), [triggerRefresh]);
 
   // Sort saved trains by departure time (earliest first)
   const flights = [...savedTrains].sort((a, b) => {
@@ -358,9 +189,7 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         <View style={styles.titleRow}>
           <Text style={styles.title}>
             {isLoading
-              ? isLoadingCache
-                ? 'Loading'
-                : 'Fetching'
+              ? 'Loading'
               : isSearchFocused
                 ? 'Add Train'
                 : 'My Trains'}
@@ -382,47 +211,9 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         {isLoading && (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
             <Ionicons name="train" size={48} color={COLORS.secondary} style={{ marginBottom: 16 }} />
-            <View style={{ width: 240, alignItems: 'center' }}>
-              <Text
-                style={[styles.noTrainsText, { marginBottom: 8, fontSize: 14 }]}
-                numberOfLines={2}
-                ellipsizeMode="tail"
-              >
-                {refreshStep || (isLoadingCache ? 'Loading cached data...' : 'Refreshing GTFS data...')}
-              </Text>
-              <View
-                style={{
-                  width: '100%',
-                  height: 6,
-                  backgroundColor: COLORS.border.secondary,
-                  borderRadius: 999,
-                  overflow: 'hidden',
-                  marginBottom: 8,
-                }}
-              >
-                <View
-                  style={{
-                    height: '100%',
-                    backgroundColor: COLORS.accentBlue,
-                    borderRadius: 999,
-                    width: `${Math.max(5, refreshProgress * 100)}%`,
-                  }}
-                />
-              </View>
-              <Text style={[styles.progressValue, { marginBottom: 12, fontSize: 13, fontWeight: '600' }]}>
-                {Math.round(refreshProgress * 100)}%
-              </Text>
-              {!isLoadingCache && (
-                <Text
-                  style={[
-                    styles.frequentlyUsedSubtitle,
-                    { fontSize: 11, textAlign: 'center', fontStyle: 'italic', marginTop: 4 },
-                  ]}
-                >
-                  This happens once per week to keep schedules current
-                </Text>
-              )}
-            </View>
+            <Text style={[styles.noTrainsText, { marginBottom: 8, fontSize: 14 }]}>
+              Loading cached data...
+            </Text>
           </View>
         )}
 
@@ -474,5 +265,3 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
     </View>
   );
 });
-
-// getCountdownForTrain and parseTimeToDate are now imported from shared utils

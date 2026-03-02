@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, View } from 'react-native';
 import MapView, { PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RefreshBubble } from '../components/ui/RefreshBubble';
 import { AnimatedRoute } from '../components/map/AnimatedRoute';
 import { AnimatedStationMarker } from '../components/map/AnimatedStationMarker';
 import { LiveTrainMarker } from '../components/map/LiveTrainMarker';
@@ -13,6 +14,7 @@ import SettingsModal from '../components/ui/SettingsModal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { AppColors } from '../constants/theme';
+import { GTFSRefreshProvider, useGTFSRefresh } from '../context/GTFSRefreshContext';
 import { ModalProvider, useModalContext } from '../context/ModalContext';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
 import { useLiveTrains } from '../hooks/useLiveTrains';
@@ -70,6 +72,7 @@ function getLatitudeOffsetForModal(latitudeDelta: number, modalSnap: 'min' | 'ha
 function MapScreenInner() {
   const mapRef = useRef<MapView>(null);
   const modalContentRef = useRef<ModalContentHandle>(null);
+  const { triggerRefresh } = useGTFSRefresh();
 
   // Use centralized modal context
   const {
@@ -667,6 +670,8 @@ function MapScreenInner() {
           ))}
       </MapView>
 
+      <RefreshBubble />
+
       <MapSettingsPill
         top={insets.top + 16}
         routeMode={routeMode}
@@ -769,9 +774,7 @@ function MapScreenInner() {
           <SettingsModal
             onClose={() => goBack()}
             onRefreshGTFS={() => {
-              // Navigate all the way back to main, then trigger refresh
-              navigateToMain();
-              setTimeout(() => modalContentRef.current?.triggerRefresh(), 300);
+              triggerRefresh();
             }}
           />
         )}
@@ -783,11 +786,13 @@ function MapScreenInner() {
 export default function MapScreen() {
   return (
     <TrainProvider>
-      <ModalProvider>
-        <ErrorBoundary>
-          <MapScreenInner />
-        </ErrorBoundary>
-      </ModalProvider>
+      <GTFSRefreshProvider>
+        <ModalProvider>
+          <ErrorBoundary>
+            <MapScreenInner />
+          </ErrorBoundary>
+        </ModalProvider>
+      </GTFSRefreshProvider>
     </TrainProvider>
   );
 }
