@@ -21,7 +21,7 @@ import type { Stop, Train } from '../../types/train';
 import { addDays, getStartOfDay, isSameDay } from '../../utils/date-helpers';
 import { useUnits } from '../../context/UnitsContext';
 import { logger } from '../../utils/logger';
-import { parseTimeToMinutes } from '../../utils/time-formatting';
+import { addDelayToTime, parseTimeToMinutes } from '../../utils/time-formatting';
 import { formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
 import { SlideUpModalContext } from './slide-up-modal';
@@ -298,15 +298,29 @@ function SwipeableDepartureItem({ train, stationTime, stationId, onPress, onSave
       <GestureDetector gesture={composedGesture}>
         <Animated.View style={[styles.departureItem, { borderBottomWidth: 0 }, cardAnimatedStyle]}>
           <View style={styles.departureTime}>
-            <TimeDisplay
-              time={stationTime.time}
-              dayOffset={stationTime.dayOffset}
-              style={styles.timeText}
-              superscriptStyle={styles.timeSuperscript}
-            />
             {train.realtime?.delay != null && train.realtime.delay > 0 ? (
-              <Text style={styles.delayText}>+{train.realtime.delay}m</Text>
-            ) : null}
+              (() => {
+                const delayed = addDelayToTime(stationTime.time, train.realtime.delay, stationTime.dayOffset);
+                return (
+                  <>
+                    <TimeDisplay
+                      time={delayed.time}
+                      dayOffset={delayed.dayOffset}
+                      style={[styles.timeText, styles.timeTextDelayed]}
+                      superscriptStyle={[styles.timeSuperscript, styles.timeTextDelayed]}
+                    />
+                    <Text style={styles.delayText}>Delay {train.realtime.delay}m</Text>
+                  </>
+                );
+              })()
+            ) : (
+              <TimeDisplay
+                time={stationTime.time}
+                dayOffset={stationTime.dayOffset}
+                style={styles.timeText}
+                superscriptStyle={styles.timeSuperscript}
+              />
+            )}
           </View>
           <View style={styles.departureInfo}>
             <View style={styles.trainHeader}>
@@ -314,20 +328,6 @@ function SwipeableDepartureItem({ train, stationTime, stationId, onPress, onSave
                 {train.routeName || 'Amtrak'}
                 {train.trainNumber ? ` ${train.trainNumber}` : ''}
               </Text>
-              {train.realtime?.status ? (
-                <View
-                  style={[
-                    styles.statusBadge,
-                    train.realtime.delay != null && train.realtime.delay > 0
-                      ? styles.statusDelayed
-                      : styles.statusOnTime,
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {train.realtime.delay != null && train.realtime.delay > 0 ? 'Delayed' : 'On Time'}
-                  </Text>
-                </View>
-              ) : null}
             </View>
             <View style={styles.destinationRow}>
               <Text style={styles.destinationText}>
@@ -1005,11 +1005,8 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     marginTop: -2,
   },
-  delayText: {
-    fontSize: 12,
+  timeTextDelayed: {
     color: AppColors.error,
-    fontWeight: '600',
-    marginTop: 2,
   },
   departureInfo: {
     flex: 1,
@@ -1026,21 +1023,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: AppColors.primary,
   },
-  statusBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  statusOnTime: {
-    backgroundColor: '#1A332E',
-  },
-  statusDelayed: {
-    backgroundColor: '#3A1A1A',
-  },
-  statusText: {
-    fontSize: 10,
+  delayText: {
+    fontSize: 12,
+    color: AppColors.error,
     fontWeight: '600',
-    color: AppColors.primary,
+    marginTop: 2,
   },
   destinationRow: {
     flexDirection: 'row',
