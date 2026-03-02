@@ -47,7 +47,7 @@ interface MatchedTrip {
   eventDate: Date;
 }
 
-const TRAIN_EVENT_PATTERN = /train\s+to\s+([a-z\s.'-]+)/i;
+const TRAIN_EVENT_PATTERN = /train\s+to\s+(.+)/i;
 const TIME_TOLERANCE_MINUTES = 15;
 
 /**
@@ -76,9 +76,8 @@ export async function getDeviceCalendars(): Promise<DeviceCalendar[]> {
     id: cal.id,
     title: cal.title,
     color: cal.color ?? '#999999',
-    source: Platform.OS === 'ios'
-      ? (cal.source?.name ?? 'Unknown')
-      : (cal.source?.name ?? cal.accessLevel ?? 'Unknown'),
+    source:
+      Platform.OS === 'ios' ? (cal.source?.name ?? 'Unknown') : (cal.source?.name ?? cal.accessLevel ?? 'Unknown'),
   }));
 }
 
@@ -132,11 +131,15 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
   if (originLocation) {
     const originStation = resolveStation(originLocation);
     if (originStation) {
-      logger.info(`Calendar sync: origin "${originLocation}" → "${originStation.stop_name}" (${originStation.stop_id})`);
+      logger.info(
+        `Calendar sync: origin "${originLocation}" → "${originStation.stop_name}" (${originStation.stop_id})`
+      );
 
       // Use findTripsWithStops for precise origin→destination matching
       const trips = gtfsParser.findTripsWithStops(originStation.stop_id, destStation.stop_id, eventDate);
-      logger.info(`Calendar sync: ${trips.length} trips from ${originStation.stop_id} to ${destStation.stop_id} on ${eventDate.toLocaleDateString()}`);
+      logger.info(
+        `Calendar sync: ${trips.length} trips from ${originStation.stop_id} to ${destStation.stop_id} on ${eventDate.toLocaleDateString()}`
+      );
 
       for (const trip of trips) {
         const departMinutes = gtfsTimeToMinutes(trip.fromStop.departure_time);
@@ -166,7 +169,9 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
 
   // Fallback: no location or origin not found — infer origin by matching departure time at any stop
   const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, eventDate);
-  logger.info(`Calendar sync: fallback — ${tripIds.length} trips at ${destStation.stop_id}, event time ${eventStartDate.getHours()}:${String(eventStartDate.getMinutes()).padStart(2, '0')}`);
+  logger.info(
+    `Calendar sync: fallback — ${tripIds.length} trips at ${destStation.stop_id}, event time ${eventStartDate.getHours()}:${String(eventStartDate.getMinutes()).padStart(2, '0')}`
+  );
 
   for (const tripId of tripIds) {
     const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
@@ -205,12 +210,10 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
 /**
  * Fetch train events from calendars within a date range.
  */
-async function fetchTrainEvents(
-  calendarIds: string[],
-  startDate: Date,
-  endDate: Date,
-): Promise<Calendar.Event[]> {
-  logger.info(`Calendar sync: fetching from ${calendarIds.length} calendar(s), ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
+async function fetchTrainEvents(calendarIds: string[], startDate: Date, endDate: Date): Promise<Calendar.Event[]> {
+  logger.info(
+    `Calendar sync: fetching from ${calendarIds.length} calendar(s), ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+  );
   const events = await Calendar.getEventsAsync(calendarIds, startDate, endDate);
   logger.info(`Calendar sync: ${events.length} total events found`);
   const matched: Calendar.Event[] = [];
@@ -228,10 +231,7 @@ async function fetchTrainEvents(
  * Sync past trips — scans selected calendars for past train events
  * and adds matched trips to history.
  */
-export async function syncPastTrips(
-  calendarIds: string[],
-  scanDays: number,
-): Promise<SyncResult> {
+export async function syncPastTrips(calendarIds: string[], scanDays: number): Promise<SyncResult> {
   const result: SyncResult = { parsed: 0, matched: 0, added: 0, skipped: 0, addedTrips: [] };
 
   if (!gtfsParser.isLoaded) {
@@ -258,9 +258,7 @@ export async function syncPastTrips(
   if (trainEvents.length === 0) return result;
 
   const existingHistory = await TrainStorageService.getTripHistory();
-  const existingKeys = new Set(
-    existingHistory.map(h => `${h.tripId}|${h.fromCode}|${h.toCode}|${h.date}`),
-  );
+  const existingKeys = new Set(existingHistory.map(h => `${h.tripId}|${h.fromCode}|${h.toCode}|${h.date}`));
 
   for (const event of trainEvents) {
     const matched = matchEventToTrip(event.title, new Date(event.startDate), event.location ?? undefined);
@@ -285,12 +283,7 @@ export async function syncPastTrips(
       const fromStation = stationLoader.getStationByCode(matched.fromStopId);
       const toStation = stationLoader.getStationByCode(matched.toStopId);
       if (fromStation && toStation) {
-        distance = haversineDistance(
-          fromStation.lat,
-          fromStation.lon,
-          toStation.lat,
-          toStation.lon
-        );
+        distance = haversineDistance(fromStation.lat, fromStation.lon, toStation.lat, toStation.lon);
       }
     } catch (error) {
       logger.error('Calendar sync: Error calculating distance:', error);
@@ -360,7 +353,7 @@ export async function syncFutureTrips(calendarIds: string[]): Promise<SyncResult
   // Load existing saved trains for dedup
   const existingRefs = await TrainStorageService.getSavedTrainRefs();
   const existingKeys = new Set(
-    existingRefs.map(r => `${r.tripId}|${r.fromCode ?? ''}|${r.toCode ?? ''}|${r.travelDate ?? 0}`),
+    existingRefs.map(r => `${r.tripId}|${r.fromCode ?? ''}|${r.toCode ?? ''}|${r.travelDate ?? 0}`)
   );
 
   for (const event of trainEvents) {

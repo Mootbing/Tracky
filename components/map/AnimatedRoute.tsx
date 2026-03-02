@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated } from 'react-native';
 import { Polyline } from 'react-native-maps';
 
 interface Coordinate {
@@ -55,35 +54,25 @@ function parseColor(color: string): { r: number; g: number; b: number; a: number
 }
 
 export function AnimatedRoute({ id, coordinates, strokeColor, strokeWidth, zoomOpacity = 1 }: AnimatedRouteProps) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [opacity, setOpacity] = useState(0);
+  const [visible, setVisible] = useState(false);
   const baseColor = useRef(parseColor(strokeColor));
 
   useEffect(() => {
     baseColor.current = parseColor(strokeColor);
   }, [strokeColor]);
 
+  // Flip to full opacity once after 250ms — no per-frame setState
   useEffect(() => {
-    // Animate opacity from 0 to 1
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 250,
-      useNativeDriver: false, // Can't use native driver for color interpolation
-    }).start();
+    const timer = setTimeout(() => {
+      setVisible(true);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, []);
 
-    // Listen to animated value changes
-    const listenerId = fadeAnim.addListener(({ value }) => {
-      setOpacity(value);
-    });
-
-    return () => {
-      fadeAnim.removeListener(listenerId);
-    };
-  }, [fadeAnim]);
-
-  // Compute animated stroke color with opacity (apply both fade-in and zoom opacity)
+  // Compute stroke color: 30% opacity initially, full after animation completes
   const { r, g, b, a } = baseColor.current;
-  const finalOpacity = a * opacity * zoomOpacity;
+  const fadeOpacity = visible ? 1 : 0.3;
+  const finalOpacity = a * fadeOpacity * zoomOpacity;
   const animatedColor = `rgba(${r}, ${g}, ${b}, ${finalOpacity})`;
 
   return (

@@ -8,6 +8,7 @@ const BATCH_DELAY = 60; // ms between batches — gives the UI thread breathing 
 export function useShapes(bounds?: ViewportBounds) {
   const [gtfsLoaded, setGtfsLoaded] = useState(gtfsParser.isLoaded);
   const [renderedShapes, setRenderedShapes] = useState<VisibleShape[]>([]);
+  const renderedIdsRef = useRef<Set<string>>(new Set());
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingQueueRef = useRef<VisibleShape[]>([]);
   const currentBoundsKeyRef = useRef<string>('');
@@ -47,8 +48,8 @@ export function useShapes(bounds?: ViewportBounds) {
       ? `${bounds.minLat.toFixed(3)},${bounds.maxLat.toFixed(3)},${bounds.minLon.toFixed(3)},${bounds.maxLon.toFixed(3)}`
       : 'all';
 
-    // Build a set of currently rendered shape IDs for fast lookup
-    const renderedIds = new Set(renderedShapes.map(s => s.id));
+    // Use ref for rendered IDs to avoid stale closure reads
+    const renderedIds = renderedIdsRef.current;
     const targetIds = new Set(targetShapes.map(s => s.id));
 
     // Shapes to keep (already rendered and still in target)
@@ -60,12 +61,14 @@ export function useShapes(bounds?: ViewportBounds) {
     // If we're zooming in (fewer shapes), just set immediately — removal is cheap
     if (toAdd.length === 0) {
       setRenderedShapes(keep);
+      renderedIdsRef.current = new Set(keep.map(s => s.id));
       currentBoundsKeyRef.current = boundsKey;
       return;
     }
 
     // Start with what we can keep, then progressively add new shapes
     setRenderedShapes(keep);
+    renderedIdsRef.current = new Set(keep.map(s => s.id));
     pendingQueueRef.current = [...toAdd];
     currentBoundsKeyRef.current = boundsKey;
 
@@ -74,6 +77,7 @@ export function useShapes(bounds?: ViewportBounds) {
       if (queue.length === 0) return;
 
       const batch = queue.splice(0, BATCH_SIZE);
+      for (const s of batch) renderedIdsRef.current.add(s.id);
       setRenderedShapes(prev => [...prev, ...batch]);
 
       if (queue.length > 0) {

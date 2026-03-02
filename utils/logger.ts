@@ -5,6 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 
 // __DEV__ is a global variable in React Native
 declare const __DEV__: boolean;
@@ -212,3 +213,45 @@ export const debug = logger.debug.bind(logger);
 export const info = logger.info.bind(logger);
 export const warn = logger.warn.bind(logger);
 export const error = logger.error.bind(logger);
+
+function getRecentLogsFormatted(minutes: number): string {
+  const cutoff = Date.now() - minutes * 60 * 1000;
+  return logger
+    .getLogs()
+    .filter(l => new Date(l.timestamp).getTime() >= cutoff)
+    .map(l => `[${l.timestamp}] [${l.level}] ${l.message}${l.data ? ` ${JSON.stringify(l.data)}` : ''}`)
+    .join('\n');
+}
+
+export function openReportBugEmail() {
+  const logs = getRecentLogsFormatted(15);
+  const subject = encodeURIComponent('Tracky Bug Report');
+  const body = encodeURIComponent(
+    `\n\n[Provide a brief description above if you can — if not just hit send — the logs are below]\n\n` +
+    `────────────────────────────────\n` +
+    `Debug Logs (last 15 min)\n` +
+    `────────────────────────────────\n\n` +
+    `${logs || 'No logs recorded'}\n`
+  );
+  Linking.openURL(`mailto:him@jasonxu.me?subject=${subject}&body=${body}`);
+}
+
+export function openReportBadDataEmail() {
+  Linking.openURL('mailto:him@jasonxu.me?subject=Incorrect%20Tracky%20Data');
+}
+
+export function openCrashReportEmail(err: Error | null, componentStack: string | null) {
+  const logs = getRecentLogsFormatted(15);
+  const subject = encodeURIComponent(`Tracky Crash: ${err?.message || 'Unknown error'}`);
+  const body = encodeURIComponent(
+    `\n\n[Provide a brief description above if you can — if not just hit send — the error details are below]\n\n` +
+    `Error: ${err?.message || 'Unknown'}\n\n` +
+    `Stack trace:\n${err?.stack || 'N/A'}\n\n` +
+    `Component stack:\n${componentStack || 'N/A'}\n\n` +
+    `────────────────────────────────\n` +
+    `Debug Logs (last 15 min)\n` +
+    `────────────────────────────────\n\n` +
+    `${logs || 'No logs recorded'}\n`
+  );
+  Linking.openURL(`mailto:him@jasonxu.me?subject=${subject}&body=${body}`);
+}

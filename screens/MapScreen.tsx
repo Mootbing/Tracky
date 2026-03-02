@@ -131,6 +131,7 @@ function MapScreenInner() {
   // Debounced latitudeDelta for train clustering - prevents crash on rapid zoom
   const [debouncedLatDelta, setDebouncedLatDelta] = useState<number>(1);
   const trainDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapType, setMapType] = useState<MapType>('standard');
   const [routeMode, setRouteMode] = useState<RouteMode>('visible');
   const [stationMode, setStationMode] = useState<StationMode>('auto');
@@ -491,9 +492,13 @@ function MapScreenInner() {
       }, THROTTLE_MS);
     }
 
-    // Update viewport bounds immediately — useShapes handles progressive rendering
-    // so we don't need to debounce here
-    setViewportBounds(regionToViewportBounds(newRegion));
+    // Debounce viewport bounds to avoid cascading downstream recomputation on every frame
+    if (viewportDebounceRef.current) {
+      clearTimeout(viewportDebounceRef.current);
+    }
+    viewportDebounceRef.current = setTimeout(() => {
+      setViewportBounds(regionToViewportBounds(newRegion));
+    }, 150);
 
     // Debounce train clustering latitudeDelta to avoid expensive reclustering during fast zoom
     if (trainDebounceRef.current) {
@@ -519,6 +524,9 @@ function MapScreenInner() {
       }
       if (trainDebounceRef.current) {
         clearTimeout(trainDebounceRef.current);
+      }
+      if (viewportDebounceRef.current) {
+        clearTimeout(viewportDebounceRef.current);
       }
     };
   }, []);

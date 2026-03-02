@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { TrainList } from '../components/TrainList';
@@ -20,7 +21,10 @@ export interface ModalContentHandle {
   triggerRefresh: () => void;
 }
 
-export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect?: (train: Train) => void; onOpenProfile?: () => void }>(function ModalContent({ onTrainSelect, onOpenProfile }, ref) {
+export const ModalContent = React.forwardRef<
+  ModalContentHandle,
+  { onTrainSelect?: (train: Train) => void; onOpenProfile?: () => void }
+>(function ModalContent({ onTrainSelect, onOpenProfile }, ref) {
   const { isFullscreen, isCollapsed, scrollOffset, contentOpacity, panRef, snapToPoint } =
     useContext(SlideUpModalContext);
 
@@ -98,13 +102,8 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
             if (syncResult.added > 0) {
               const refreshed = await TrainStorageService.getSavedTrains();
               setSavedTrains(refreshed);
-              const tripLines = syncResult.addedTrips
-                .map(t => `${t.from} → ${t.to} (${t.date})`)
-                .join('\n');
-              Alert.alert(
-                'Trips Found from Calendar',
-                tripLines,
-              );
+              const tripLines = syncResult.addedTrips.map(t => `${t.from} → ${t.to} (${t.date})`).join('\n');
+              Alert.alert('Trips Found from Calendar', tripLines);
             }
           }
         }
@@ -143,12 +142,16 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
   };
 
   // Expose refresh to parent via ref
-  React.useImperativeHandle(ref, () => ({
-    triggerRefresh,
-  }), [triggerRefresh]);
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      triggerRefresh,
+    }),
+    [triggerRefresh]
+  );
 
   // Sort saved trains by departure time (earliest first)
-  const flights = [...savedTrains].sort((a, b) => {
+  const sortedTrains = [...savedTrains].sort((a, b) => {
     // First compare by travel date if available
     if (a.travelDate && b.travelDate) {
       const dateA = new Date(a.travelDate);
@@ -202,13 +205,14 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
       {/* Fixed Header */}
       <View>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>
-            {isSearchFocused ? 'Add Train' : 'My Trains'}
-          </Text>
+          <Text style={styles.title}>{isSearchFocused ? 'Add Train' : 'My Trains'}</Text>
         </View>
         {!isSearchFocused && !isLoading && (
           <TouchableOpacity
-            onPress={() => { hapticLight(); onOpenProfile?.(); }}
+            onPress={() => {
+              hapticLight();
+              onOpenProfile?.();
+            }}
             style={styles.refreshButton}
             activeOpacity={0.7}
             accessible={true}
@@ -226,7 +230,10 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
           <TouchableOpacity
             style={styles.searchContainer}
             activeOpacity={0.7}
-            onPress={() => { hapticLight(); handleOpenSearch(); }}
+            onPress={() => {
+              hapticLight();
+              handleOpenSearch();
+            }}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Add a train"
@@ -237,7 +244,10 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
         )}
       </View>
 
-      <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]} pointerEvents={isCollapsed ? 'none' : 'auto'}>
+      <Animated.View
+        style={[{ flex: 1 }, isSearchFocused && fadeAnimatedStyle]}
+        pointerEvents="auto"
+      >
         {/* Search lives outside ScrollView so the input stays fixed */}
         {isSearchFocused && !isCollapsed && (
           <TwoStationSearch onSelectTrip={handleSelectTrip} onClose={handleCloseSearch} />
@@ -256,11 +266,12 @@ export const ModalContent = React.forwardRef<ModalContentHandle, { onTrainSelect
             }}
             scrollEventThrottle={16}
             waitFor={panRef}
+            bounces={false}
             keyboardShouldPersistTaps="handled"
           >
             {!isLoading && (
               <TrainList
-                flights={flights}
+                trains={sortedTrains}
                 onTrainSelect={train => {
                   setSelectedTrain(train);
                   if (typeof onTrainSelect === 'function') onTrainSelect(train);

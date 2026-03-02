@@ -547,6 +547,38 @@ export class GTFSParser {
   }
 
   /**
+   * Get the GTFS calendar date range and service-day check for a given train number.
+   * Used to constrain date pickers and show live warnings for non-service days.
+   */
+  getServiceInfoForTrain(trainNumber: string): { minDate: Date; maxDate: Date } | null {
+    const trips = this.tripsByNumber.get(trainNumber);
+    if (!trips || trips.length === 0 || !this.hasCalendarData) return null;
+
+    let earliest = Infinity;
+    let latest = -Infinity;
+
+    for (const trip of trips) {
+      const entry = this.calendarEntries.get(trip.service_id);
+      if (entry) {
+        if (entry.start_date < earliest) earliest = entry.start_date;
+        if (entry.end_date > latest) latest = entry.end_date;
+      }
+    }
+
+    if (earliest === Infinity || latest === -Infinity) return null;
+
+    // Convert YYYYMMDD integers to Date objects
+    const toDate = (d: number) => {
+      const year = Math.floor(d / 10000);
+      const month = Math.floor((d % 10000) / 100) - 1;
+      const day = d % 100;
+      return new Date(year, month, day);
+    };
+
+    return { minDate: toDate(earliest), maxDate: toDate(latest) };
+  }
+
+  /**
    * Get all unique train numbers (trip_short_name) that belong to a given route_id.
    * Returns array of { trainNumber, displayName, headsign }.
    */

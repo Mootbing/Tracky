@@ -1,33 +1,43 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AppColors } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { AppColors, BorderRadius, Spacing } from '../constants/theme';
+import { openCrashReportEmail } from '../utils/logger';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
+  onDismiss?: () => void;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  componentStack: string | null;
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, componentStack: null };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+    return { hasError: true, error, componentStack: null };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo.componentStack);
+    this.setState({ componentStack: errorInfo.componentStack ?? null });
   }
 
-  handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+  handleReload = () => {
+    this.setState({ hasError: false, error: null, componentStack: null });
+    this.props.onDismiss?.();
+  };
+
+  handleReport = () => {
+    openCrashReportEmail(this.state.error, this.state.componentStack);
   };
 
   render() {
@@ -38,13 +48,22 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
       return (
         <View style={errorStyles.container}>
-          <Text style={errorStyles.title}>Something went wrong</Text>
-          <Text style={errorStyles.message}>
-            {this.state.error?.message || 'An unexpected error occurred'}
-          </Text>
-          <TouchableOpacity style={errorStyles.button} onPress={this.handleRetry}>
-            <Text style={errorStyles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
+          <View style={errorStyles.content}>
+            <Ionicons name="bug-outline" size={48} color={AppColors.secondary} />
+            <Text style={errorStyles.title}>Something went wrong</Text>
+            <Text style={errorStyles.message}>
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </Text>
+            <TouchableOpacity style={errorStyles.button} onPress={this.handleReload}>
+              <Ionicons name="refresh" size={18} color={AppColors.primary} />
+              <Text style={errorStyles.buttonText}>Reload App</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={errorStyles.reportButton} onPress={this.handleReport}>
+              <Ionicons name="mail-outline" size={16} color={AppColors.secondary} />
+              <Text style={errorStyles.reportButtonText}>Report Issue</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={errorStyles.copyright}>Tracky - Made with ❤ by Jason</Text>
         </View>
       );
     }
@@ -56,32 +75,58 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 const errorStyles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: AppColors.background.primary,
-    padding: 24,
+  },
+  content: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xxl,
+    gap: Spacing.sm,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: AppColors.primary,
-    marginBottom: 8,
+    marginTop: Spacing.lg,
   },
   message: {
-    fontSize: 14,
+    fontSize: 13,
     color: AppColors.secondary,
     textAlign: 'center',
-    marginBottom: 24,
+    lineHeight: 18,
   },
   button: {
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: AppColors.background.tertiary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.xl,
   },
   buttonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: AppColors.background.primary,
+    color: AppColors.primary,
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  reportButtonText: {
+    fontSize: 13,
+    color: AppColors.secondary,
+  },
+  copyright: {
+    position: 'absolute',
+    bottom: 40,
+    color: AppColors.secondary,
+    fontSize: 12,
+    fontWeight: '400',
+    opacity: 0.6,
   },
 });

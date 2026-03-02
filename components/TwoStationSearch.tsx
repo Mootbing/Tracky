@@ -1,12 +1,14 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useEffect, useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AppColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
 import { light as hapticLight, selection as hapticSelection, success as hapticSuccess } from '../utils/haptics';
 import { getTrainDisplayName } from '../services/api';
 import type { EnrichedStopTime, Route, SearchResult, Stop, Trip } from '../types/train';
+import { SlideUpModalContext } from './ui/slide-up-modal';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { logger } from '../utils/logger';
 
@@ -41,6 +43,8 @@ interface RouteTrainItem {
 }
 
 export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProps) {
+  const { panRef, scrollOffset, isFullscreen } = React.useContext(SlideUpModalContext);
+
   // --- Shared state ---
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -70,6 +74,19 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // --- Route expansion state ---
   const [expandedRouteTrains, setExpandedRouteTrains] = useState<RouteTrainItem[] | null>(null);
   const [expandedRouteName, setExpandedRouteName] = useState<string>('');
+
+  // --- Train service date range (for constraining date picker in train flow) ---
+  const trainServiceInfo = useMemo(() => {
+    if (!selectedTrainNumber || !isDataLoaded) return null;
+    return gtfsParser.getServiceInfoForTrain(selectedTrainNumber);
+  }, [selectedTrainNumber, isDataLoaded]);
+
+  // Live check: does the selected train run on the currently browsed tempDate?
+  const tempDateNotRunning = useMemo(() => {
+    if (!selectedTrainNumber || !isDataLoaded) return false;
+    const trips = gtfsParser.getTripsByNumber(selectedTrainNumber);
+    return trips.length > 0 && !trips.some(trip => gtfsParser.isServiceActiveOnDate(trip.service_id, tempDate));
+  }, [selectedTrainNumber, isDataLoaded, tempDate]);
 
   // Check if GTFS data is loaded
   useEffect(() => {
@@ -105,7 +122,9 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // Find trips when both stations AND date are selected (station flow)
   useEffect(() => {
     if (fromStation && toStation && selectedDate) {
-      logger.info(`[Search] Finding trips: ${fromStation.stop_name} → ${toStation.stop_name} on ${selectedDate.toLocaleDateString()}`);
+      logger.info(
+        `[Search] Finding trips: ${fromStation.stop_name} → ${toStation.stop_name} on ${selectedDate.toLocaleDateString()}`
+      );
       const trips = gtfsParser.findTripsWithStops(fromStation.stop_id, toStation.stop_id, selectedDate);
       logger.info(`[Search] Found ${trips.length} trips`);
       setTripResults(trips);
@@ -269,9 +288,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // --- Determine which view to render ---
 
   const hasUnifiedResults =
-    unifiedResults.trains.length > 0 ||
-    unifiedResults.routes.length > 0 ||
-    unifiedResults.stations.length > 0;
+    unifiedResults.trains.length > 0 || unifiedResults.routes.length > 0 || unifiedResults.stations.length > 0;
 
   // ============================================================
   // PATH 1: Initial unified search (no station, no train selected)
@@ -290,25 +307,36 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
             placeholder="Train number, route, or station"
             placeholderTextColor={AppColors.secondary}
             value={searchQuery}
-            onChangeText={(text) => {
+            onChangeText={text => {
               setSearchQuery(text);
               setExpandedRouteTrains(null);
               setExpandedRouteName('');
             }}
             autoFocus
           />
-          <TouchableOpacity onPress={() => { hapticLight(); onClose(); }}>
+          <TouchableOpacity
+            onPress={() => {
+              hapticLight();
+              onClose();
+            }}
+          >
             <Ionicons name="close-circle" size={20} color={AppColors.secondary} />
           </TouchableOpacity>
         </View>
 
         {/* Results */}
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
           {/* Expanded route train list */}
           {expandedRouteTrains && (
             <View style={styles.resultsContainer}>
               <View style={styles.sectionHeaderRow}>
-                <TouchableOpacity onPress={() => { hapticLight(); setExpandedRouteTrains(null); setExpandedRouteName(''); }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    hapticLight();
+                    setExpandedRouteTrains(null);
+                    setExpandedRouteName('');
+                  }}
+                >
                   <Ionicons name="arrow-back" size={18} color={AppColors.secondary} />
                 </TouchableOpacity>
                 <Text style={styles.sectionLabel}>{expandedRouteName.toUpperCase()} TRAINS</Text>
@@ -316,23 +344,23 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               {expandedRouteTrains.map(train => {
                 const isAcela = train.displayName.toLowerCase().includes('acela');
                 return (
-                <TouchableOpacity
-                  key={train.trainNumber}
-                  style={styles.stationItem}
-                  onPress={() => handleSelectTrain(train.trainNumber, train.displayName)}
-                >
-                  <View style={styles.stationIcon}>
-                    {isAcela ? (
-                      <Ionicons name="train" size={20} color={AppColors.primary} />
-                    ) : (
-                      <FontAwesome6 name="train" size={16} color={AppColors.primary} />
-                    )}
-                  </View>
-                  <View style={styles.stationInfo}>
-                    <Text style={styles.stationName}>{train.displayName}</Text>
-                    {train.headsign ? <Text style={styles.stationCode}>{train.headsign}</Text> : null}
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    key={train.trainNumber}
+                    style={styles.stationItem}
+                    onPress={() => handleSelectTrain(train.trainNumber, train.displayName)}
+                  >
+                    <View style={styles.stationIcon}>
+                      {isAcela ? (
+                        <Ionicons name="train" size={20} color={AppColors.primary} />
+                      ) : (
+                        <FontAwesome6 name="train" size={16} color={AppColors.primary} />
+                      )}
+                    </View>
+                    <View style={styles.stationInfo}>
+                      <Text style={styles.stationName}>{train.displayName}</Text>
+                      {train.headsign ? <Text style={styles.stationCode}>{train.headsign}</Text> : null}
+                    </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -342,7 +370,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           {showingSearch && !expandedRouteTrains && (
             <View style={styles.resultsContainer}>
               {!isDataLoaded ? (
-                <Text style={styles.noResults}>Loading station data...</Text>
+                <Text style={styles.noResults}>Loading...</Text>
               ) : !hasUnifiedResults ? (
                 <Text style={styles.noResults}>No results found</Text>
               ) : (
@@ -375,7 +403,11 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   {/* ROUTES section */}
                   {unifiedResults.routes.length > 0 && (
                     <>
-                      <Text style={[styles.sectionLabel, unifiedResults.stations.length > 0 && { marginTop: Spacing.lg }]}>ROUTES</Text>
+                      <Text
+                        style={[styles.sectionLabel, unifiedResults.stations.length > 0 && { marginTop: Spacing.lg }]}
+                      >
+                        ROUTES
+                      </Text>
                       {unifiedResults.routes.map(result => {
                         const route = result.data as Route;
                         return (
@@ -400,7 +432,16 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   {/* TRAINS section */}
                   {unifiedResults.trains.length > 0 && (
                     <>
-                      <Text style={[styles.sectionLabel, (unifiedResults.stations.length > 0 || unifiedResults.routes.length > 0) && { marginTop: Spacing.lg }]}>TRAINS</Text>
+                      <Text
+                        style={[
+                          styles.sectionLabel,
+                          (unifiedResults.stations.length > 0 || unifiedResults.routes.length > 0) && {
+                            marginTop: Spacing.lg,
+                          },
+                        ]}
+                      >
+                        TRAINS
+                      </Text>
                       {unifiedResults.trains.map(result => {
                         const trip = result.data as Trip;
                         const isAcela = result.name.toLowerCase().includes('acela');
@@ -469,7 +510,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
           {/* Date picker */}
           {showingTrainDatePicker && (
             <View style={styles.datePickerContainer}>
@@ -480,22 +521,32 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   onChange={handleDateChange}
-                  minimumDate={new Date()}
+                  {...(trainServiceInfo ? { minimumDate: trainServiceInfo.minDate, maximumDate: trainServiceInfo.maxDate } : {})}
                   themeVariant="dark"
                   accentColor="#FFFFFF"
                   style={styles.datePicker}
                 />
               </View>
+              {tempDateNotRunning && (
+                <View style={styles.dateWarning}>
+                  <Ionicons name="alert-circle-outline" size={16} color="#F59E0B" />
+                  <Text style={styles.dateWarningText}>
+                    This train doesn't run on {tempDate.toLocaleDateString('en-US', { weekday: 'long' })}s
+                  </Text>
+                </View>
+              )}
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
-                  style={styles.confirmDateButton}
+                  style={[styles.confirmDateButton, tempDateNotRunning && styles.confirmDateButtonDisabled]}
                   onPress={() => {
+                    if (tempDateNotRunning) return;
                     hapticSuccess();
                     setSelectedDate(tempDate);
                     setShowDatePicker(false);
                   }}
+                  disabled={tempDateNotRunning}
                 >
-                  <Text style={styles.confirmDateText}>Confirm Date</Text>
+                  <Text style={[styles.confirmDateText, tempDateNotRunning && styles.confirmDateTextDisabled]}>Confirm Date</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -519,7 +570,8 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               </Text>
               {trainStops.map((stop, index) => {
                 const isBeforeFrom = selectedFromStop && stop.stop_sequence < selectedFromStop.stop_sequence;
-                const isFrom = selectedFromStop?.stop_id === stop.stop_id && selectedFromStop?.stop_sequence === stop.stop_sequence;
+                const isFrom =
+                  selectedFromStop?.stop_id === stop.stop_id && selectedFromStop?.stop_sequence === stop.stop_sequence;
                 const isDimmed = selectedFromStop && !isFrom && isBeforeFrom;
                 const isOrigin = index === 0;
                 const isDest = index === trainStops.length - 1;
@@ -527,46 +579,27 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 return (
                   <TouchableOpacity
                     key={`${stop.stop_id}-${stop.stop_sequence}`}
-                    style={[
-                      styles.stopItem,
-                      isDimmed && styles.stopItemDimmed,
-                    ]}
+                    style={[styles.stopItem, isDimmed && styles.stopItemDimmed]}
                     onPress={() => handleSelectTrainStop(stop)}
                   >
                     {/* Absolute-positioned connector lines */}
-                    {!isOrigin && (
-                      <View style={styles.stopConnectorTop} />
-                    )}
-                    {!isDest && (
-                      <View style={styles.stopConnectorBottom} />
-                    )}
+                    {!isOrigin && <View style={styles.stopConnectorTop} />}
+                    {!isDest && <View style={styles.stopConnectorBottom} />}
 
                     {/* Stop row content */}
                     <View style={styles.stopRow}>
                       <View style={styles.stopMarker}>
-                        <View style={[
-                          styles.stopDot,
-                          isFrom && styles.stopDotSelected,
-                        ]} />
+                        <View style={[styles.stopDot, isFrom && styles.stopDotSelected]} />
                       </View>
 
                       <View style={styles.stopInfo}>
-                        <Text style={[
-                          styles.stopName,
-                          isDimmed && styles.stopTextDimmed,
-                        ]}>
-                          {stop.stop_name}
-                        </Text>
-                        <Text style={[
-                          styles.stopTime,
-                          isDimmed && styles.stopTextDimmed,
-                        ]}>
+                        <Text style={[styles.stopName, isDimmed && styles.stopTextDimmed]}>{stop.stop_name}</Text>
+                        <Text style={[styles.stopTime, isDimmed && styles.stopTextDimmed]}>
                           {isOrigin
                             ? `Departs ${formatTime(stop.departure_time)}`
                             : isDest
                               ? `Arrives ${formatTime(stop.arrival_time)}`
-                              : `${formatTime(stop.arrival_time)} — ${formatTime(stop.departure_time)}`
-                          }
+                              : `${formatTime(stop.arrival_time)} — ${formatTime(stop.departure_time)}`}
                         </Text>
                       </View>
 
@@ -637,13 +670,13 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
         {/* Station Search Results (for arrival) */}
         {showingStationSearch && (
           <View style={styles.resultsContainer}>
             <Text style={styles.sectionLabel}>SELECT ARRIVAL STATION</Text>
             {!isDataLoaded ? (
-              <Text style={styles.noResults}>Loading station data...</Text>
+              <Text style={styles.noResults}>Loading...</Text>
             ) : stationResults.length === 0 ? (
               <Text style={styles.noResults}>No stations found</Text>
             ) : (
@@ -676,7 +709,6 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={handleDateChange}
-                minimumDate={new Date()}
                 themeVariant="dark"
                 accentColor="#FFFFFF"
                 style={styles.datePicker}
@@ -713,7 +745,10 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   <TouchableOpacity
                     key={trip.tripId}
                     style={styles.tripItem}
-                    onPress={() => { hapticSuccess(); onSelectTrip(trip.tripId, from.stop_id, toStation.stop_id, selectedDate); }}
+                    onPress={() => {
+                      hapticSuccess();
+                      onSelectTrip(trip.tripId, from.stop_id, toStation.stop_id, selectedDate);
+                    }}
                   >
                     <View style={styles.tripIcon}>
                       {isAcela ? (
@@ -858,7 +893,7 @@ const styles = StyleSheet.create({
   },
   noResults: {
     color: AppColors.secondary,
-    fontSize: FontSizes.flightDate,
+    fontSize: FontSizes.trainDate,
     textAlign: 'center',
     paddingVertical: Spacing.xl,
   },
@@ -921,6 +956,27 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.searchLabel,
     fontWeight: '600',
   },
+  confirmDateButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  confirmDateTextDisabled: {
+    color: 'rgba(0, 0, 0, 0.4)',
+  },
+  dateWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: BorderRadius.sm,
+  },
+  dateWarningText: {
+    color: '#F59E0B',
+    fontSize: FontSizes.trainDate,
+    fontWeight: '500',
+  },
   tripItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -973,7 +1029,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     color: AppColors.secondary,
-    fontSize: FontSizes.flightDate,
+    fontSize: FontSizes.trainDate,
   },
   // Train-number flow: stop list styles
   stopItem: {

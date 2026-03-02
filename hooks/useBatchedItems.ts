@@ -20,6 +20,7 @@ export function useBatchedItems<T extends Identifiable>(
   batchDelay = DEFAULT_BATCH_DELAY,
 ): T[] {
   const [rendered, setRendered] = useState<T[]>([]);
+  const renderedIdsRef = useRef<Set<string>>(new Set());
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingQueueRef = useRef<T[]>([]);
 
@@ -31,7 +32,8 @@ export function useBatchedItems<T extends Identifiable>(
     }
     pendingQueueRef.current = [];
 
-    const renderedIds = new Set(rendered.map(item => item.id));
+    // Use ref for rendered IDs to avoid stale closure reads
+    const renderedIds = renderedIdsRef.current;
     const targetIds = new Set(targetItems.map(item => item.id));
 
     // Items that already exist — use fresh target data (positions may have updated)
@@ -42,11 +44,13 @@ export function useBatchedItems<T extends Identifiable>(
     // Zooming in / fewer items — set immediately, removal is cheap
     if (toAdd.length === 0) {
       setRendered(keep);
+      renderedIdsRef.current = new Set(keep.map(item => item.id));
       return;
     }
 
     // Start with kept items, then progressively batch in new ones
     setRendered(keep);
+    renderedIdsRef.current = new Set(keep.map(item => item.id));
     pendingQueueRef.current = [...toAdd];
 
     const drainBatch = () => {
@@ -54,6 +58,7 @@ export function useBatchedItems<T extends Identifiable>(
       if (queue.length === 0) return;
 
       const batch = queue.splice(0, batchSize);
+      for (const item of batch) renderedIdsRef.current.add(item.id);
       setRendered(prev => [...prev, ...batch]);
 
       if (queue.length > 0) {

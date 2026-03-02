@@ -207,19 +207,19 @@ function SwipeableTrainCard({ train, onPress, onDelete, isFirst, contentOpacity 
 
       {/* The actual card */}
       <GestureDetector gesture={composedGesture}>
-        <Animated.View style={[styles.flightCard, { marginBottom: 0 }, cardAnimatedStyle]}>
-          <View style={styles.flightLeft}>
+        <Animated.View style={[styles.trainCard, { marginBottom: 0 }, cardAnimatedStyle]}>
+          <View style={styles.trainLeft}>
             <Text style={[styles.daysAway, isPast && { color: COLORS.secondary }]}>{countdown.value}</Text>
             <Text style={[styles.daysLabel, isPast && { color: COLORS.secondary }]}>{unitLabel}</Text>
           </View>
 
-          <View style={styles.flightCenter}>
-            <View style={styles.flightHeader}>
+          <View style={styles.trainCenter}>
+            <View style={styles.trainHeader}>
               <Image source={require('../assets/images/amtrak.png')} style={styles.amtrakLogo} fadeDuration={0} />
               <Text style={[styles.trainNumber, { color: COLORS.secondary, fontWeight: '400' }]}>
                 {train.routeName ? train.routeName : train.operator} {train.trainNumber}
               </Text>
-              <Text style={styles.flightDate}>{train.date}</Text>
+              <Text style={styles.trainDate}>{train.date}</Text>
             </View>
 
             <Text style={[styles.route, { fontSize: 18 }]}>
@@ -261,15 +261,15 @@ function SwipeableTrainCard({ train, onPress, onDelete, isFirst, contentOpacity 
 }
 
 interface TrainListProps {
-  flights: Train[];
+  trains: Train[];
   onTrainSelect: (t: Train) => void;
   onDeleteTrain?: (train: Train) => void;
 }
 
-export function TrainList({ flights, onTrainSelect, onDeleteTrain }: TrainListProps) {
+export function TrainList({ trains, onTrainSelect, onDeleteTrain }: TrainListProps) {
   const { contentOpacity } = React.useContext(SlideUpModalContext);
 
-  if (flights.length === 0) {
+  if (trains.length === 0) {
     return (
       <View style={styles.noTrainsContainer}>
         <TrainTrack size={48} color={COLORS.primary} />
@@ -280,12 +280,12 @@ export function TrainList({ flights, onTrainSelect, onDeleteTrain }: TrainListPr
 
   return (
     <>
-      {flights.map((flight, index) => (
+      {trains.map((train, index) => (
         <SwipeableTrainCard
-          key={flight.id}
-          train={flight}
-          onPress={() => onTrainSelect(flight)}
-          onDelete={() => onDeleteTrain?.(flight)}
+          key={train.id}
+          train={train}
+          onPress={() => onTrainSelect(train)}
+          onDelete={() => onDeleteTrain?.(train)}
           isFirst={index === 0}
           contentOpacity={contentOpacity}
         />

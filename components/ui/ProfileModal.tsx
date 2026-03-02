@@ -105,12 +105,7 @@ const SwipeableHistoryCard = React.memo(function SwipeableHistoryCard({
 
   const cardAnimatedStyle = useAnimatedStyle(() => {
     const absX = Math.abs(translateX.value);
-    const fadeProgress = interpolate(
-      absX,
-      [Math.abs(FIRST_THRESHOLD), Math.abs(SECOND_THRESHOLD)],
-      [1, 0],
-      'clamp',
-    );
+    const fadeProgress = interpolate(absX, [Math.abs(FIRST_THRESHOLD), Math.abs(SECOND_THRESHOLD)], [1, 0], 'clamp');
     return {
       transform: [{ translateX: translateX.value }],
       opacity: fadeProgress,
@@ -156,11 +151,7 @@ const SwipeableHistoryCard = React.memo(function SwipeableHistoryCard({
       <GestureDetector gesture={composedGesture}>
         <Animated.View style={[styles.historyCard, { marginBottom: 0 }, cardAnimatedStyle]}>
           <View style={styles.historyHeader}>
-            <Image
-              source={require('../../assets/images/amtrak.png')}
-              style={styles.amtrakLogo}
-              fadeDuration={0}
-            />
+            <Image source={require('../../assets/images/amtrak.png')} style={styles.amtrakLogo} fadeDuration={0} />
             <Text style={styles.historyTrainNumber}>
               {trip.routeName || 'Amtrak'} {trip.trainNumber}
             </Text>
@@ -229,23 +220,23 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
     setHistory(updated);
   }, []);
 
-  const stats = useMemo(() =>
-    calculateProfileStats(history, selectedYear || undefined),
-    [history, selectedYear]
-  );
+  const stats = useMemo(() => calculateProfileStats(history, selectedYear || undefined), [history, selectedYear]);
 
   // Toggle sort field or direction
-  const handleSortPress = useCallback((field: SortField) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (sortField === field) {
-      // Toggle direction if same field
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      // New field, default to descending for date, ascending for others
-      setSortField(field);
-      setSortDirection(field === 'date' ? 'desc' : 'asc');
-    }
-  }, [sortField]);
+  const handleSortPress = useCallback(
+    (field: SortField) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (sortField === field) {
+        // Toggle direction if same field
+        setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      } else {
+        // New field, default to descending for date, ascending for others
+        setSortField(field);
+        setSortDirection(field === 'date' ? 'desc' : 'asc');
+      }
+    },
+    [sortField]
+  );
 
   // Filter and sort history
   const filteredAndSortedHistory = useMemo(() => {
@@ -257,7 +248,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
     // Sort based on selected field
     return filtered.sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortField) {
         case 'date':
           comparison = new Date(a.travelDate).getTime() - new Date(b.travelDate).getTime();
@@ -280,10 +271,10 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   // Group trips based on sort field
   const groupedTrips = useMemo(() => {
     const groups: { [key: string]: CompletedTrip[] } = {};
-    
+
     filteredAndSortedHistory.forEach(trip => {
       let groupKey = '';
-      
+
       switch (sortField) {
         case 'date':
           groupKey = new Date(trip.travelDate).getFullYear().toString();
@@ -298,17 +289,17 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           groupKey = trip.routeName || 'Unknown Route';
           break;
       }
-      
+
       if (!groups[groupKey]) {
         groups[groupKey] = [];
       }
       groups[groupKey].push(trip);
     });
-    
+
     // Sort group keys based on field type and direction
     const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
       let comparison = 0;
-      
+
       if (sortField === 'date') {
         // For dates (years), sort numerically
         comparison = parseInt(a) - parseInt(b);
@@ -316,10 +307,10 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
         // For other fields, sort alphabetically
         comparison = a.localeCompare(b);
       }
-      
+
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-    
+
     // Return ordered array of [key, value] pairs
     return sortedGroupKeys.map(key => [key, groups[key]] as [string, CompletedTrip[]]);
   }, [filteredAndSortedHistory, sortField, sortDirection]);
@@ -327,7 +318,8 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   const handleSharePassport = useCallback(async () => {
     hapticLight();
     const yearText = selectedYear || 'All-Time';
-    const message = `🚂 My Train Passport ${yearText}\n\n` +
+    const message =
+      `🚂 My Train Passport ${yearText}\n\n` +
       `✈️ Trips: ${stats.totalTrips}\n` +
       `📍 Distance: ${formatDistance(stats.totalDistance, distanceUnit)}\n` +
       `⏱️ Travel Time: ${formatDuration(stats.totalDuration)}\n` +
@@ -346,11 +338,12 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
     const yearText = selectedYear || 'All-Time';
     const totalHours = Math.floor(stats.totalDelayMinutes / 60);
     const avgMinutes = Math.round(stats.averageDelayMinutes);
-    
-    const message = `🚂 My Train Delay Stats ${yearText}\n\n` +
+
+    const message =
+      `🚂 My Train Delay Stats ${yearText}\n\n` +
       `⏰ ${totalHours} hours lost from delays\n` +
       `📊 Delayed trips averaged ${avgMinutes}m late`;
-    
+
     try {
       await Share.share({ message });
     } catch (error) {
@@ -361,11 +354,10 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   const handleShareMostRidden = useCallback(async () => {
     hapticLight();
     if (!stats.mostRiddenRoute) return;
-    
-    const message = `🚂 Most Ridden Route\n\n` +
-      `${stats.mostRiddenRoute.routeName}\n` +
-      `${stats.mostRiddenRoute.count} trips`;
-    
+
+    const message =
+      `🚂 Most Ridden Route\n\n` + `${stats.mostRiddenRoute.routeName}\n` + `${stats.mostRiddenRoute.count} trips`;
+
     try {
       await Share.share({ message });
     } catch (error) {
@@ -406,11 +398,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             <Text style={styles.profileSubtitle}>My Train Log</Text>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={handleClosePress}
-          style={styles.closeButton}
-          activeOpacity={0.6}
-        >
+        <TouchableOpacity onPress={handleClosePress} style={styles.closeButton} activeOpacity={0.6}>
           <Ionicons name="close" size={24} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
@@ -425,11 +413,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <Ionicons name="people" size={14} color={AppColors.secondary} />
           <Text style={styles.actionPillText}>Rail Friends</Text>
         </TouchableOpacity> */}
-        <TouchableOpacity
-          style={styles.actionPill}
-          activeOpacity={0.6}
-          onPress={handleSettingsPress}
-        >
+        <TouchableOpacity style={styles.actionPill} activeOpacity={0.6} onPress={handleSettingsPress}>
           <Ionicons name="settings-sharp" size={14} color={AppColors.primary} />
           <Text style={styles.actionPillText}>Settings</Text>
         </TouchableOpacity>
@@ -443,9 +427,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             onPress={() => handleYearPress(null)}
             activeOpacity={0.6}
           >
-            <Text style={[styles.yearButtonText, selectedYear === null && styles.yearButtonTextActive]}>
-              ALL-TIME
-            </Text>
+            <Text style={[styles.yearButtonText, selectedYear === null && styles.yearButtonTextActive]}>ALL-TIME</Text>
           </TouchableOpacity>
           {years.map(year => (
             <TouchableOpacity
@@ -454,9 +436,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
               onPress={() => handleYearPress(year)}
               activeOpacity={0.6}
             >
-              <Text style={[styles.yearButtonText, selectedYear === year && styles.yearButtonTextActive]}>
-                {year}
-              </Text>
+              <Text style={[styles.yearButtonText, selectedYear === year && styles.yearButtonTextActive]}>{year}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -481,11 +461,13 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <View style={styles.passportHeader}>
             <View style={styles.passportTitleRow}>
               <MaterialCommunityIcons name="train" size={20} color="#fff" />
-              <Text style={styles.passportTitle}>
-                {selectedYear || 'ALL-TIME'} TRAIN PASSPORT
-              </Text>
+              <Text style={styles.passportTitle}>{selectedYear || 'ALL-TIME'} TRAIN PASSPORT</Text>
             </View>
-            <TouchableOpacity onPress={handleSharePassport} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.6}>
+            <TouchableOpacity
+              onPress={handleSharePassport}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.6}
+            >
               <Ionicons name="share-outline" size={22} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -494,11 +476,15 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <View style={styles.passportStatsGrid}>
             <View style={styles.passportStatBlock}>
               <Text style={styles.passportStatLabel}>TRIPS</Text>
-              <Text style={styles.passportStatValue} numberOfLines={1}>{stats.totalTrips}</Text>
+              <Text style={styles.passportStatValue} numberOfLines={1}>
+                {stats.totalTrips}
+              </Text>
             </View>
             <View style={styles.passportStatBlock}>
               <Text style={styles.passportStatLabel}>DISTANCE</Text>
-              <Text style={styles.passportStatValue} numberOfLines={1}>{formatDistance(stats.totalDistance, distanceUnit)}</Text>
+              <Text style={styles.passportStatValue} numberOfLines={1}>
+                {formatDistance(stats.totalDistance, distanceUnit)}
+              </Text>
               <Text style={styles.passportStatSubtext}>
                 {stats.totalDistance > 0 ? `${(stats.totalDistance / 24901).toFixed(1)}x around the world` : '—'}
               </Text>
@@ -508,19 +494,29 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <View style={styles.passportStatsRow}>
             <View style={styles.passportStatSmall}>
               <Text style={styles.passportStatLabel}>TRAVEL TIME</Text>
-              <Text style={styles.passportStatValueSmall} numberOfLines={1}>{formatDuration(stats.totalDuration)}</Text>
+              <Text style={styles.passportStatValueSmall} numberOfLines={1}>
+                {formatDuration(stats.totalDuration)}
+              </Text>
             </View>
             <View style={styles.passportStatSmall}>
               <Text style={styles.passportStatLabel}>STATIONS</Text>
-              <Text style={styles.passportStatValueSmall} numberOfLines={1}>{stats.uniqueStations}</Text>
+              <Text style={styles.passportStatValueSmall} numberOfLines={1}>
+                {stats.uniqueStations}
+              </Text>
             </View>
             <View style={styles.passportStatSmall}>
               <Text style={styles.passportStatLabel}>ROUTES</Text>
-              <Text style={styles.passportStatValueSmall} numberOfLines={1}>{stats.uniqueRoutes}</Text>
+              <Text style={styles.passportStatValueSmall} numberOfLines={1}>
+                {stats.uniqueRoutes}
+              </Text>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.allStatsButton} activeOpacity={0.6} onPress={() => handleComingSoon('Coming Soon', 'Detailed train stats are on the way!')}>
+          <TouchableOpacity
+            style={styles.allStatsButton}
+            activeOpacity={0.6}
+            onPress={() => handleComingSoon('Coming Soon', 'Detailed train stats are on the way!')}
+          >
             <Text style={styles.allStatsButtonText}>All Train Stats</Text>
             <Ionicons name="chevron-forward" size={16} color="#fff" />
           </TouchableOpacity>
@@ -531,7 +527,11 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <View style={styles.delayCard}>
             <View style={styles.delayHeader}>
               <Text style={styles.delayBigNumber}>{Math.floor(stats.totalDelayMinutes / 60)}</Text>
-              <TouchableOpacity onPress={handleShareDelays} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.6}>
+              <TouchableOpacity
+                onPress={handleShareDelays}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
+              >
                 <Ionicons name="share-outline" size={22} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -539,7 +539,11 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             <Text style={styles.delaySubtext}>
               Delayed trips averaged {Math.round(stats.averageDelayMinutes)}m late
             </Text>
-            <TouchableOpacity style={styles.delayButton} activeOpacity={0.6} onPress={() => handleComingSoon('Coming Soon', 'Detailed delay stats are on the way!')}>
+            <TouchableOpacity
+              style={styles.delayButton}
+              activeOpacity={0.6}
+              onPress={() => handleComingSoon('Coming Soon', 'Detailed delay stats are on the way!')}
+            >
               <Text style={styles.delayButtonText}>All Delay Stats</Text>
               <Ionicons name="chevron-forward" size={16} color="#fff" />
             </TouchableOpacity>
@@ -551,7 +555,11 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <View style={styles.mostRiddenCard}>
             <View style={styles.mostRiddenHeader}>
               <Text style={styles.mostRiddenTitle}>Most ridden route</Text>
-              <TouchableOpacity onPress={handleShareMostRidden} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.6}>
+              <TouchableOpacity
+                onPress={handleShareMostRidden}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
+              >
                 <Ionicons name="share-outline" size={22} color={AppColors.secondary} />
               </TouchableOpacity>
             </View>
@@ -565,7 +573,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
 
         {/* Trip History Section */}
         <Text style={styles.sectionLabel}>PAST TRIPS</Text>
-        
+
         {/* Filter/Sort Bar */}
         {history.length > 0 && (
           <View style={styles.filterBar}>
@@ -578,7 +586,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
                 Date {sortField === 'date' && (sortDirection === 'desc' ? '↓' : '↑')}
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.filterButton, sortField === 'from' && styles.filterButtonActive]}
               onPress={() => handleSortPress('from')}
@@ -588,7 +596,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
                 From {sortField === 'from' && (sortDirection === 'desc' ? '↓' : '↑')}
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.filterButton, sortField === 'to' && styles.filterButtonActive]}
               onPress={() => handleSortPress('to')}
@@ -598,7 +606,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
                 To {sortField === 'to' && (sortDirection === 'desc' ? '↓' : '↑')}
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.filterButton, sortField === 'route' && styles.filterButtonActive]}
               onPress={() => handleSortPress('route')}
@@ -1030,7 +1038,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   historyDate: {
-    fontSize: FontSizes.flightDate,
+    fontSize: FontSizes.trainDate,
     color: AppColors.secondary,
     marginLeft: 'auto',
   },

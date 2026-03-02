@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Dimensions, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
@@ -14,7 +14,7 @@ import { TrainStorageService } from '../../services/storage';
 import type { Train } from '../../types/train';
 import { haversineDistance } from '../../utils/distance';
 import { gtfsParser } from '../../utils/gtfs-parser';
-import { logger } from '../../utils/logger';
+import { logger, openReportBadDataEmail } from '../../utils/logger';
 import { calculateDuration, getCountdownForTrain, pluralize } from '../../utils/train-display';
 import { convertDistance, distanceSuffix, formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
@@ -754,13 +754,13 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             <TouchableOpacity
               style={styles.infoCard}
               activeOpacity={0.7}
-              onPress={() => Linking.openURL('mailto:him@jasonxu.me?subject=Incorrect%20Tracky%20Data')}
+              onPress={() => openReportBadDataEmail()}
             >
               <View style={styles.infoCardIcon}>
-                <Ionicons name="chatbubble-ellipses-outline" size={24} color={COLORS.primary} />
+                <Ionicons name="alert-circle-outline" size={24} color={COLORS.primary} />
               </View>
               <View style={styles.infoCardContent}>
-                <Text style={styles.infoCardTitle}>Report a Bug/Bad Data</Text>
+                <Text style={styles.infoCardTitle}>Report Bad Data</Text>
                 <Text style={styles.infoCardSubtext}>Something not right? Let us know.</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={COLORS.secondary} style={{ alignSelf: 'center' }} />

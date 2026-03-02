@@ -53,7 +53,7 @@ export const FontSizes = {
   daysAway: 32,
   daysLabel: 12,
   trainNumber: 14,
-  flightDate: 13,
+  trainDate: 13,
   route: 13,
   timeCode: 12,
   timeValue: 13,

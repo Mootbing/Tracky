@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   },
   refreshIconSpinning: { opacity: 0.5 },
   subtitle: {
-    fontSize: FontSizes.flightDate,
+    fontSize: FontSizes.trainDate,
     fontFamily: FONTS.family,
     color: COLORS.secondary,
     marginTop: -Spacing.sm,
@@ -122,8 +122,8 @@ export const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
     gap: Spacing.md,
   },
-  noTrainsText: { fontSize: FontSizes.flightDate, fontFamily: FONTS.family, color: COLORS.secondary },
-  flightCard: {
+  noTrainsText: { fontSize: FontSizes.trainDate, fontFamily: FONTS.family, color: COLORS.secondary },
+  trainCard: {
     flexDirection: 'row',
     backgroundColor: COLORS.background.primary,
     borderRadius: BorderRadius.md,
@@ -132,7 +132,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border.primary,
   },
-  flightLeft: { alignItems: 'center', justifyContent: 'center', marginRight: Spacing.lg, minWidth: 60 },
+  trainLeft: { alignItems: 'center', justifyContent: 'center', marginRight: Spacing.lg, minWidth: 60 },
   daysAway: {
     fontSize: FontSizes.daysAway,
     fontWeight: 'bold',
@@ -147,8 +147,8 @@ export const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     letterSpacing: 0.5,
   },
-  flightCenter: { flex: 1 },
-  flightHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
+  trainCenter: { flex: 1 },
+  trainHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
   amtrakLogo: { width: 16, height: 16, marginRight: 3, resizeMode: 'contain' },
   trainNumber: {
     fontSize: FontSizes.trainNumber,
@@ -158,7 +158,7 @@ export const styles = StyleSheet.create({
     marginLeft: 3,
     marginRight: Spacing.md,
   },
-  flightDate: { fontSize: FontSizes.flightDate, fontFamily: FONTS.family, color: COLORS.secondary, marginLeft: 'auto' },
+  trainDate: { fontSize: FontSizes.trainDate, fontFamily: FONTS.family, color: COLORS.secondary, marginLeft: 'auto' },
   route: {
     fontSize: FontSizes.route,
     fontWeight: '600',
