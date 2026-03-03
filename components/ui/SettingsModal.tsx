@@ -691,28 +691,69 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
   const renderAboutPage = () => (
     <>
       <View style={{ marginTop: Spacing.lg }}>
+        <Text style={styles.sectionHeader}>ABOUT</Text>
         <Text style={styles.aboutText}>
-          Tracky is a beautiful train-tracking companion for Amtrak travelers with heavy inspiration from Flighty (and
-          much love to the devs!). Follow your train in real time, view detailed route maps, and keep a personal log of
-          every journey you take.
+          A beautiful train-tracking companion for Amtrak travelers, heavily inspired by Flighty.
         </Text>
-        <Text style={styles.aboutText}>
-          A{' '}
-          <Text style={{ color: AppColors.primary }} onPress={() => Linking.openURL('https://portfolio.jasonxu.me/')}>
-            Jason Xu
-          </Text>{' '}
-          project.
-        </Text>
-        <Text style={styles.aboutText}>
-          By the way, I'm{' '}
-          <Text
-            style={{ color: AppColors.primary }}
-            onPress={() => Linking.openURL('https://github.com/Mootbing/Tracky')}
+        <View style={[styles.settingsList, { marginTop: Spacing.md }]}>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            activeOpacity={0.7}
+            onPress={() => {
+              hapticLight();
+              Linking.openURL('https://portfolio.jasonxu.me/');
+            }}
           >
-            Open-Source
-          </Text>
-          !
+            <View style={styles.itemIconContainer}>
+              <Text style={{ fontSize: 22 }}>🐄</Text>
+            </View>
+            <View style={styles.itemContent}>
+              <Text style={styles.itemTitle}>A Jason Xu Project</Text>
+              <Text style={styles.itemSubtitle}>Moo? Moo... Moo!</Text>
+            </View>
+            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.settingsItem, styles.settingsItemLast]}
+            activeOpacity={0.7}
+            onPress={() => {
+              hapticLight();
+              Linking.openURL('https://github.com/Mootbing/Tracky');
+            }}
+          >
+            <View style={styles.itemIconContainer}>
+              <Ionicons name="logo-github" size={22} color={AppColors.primary} />
+            </View>
+            <View style={styles.itemContent}>
+              <Text style={styles.itemTitle}>View on GitHub</Text>
+              <Text style={styles.itemSubtitle}>Tracky's open-source!</Text>
+            </View>
+            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.sectionHeader, { marginTop: Spacing.xl }]}>CONTRIBUTORS WANTED</Text>
+        <Text style={styles.aboutText}>
+          Tracky currently only supports Amtrak. Want to help bring support for other rail systems? We'd love contributors to help expand coverage to more networks.
         </Text>
+        <View style={[styles.settingsList, { marginTop: Spacing.md }]}>
+          <TouchableOpacity
+            style={[styles.settingsItem, styles.settingsItemLast]}
+            activeOpacity={0.7}
+            onPress={() => {
+              hapticLight();
+              Linking.openURL('https://github.com/Mootbing/Tracky/compare');
+            }}
+          >
+            <View style={styles.itemIconContainer}>
+              <Ionicons name="git-pull-request-outline" size={22} color={AppColors.primary} />
+            </View>
+            <View style={styles.itemContent}>
+              <Text style={styles.itemTitle}>I'm Interested!</Text>
+              <Text style={styles.itemSubtitle}>Open a PR — the app is built with React Native</Text>
+            </View>
+            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+          </TouchableOpacity>
+        </View>
       </View>
     </>
   );
