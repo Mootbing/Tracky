@@ -152,7 +152,8 @@ function MapScreenInner() {
     const trainsWithSavedStatus = liveTrains.map(train => {
       const savedTrain = savedTrains.find(
         saved =>
-          saved.trainNumber === train.trainNumber || (saved.tripId && saved.tripId.includes(train.trainNumber))
+          saved.daysAway === 0 &&
+          (saved.trainNumber === train.trainNumber || (saved.tripId && saved.tripId.includes(train.trainNumber)))
       );
       return {
         tripId: train.tripId,

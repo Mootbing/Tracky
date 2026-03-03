@@ -97,6 +97,12 @@ export class TrainStorageService {
             train.travelDate = ref.travelDate;
             train.date = formatDateForDisplay(ref.travelDate);
             train.daysAway = calculateDaysAway(ref.travelDate);
+
+            // Clear realtime data for future trains — avoids matching
+            // a saved future train to today's live train with the same number
+            if (train.daysAway > 0) {
+              train.realtime = undefined;
+            }
           }
 
           trains.push(train);

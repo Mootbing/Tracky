@@ -502,9 +502,16 @@ export class TrainAPIService {
 
   /**
    * Refresh real-time data for a train
+   * Skips realtime enrichment for future trains (daysAway > 0) to avoid
+   * matching a saved future train to today's live train with the same number
    */
   static async refreshRealtimeData(train: Train): Promise<Train> {
     if (!train.tripId && !train.trainNumber) return train;
+
+    // Don't fetch realtime data for trains not running today
+    if (train.daysAway > 0) {
+      return { ...train, realtime: undefined };
+    }
 
     const updatedTrain = { ...train };
     await this.enrichWithRealtimeData(updatedTrain);
