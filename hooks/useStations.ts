@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ViewportBounds, VisibleStation } from '../services/station-loader';
 import { stationLoader } from '../services/station-loader';
 import { gtfsParser } from '../utils/gtfs-parser';
+import { debug } from '../utils/logger';
 
 export function useStations(bounds?: ViewportBounds) {
   const [gtfsLoaded, setGtfsLoaded] = useState(gtfsParser.isLoaded);
@@ -26,6 +27,7 @@ export function useStations(bounds?: ViewportBounds) {
 
     const stops = gtfsParser.getAllStops();
     stationLoader.initialize(stops);
+    debug(`[useStations] Initialized station loader with ${stops.length} stops`);
     setInitialized(true);
   }, [gtfsLoaded, initialized]);
 

@@ -4,6 +4,7 @@
  */
 
 import type { CalendarDateException, CalendarEntry, EnrichedStopTime, Route, SearchResult, Shape, Stop, StopTime, Trip } from '../types/train';
+import { debug, info, warn } from './logger';
 
 export class GTFSParser {
   private routes: Map<string, Route> = new Map();
@@ -88,6 +89,14 @@ export class GTFSParser {
     this.hasCalendarData = this.calendarEntries.size > 0 || this.calendarDateExceptions.size > 0;
 
     this._isLoaded = this.routes.size > 0 && this.stops.size > 0;
+
+    debug(`[GTFSParser] Data loaded: ${this.routes.size} routes, ${this.stops.size} stops, ${this.stopTimes.size} trips, ${this.trips.size} trip records, ${this.shapes.size} shapes`);
+    if (this.hasCalendarData) {
+      debug(`[GTFSParser] Calendar: ${this.calendarEntries.size} entries, ${this.calendarDateExceptions.size} exception sets`);
+    }
+    if (!this._isLoaded) {
+      warn('[GTFSParser] Data loaded but parser reports not ready - routes or stops may be empty');
+    }
   }
 
   getRouteName(routeId: string): string {
@@ -372,13 +381,15 @@ export class GTFSParser {
 
     // Remove duplicates and limit results
     const seen = new Set<string>();
-    return results
+    const filtered = results
       .filter(result => {
         if (seen.has(result.id)) return false;
         seen.add(result.id);
         return true;
       })
       .slice(0, 20); // Limit to 20 results
+    debug(`[GTFSParser] search("${query}"): ${filtered.length} results`);
+    return filtered;
   }
 
   getShape(shapeId: string): Shape[] | undefined {
@@ -700,7 +711,7 @@ export class GTFSParser {
 
     // Deduplicate by train number + departure time (same train on different days has different trip_ids)
     const seen = new Set<string>();
-    return results.filter(result => {
+    const deduped = results.filter(result => {
       const trip = this.trips.get(result.tripId);
       const trainNumber = trip?.trip_short_name || result.tripId;
       const key = `${trainNumber}-${result.fromStop.departure_time}`;
@@ -708,6 +719,8 @@ export class GTFSParser {
       seen.add(key);
       return true;
     });
+    debug(`[GTFSParser] findTripsWithStops(${fromStopId} → ${toStopId}): ${deduped.length} trips found`);
+    return deduped;
   }
 }
 

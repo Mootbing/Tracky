@@ -19,6 +19,7 @@ import { TrainStorageService } from '../../services/storage';
 import type { CompletedTrip } from '../../types/train';
 import { calculateProfileStats, formatDuration } from '../../utils/profile-stats';
 import { formatDistance } from '../../utils/units';
+import { error as logError } from '../../utils/logger';
 import { SlideUpModalContext } from './slide-up-modal';
 
 interface ProfileModalProps {
@@ -329,7 +330,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
     try {
       await Share.share({ message });
     } catch (error) {
-      console.error('Error sharing:', error);
+      logError('[Profile] Error sharing:', error);
     }
   }, [selectedYear, stats, distanceUnit]);
 
@@ -347,7 +348,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
     try {
       await Share.share({ message });
     } catch (error) {
-      console.error('Error sharing:', error);
+      logError('[Profile] Error sharing:', error);
     }
   }, [selectedYear, stats]);
 
@@ -361,7 +362,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
     try {
       await Share.share({ message });
     } catch (error) {
-      console.error('Error sharing:', error);
+      logError('[Profile] Error sharing:', error);
     }
   }, [stats]);
 

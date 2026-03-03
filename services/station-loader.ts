@@ -5,6 +5,7 @@
  */
 
 import type { Stop } from '../types/train';
+import { info } from '../utils/logger';
 
 export interface StationBounds {
   id: string;
@@ -40,6 +41,8 @@ export class StationLoader {
         lon: stop.stop_lon,
       });
     });
+
+    info(`[StationLoader] Initialized: ${this.stations.size} stations`);
   }
 
   /**

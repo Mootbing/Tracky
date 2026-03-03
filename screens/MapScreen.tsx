@@ -91,7 +91,7 @@ function LoadingOverlay({ visible }: { visible: boolean }) {
   return (
     <Animated.View style={[loadingStyles.overlay, { opacity }]} pointerEvents={visible ? 'auto' : 'none'}>
       <Ionicons name="train" size={128} color="rgba(255, 255, 255, 0.25)" style={loadingStyles.icon} />
-      <Text style={loadingStyles.copyright}>Tracky - Made with ❤ by Jason</Text>
+      <Text style={loadingStyles.copyright}>Tracky - Made with &lt;3 by Jason</Text>
     </Animated.View>
   );
 }
@@ -409,6 +409,7 @@ function MapScreenInner() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const location = await Location.getCurrentPositionAsync({});
+          logger.debug(`[MapScreen] User location: ${location.coords.latitude.toFixed(3)}, ${location.coords.longitude.toFixed(3)}`);
           setRegion({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -416,6 +417,7 @@ function MapScreenInner() {
             longitudeDelta: 0.0421,
           });
         } else {
+          logger.info('[MapScreen] Location permission denied, using fallback');
           // Fallback to San Francisco if permission denied
           setRegion({
             latitude: 37.78825,
@@ -446,6 +448,7 @@ function MapScreenInner() {
 
     const interval = setInterval(() => {
       if (gtfsParser.isLoaded) {
+        logger.info('[MapScreen] GTFS data ready');
         setGtfsLoaded(true);
       }
     }, 500);
@@ -459,6 +462,7 @@ function MapScreenInner() {
 
     (async () => {
       const trains = await TrainStorageService.getSavedTrains();
+      logger.debug(`[MapScreen] Loading ${trains.length} saved trains with realtime data`);
       const trainsWithRealtime = await Promise.all(trains.map(train => TrainAPIService.refreshRealtimeData(train)));
       setSavedTrains(trainsWithRealtime);
     })();
@@ -839,7 +843,7 @@ const loadingStyles = StyleSheet.create({
   },
   copyright: {
     position: 'absolute',
-    bottom: 40,
+    bottom: '25%',
     color: AppColors.secondary,
     fontSize: 12,
     fontWeight: '400',

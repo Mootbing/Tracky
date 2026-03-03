@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import type { Train } from '../types/train';
+import { debug } from '../utils/logger';
 
 interface TrainContextType {
   savedTrains: Train[];
@@ -17,8 +18,24 @@ export const useTrainContext = () => {
 };
 
 export const TrainProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [savedTrains, setSavedTrains] = useState<Train[]>([]);
-  const [selectedTrain, setSelectedTrain] = useState<Train | null>(null);
+  const [savedTrains, setSavedTrainsRaw] = useState<Train[]>([]);
+  const [selectedTrain, setSelectedTrainRaw] = useState<Train | null>(null);
+
+  const setSavedTrains: React.Dispatch<React.SetStateAction<Train[]>> = useCallback((action) => {
+    setSavedTrainsRaw(prev => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      debug(`[TrainContext] Saved trains updated: ${prev.length} → ${next.length}`);
+      return next;
+    });
+  }, []);
+
+  const setSelectedTrain: React.Dispatch<React.SetStateAction<Train | null>> = useCallback((action) => {
+    setSelectedTrainRaw(prev => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      debug(`[TrainContext] Selected train: ${next ? `${next.routeName || ''} ${next.trainNumber}` : 'none'}`);
+      return next;
+    });
+  }, []);
 
   return (
     <TrainContext.Provider value={{ savedTrains, setSavedTrains, selectedTrain, setSelectedTrain }}>

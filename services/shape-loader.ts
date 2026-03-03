@@ -5,6 +5,7 @@
  */
 
 import type { Shape } from '../types/train';
+import { debug, info } from '../utils/logger';
 
 export interface ShapeBounds {
   id: string;
@@ -73,6 +74,9 @@ export class ShapeLoader {
 
       this.shapeCoordinates.set(shapeId, coordinates);
     });
+
+    const stats = this.getStats();
+    info(`[ShapeLoader] Initialized: ${stats.totalShapes} shapes, ${stats.totalPoints} total points`);
   }
 
   /**

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppColors, BorderRadius, Spacing } from '../constants/theme';
-import { openCrashReportEmail } from '../utils/logger';
+import { error as logError, openCrashReportEmail } from '../utils/logger';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -27,7 +27,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo.componentStack);
+    logError('ErrorBoundary caught: ' + error?.message, { error, componentStack: errorInfo.componentStack });
     this.setState({ componentStack: errorInfo.componentStack ?? null });
   }
 
@@ -63,7 +63,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               <Text style={errorStyles.reportButtonText}>Report Issue</Text>
             </TouchableOpacity>
           </View>
-          <Text style={errorStyles.copyright}>Tracky - Made with ❤ by Jason</Text>
+          <Text style={errorStyles.copyright}>Tracky - Made with &lt;3 by Jason</Text>
         </View>
       );
     }
@@ -123,7 +123,7 @@ const errorStyles = StyleSheet.create({
   },
   copyright: {
     position: 'absolute',
-    bottom: 40,
+    bottom: '25%',
     color: AppColors.secondary,
     fontSize: 12,
     fontWeight: '400',

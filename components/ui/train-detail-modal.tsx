@@ -415,7 +415,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     const timeStr = diffMin >= 60
       ? `${Math.floor(diffMin / 60)}h${diffMin % 60 > 0 ? ` ${diffMin % 60}m` : ''}`
       : `${diffMin} min`;
-    return `${stop.name} in ${timeStr}`;
+    return nextStopIndex === 0 ? `Departs ${stop.name} in ${timeStr}` : `${stop.name} in ${timeStr}`;
   }, [isLiveTrain, nextStopIndex, allStops]);
 
   if (!trainData) {

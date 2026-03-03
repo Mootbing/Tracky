@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { shapeLoader, type ViewportBounds, type VisibleShape } from '../services/shape-loader';
 import { gtfsParser } from '../utils/gtfs-parser';
+import { debug } from '../utils/logger';
 
 const BATCH_SIZE = 8; // Shapes to add per frame
 const BATCH_DELAY = 60; // ms between batches — gives the UI thread breathing room
@@ -29,10 +30,14 @@ export function useShapes(bounds?: ViewportBounds) {
   // Compute all shapes that SHOULD be visible for the current bounds
   const targetShapes = useMemo(() => {
     if (!gtfsLoaded) return [];
+    let shapes: VisibleShape[];
     if (bounds) {
-      return shapeLoader.getVisibleShapes(bounds, 0.5);
+      shapes = shapeLoader.getVisibleShapes(bounds, 0.5);
+    } else {
+      shapes = shapeLoader.getAllShapes();
     }
-    return shapeLoader.getAllShapes();
+    debug(`[useShapes] ${shapes.length} shapes visible in viewport`);
+    return shapes;
   }, [gtfsLoaded, bounds?.minLat, bounds?.maxLat, bounds?.minLon, bounds?.maxLon]);
 
   // Progressive batching: when targetShapes changes, drip-feed them to the renderer

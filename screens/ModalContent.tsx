@@ -239,7 +239,7 @@ export const ModalContent = React.forwardRef<
             accessibilityLabel="Add a train"
           >
             <Ionicons name="search" size={20} color={COLORS.secondary} />
-            <Text style={styles.searchButtonText}>Start your journey...</Text>
+            <Text style={styles.searchButtonText}>Train number, route, or station</Text>
           </TouchableOpacity>
         )}
       </View>

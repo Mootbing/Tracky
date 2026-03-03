@@ -394,9 +394,10 @@ export default function DepartureBoardModal({
           seen.add(key);
           return true;
         });
+        logger.info(`[DepartureBoard] Fetched ${deduped.length} trains for ${station.stop_id} on ${toDateString(selectedDate)}`);
         setDepartures(deduped);
       } catch (error) {
-        logger.error('Error fetching departures:', error);
+        logger.error('[DepartureBoard] Error fetching departures:', error);
         setDepartures([]);
       } finally {
         setLoading(false);
@@ -447,8 +448,8 @@ export default function DepartureBoardModal({
             icon: info.icon,
           });
         }
-      } catch {
-        // silently fail — weather is non-critical
+      } catch (err) {
+        logger.debug('[DepartureBoard] Weather fetch failed (non-critical):', err);
       }
     };
     fetchWeather();

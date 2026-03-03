@@ -4,6 +4,7 @@
  */
 import { TrainStorageService } from '../services/storage';
 import type { CompletedTrip } from '../types/train';
+import { info, debug } from './logger';
 
 export async function addSampleTripData() {
   const currentYear = new Date().getFullYear();
@@ -154,10 +155,10 @@ export async function addSampleTripData() {
     await TrainStorageService.addToHistory(trip);
   }
 
-  console.log(`Added ${sampleTrips.length} sample trips to profile history`);
+  info(`[SampleData] Added ${sampleTrips.length} sample trips to profile history`);
 }
 
 export async function clearSampleData() {
   // This would require a method to clear all history
-  console.log('Clear sample data - implement if needed');
+  debug('[SampleData] Clear sample data - implement if needed');
 }

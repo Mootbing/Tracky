@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Keyboard, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import { ScrollView } from 'react-native-gesture-handler';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
@@ -69,6 +69,16 @@ interface RouteTrainItem {
 
 export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProps) {
   const { panRef, scrollOffset, isFullscreen } = React.useContext(SlideUpModalContext);
+
+  // --- Keyboard height tracking ---
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, e => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   // --- Shared state ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,12 +193,12 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
       // Station flow: picking arrival station
       const results = gtfsParser.searchStations(searchQuery);
       setStationResults(results);
-    } else if (!fromStation && !selectedTrainNumber) {
-      // Initial view: unified search
+    } else if (!fromStation && !selectedTrainNumber && !expandedRouteTrains) {
+      // Initial view: unified search (skip when filtering within a route)
       const results = gtfsParser.searchUnified(searchQuery);
       setUnifiedResults(results);
     }
-  }, [searchQuery, isDataLoaded, fromStation, toStation, selectedTrainNumber]);
+  }, [searchQuery, isDataLoaded, fromStation, toStation, selectedTrainNumber, expandedRouteTrains]);
 
   // Find trips when both stations AND date are selected (station flow)
   useEffect(() => {
@@ -414,13 +424,14 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           <TextInput
             ref={searchInputRef}
             style={styles.fullSearchInput}
-            placeholder="Train number, route, or station"
+            placeholder={expandedRouteTrains ? `Search ${expandedRouteName} trains` : "Train number, route, or station"}
             placeholderTextColor={AppColors.secondary}
             value={searchQuery}
             onChangeText={text => {
               setSearchQuery(text);
-              setExpandedRouteTrains(null);
-              setExpandedRouteName('');
+              if (!expandedRouteTrains) {
+                setExpandedRouteName('');
+              }
             }}
             autoFocus
           />
@@ -444,6 +455,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   setExpandedRouteTrains(null);
                   setExpandedRouteName('');
                   setFilterLiveOnly(false);
+                  setSearchQuery('');
                 }}
               >
                 <Ionicons name="arrow-back" size={18} color={AppColors.secondary} />
@@ -464,11 +476,21 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         )}
 
         {/* Results */}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : SCREEN_HEIGHT * 0.5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: (isFullscreen ? 100 : SCREEN_HEIGHT * 0.5) + keyboardHeight }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
           {/* Expanded route train list */}
           {expandedRouteTrains && (
             <View style={styles.resultsContainer}>
-              {expandedRouteTrains.filter(train => !filterLiveOnly || liveTrainNumbers.has(train.trainNumber)).map(train => {
+              {expandedRouteTrains.filter(train => {
+                if (filterLiveOnly && !liveTrainNumbers.has(train.trainNumber)) return false;
+                if (searchQuery.length > 0) {
+                  const q = searchQuery.toLowerCase();
+                  return train.trainNumber.toLowerCase().includes(q)
+                    || train.displayName.toLowerCase().includes(q)
+                    || (train.headsign && train.headsign.toLowerCase().includes(q))
+                    || (train.endpointLabel && train.endpointLabel.toLowerCase().includes(q));
+                }
+                return true;
+              }).map(train => {
                 const isAcela = train.displayName.toLowerCase().includes('acela');
                 const isLive = liveTrainNumbers.has(train.trainNumber);
                 const subtitle = train.endpointLabel || train.headsign;
@@ -657,7 +679,11 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         {/* Train pill bar */}
         <View style={styles.inputRow}>
           <TouchableOpacity style={styles.stationPill} onPress={handleClearTrain}>
-            <FontAwesome6 name="train" size={12} color={AppColors.primary} />
+            {selectedTrainName.toLowerCase().includes('acela') ? (
+              <Ionicons name="train" size={14} color={AppColors.primary} />
+            ) : (
+              <FontAwesome6 name="train" size={12} color={AppColors.primary} />
+            )}
             <Text style={styles.stationPillText}>{selectedTrainName || `Train ${selectedTrainNumber}`}</Text>
             <Ionicons name="close" size={14} color={AppColors.primary} />
           </TouchableOpacity>
@@ -679,7 +705,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : SCREEN_HEIGHT * 0.5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: (isFullscreen ? 100 : SCREEN_HEIGHT * 0.5) + keyboardHeight }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
           {/* Date picker */}
           {showingTrainDatePicker && (
             <View style={styles.datePickerContainer}>
@@ -816,7 +842,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : SCREEN_HEIGHT * 0.5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: (isFullscreen ? 100 : SCREEN_HEIGHT * 0.5) + keyboardHeight }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
         {/* Station Search Results (for arrival) */}
         {showingStationSearch && (
           <View style={styles.resultsContainer}>

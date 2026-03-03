@@ -406,6 +406,7 @@ export class TrainAPIService {
       const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
 
       if (stopTimes.length === 0) {
+        logger.debug(`[API] getTrainDetails(${tripId}): no stop times found`);
         return null;
       }
 
@@ -480,6 +481,7 @@ export class TrainAPIService {
   static async getTrainsForStation(stopId: string, date?: Date): Promise<Train[]> {
     try {
       const tripIds = gtfsParser.getTripsForStop(stopId, date);
+      logger.debug(`[API] getTrainsForStation(${stopId}): ${tripIds.length} trip IDs`);
       const trains = await Promise.all(tripIds.map(tripId => this.getTrainDetails(tripId)));
       return trains.filter((train): train is Train => train !== null);
     } catch (error) {
@@ -525,6 +527,7 @@ export class TrainAPIService {
   static async getActiveTrains(): Promise<Train[]> {
     try {
       const activeTrains = await RealtimeService.getAllActiveTrains();
+      logger.debug(`[API] getActiveTrains: ${activeTrains.length} active`);
       const trains: Train[] = [];
 
       for (const { trainNumber, position } of activeTrains) {
