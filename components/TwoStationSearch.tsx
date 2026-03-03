@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
   segmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.xl,
     gap: Spacing.sm,
   },
   segment: {
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background.tertiary,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
     gap: 6,
   },
   segmentText: {
@@ -1095,7 +1095,7 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     fontSize: FontSizes.searchLabel,
     flex: 1,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
   segmentDate: {
   },

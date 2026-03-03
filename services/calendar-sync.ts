@@ -180,6 +180,24 @@ function extractTripFromEvent(event: Calendar.Event): CompletedTrip | null {
 }
 
 /**
+ * Normalize a past date to the same day-of-week in the current week.
+ * This allows GTFS lookups to succeed for older rides, since the current
+ * GTFS cache only covers current/near-future dates but train schedules
+ * are consistent week-to-week.
+ */
+function normalizeToCurrentWeek(date: Date): Date {
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const currentDayOfWeek = today.getDay();
+  const targetDayOfWeek = date.getDay();
+  const diff = targetDayOfWeek - currentDayOfWeek;
+  const normalized = new Date(today);
+  normalized.setDate(today.getDate() + diff);
+  return normalized;
+}
+
+/**
  * Match a single calendar event against GTFS data.
  * Uses event location as origin station and title destination.
  * Returns the matched trip info or null if no match found.
@@ -192,6 +210,7 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
   const eventMinutes = eventStartDate.getHours() * 60 + eventStartDate.getMinutes();
   const eventDate = new Date(eventStartDate);
   eventDate.setHours(0, 0, 0, 0);
+  const gtfsLookupDate = normalizeToCurrentWeek(eventDate);
 
   const destStation = resolveStation(destination);
   if (!destStation) {
@@ -210,7 +229,7 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
       );
 
       // Use findTripsWithStops for precise origin→destination matching
-      const trips = gtfsParser.findTripsWithStops(originStation.stop_id, destStation.stop_id, eventDate);
+      const trips = gtfsParser.findTripsWithStops(originStation.stop_id, destStation.stop_id, gtfsLookupDate);
       logger.info(
         `Calendar sync: ${trips.length} trips from ${originStation.stop_id} to ${destStation.stop_id} on ${eventDate.toLocaleDateString()}`
       );
@@ -242,7 +261,7 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
   }
 
   // Fallback: no location or origin not found — infer origin by matching departure time at any stop
-  const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, eventDate);
+  const tripIds = gtfsParser.getTripsForStop(destStation.stop_id, gtfsLookupDate);
   logger.info(
     `Calendar sync: fallback — ${tripIds.length} trips at ${destStation.stop_id}, event time ${eventStartDate.getHours()}:${String(eventStartDate.getMinutes()).padStart(2, '0')}`
   );
@@ -393,8 +412,13 @@ export async function syncPastTrips(calendarIds: string[], scanDays: number, mat
         logger.error('Calendar sync: Error calculating distance:', error);
       }
 
+      // Use a stable trip ID derived from matched train info rather than the
+      // volatile GTFS trip ID, which changes when timetable data is refreshed.
+      // This prevents duplicate history entries when re-syncing after a GTFS update.
+      const stableTripId = `cal-${matched.eventDate.getTime()}-${matched.trainNumber || matched.fromStopId}-${matched.toStopId}`;
+
       entry = {
-        tripId: matched.tripId,
+        tripId: stableTripId,
         trainNumber: matched.trainNumber,
         routeName: matched.routeName,
         from: matched.fromStopName,
@@ -423,6 +447,11 @@ export async function syncPastTrips(calendarIds: string[], scanDays: number, mat
       if (added) {
         result.added++;
         existingKeys.add(key);
+        result.addedTrips.push({
+          from: entry.from,
+          to: entry.to,
+          date: entry.date,
+        });
       } else {
         result.skipped++;
       }

@@ -211,14 +211,46 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
     setSyncState('syncing');
     try {
       const result = await syncPastTrips(ids, scanDays, matchGtfs);
-      const message = result.failReason === 'gtfs_not_loaded'
-        ? 'Schedule data not loaded yet. Please wait and try again.'
-        : result.failReason === 'no_calendar_events'
-          ? `No events found in calendar (${scanDays === -1 ? 'all time' : `last ${scanDays} days`}).`
-          : result.failReason === 'no_pattern_match'
-            ? `Found ${result.totalCalendarEvents} event${result.totalCalendarEvents !== 1 ? 's' : ''} but none matched "Train to..." pattern.`
-            : `Parsed ${result.parsed} event${result.parsed !== 1 ? 's' : ''}. Found ${result.added} trip${result.added !== 1 ? 's' : ''}${result.skipped > 0 ? ` (${result.skipped} already existed)` : ''}.`;
-      Alert.alert(result.failReason ? 'Sync Issue' : 'Sync Complete', message);
+      const range = scanDays === -1 ? 'all time' : `last ${scanDays} days`;
+      let title: string;
+      let message: string;
+
+      if (result.failReason === 'gtfs_not_loaded') {
+        title = 'Sync Issue';
+        message = 'Amtrak schedule data hasn\'t loaded yet. Try again in a moment.';
+      } else if (result.failReason === 'no_calendar_events') {
+        title = 'No Events Found';
+        message = `No calendar events found in the ${range}.\n\nMake sure the selected calendar${ids.length > 1 ? 's have' : ' has'} events in this range.`;
+      } else if (result.failReason === 'no_pattern_match') {
+        title = 'No Train Events';
+        message = `Scanned ${result.totalCalendarEvents} event${result.totalCalendarEvents !== 1 ? 's' : ''} (${range}) but none matched the "Train to ..." pattern.\n\nEvents must be titled like "Train to Philadelphia" to be detected.`;
+      } else if (result.added === 0 && result.skipped > 0) {
+        title = 'Already Synced';
+        message = `Found ${result.matched} trip${result.matched !== 1 ? 's' : ''} but all ${result.skipped} already exist in your history.`;
+      } else if (result.matched === 0) {
+        title = 'No Matches';
+        message = `Found ${result.parsed} train event${result.parsed !== 1 ? 's' : ''} but couldn\'t match any to ${matchGtfs ? 'current timetables' : 'known stations'}.\n\nCheck that event locations and destinations use valid station names.`;
+      } else {
+        title = 'Sync Complete';
+        const lines: string[] = [];
+        lines.push(`${result.added} trip${result.added !== 1 ? 's' : ''} added to history.`);
+        if (result.skipped > 0) {
+          lines.push(`${result.skipped} already existed.`);
+        }
+        if (result.added > 0 && result.addedTrips.length > 0) {
+          const preview = result.addedTrips.slice(0, 5);
+          lines.push('');
+          for (const t of preview) {
+            lines.push(`${t.from} → ${t.to} (${t.date})`);
+          }
+          if (result.addedTrips.length > 5) {
+            lines.push(`...and ${result.addedTrips.length - 5} more`);
+          }
+        }
+        message = lines.join('\n');
+      }
+
+      Alert.alert(title, message);
       setSyncState('selecting');
     } catch {
       Alert.alert('Sync Error', 'Something went wrong while scanning your calendar.');
@@ -565,11 +597,11 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.sectionHeader}>MATCH TRIPS (GTFS LOOKUP)</Text>
+          <Text style={styles.sectionHeader}>MATCH GTFS TIMETABLES</Text>
           <View style={styles.settingsList}>
             {[
-              { label: 'Yes', value: true, desc: 'Cross-reference with timetables (more accurate)' },
-              { label: 'No', value: false, desc: 'Sync events as-is (may sync missed trips)' },
+              { label: 'Strict', value: true, desc: 'Only sync trips found in current timetables' },
+              { label: 'Allow All', value: false, desc: 'Sync all calendar events as trips' },
             ].map((opt, i) => (
               <TouchableOpacity
                 key={opt.label}
