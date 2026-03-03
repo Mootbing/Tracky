@@ -14,6 +14,7 @@ import Animated, {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, BorderRadius, CloseButtonStyle, FontSizes, Spacing } from '../../constants/theme';
+import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { useUnits } from '../../context/UnitsContext';
 import { TrainStorageService } from '../../services/storage';
 import type { CompletedTrip } from '../../types/train';
@@ -622,11 +623,11 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
 
           {/* Grouped trips with separators */}
           {filteredAndSortedHistory.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="time-outline" size={36} color={AppColors.secondary} />
-              <Text style={styles.emptyText}>No past trips yet</Text>
-              <Text style={styles.emptySubtext}>Completed trips will appear here</Text>
-            </View>
+            <PlaceholderBlurb
+              icon="time-outline"
+              title="No past trips yet"
+              subtitle="Completed trips will appear here"
+            />
           ) : (
             groupedTrips.map(([groupKey, trips]) => (
               <View key={groupKey}>
@@ -989,21 +990,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: AppColors.secondary,
     letterSpacing: 0.5,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xxl,
-    gap: Spacing.sm,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: AppColors.secondary,
-    fontWeight: '500',
-  },
-  emptySubtext: {
-    fontSize: 12,
-    color: AppColors.tertiary,
   },
   historyCard: {
     backgroundColor: AppColors.background.primary,

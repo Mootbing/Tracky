@@ -6,6 +6,7 @@ import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, CloseButtonStyle, Spacing } from '../../constants/theme';
+import { TrainIcon } from '../TrainIcon';
 import { formatTimeWithDayOffset, timeToMinutes } from '../../utils/time-formatting';
 
 import { useTrainContext } from '../../context/TrainContext';
@@ -720,7 +721,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 <View style={styles.historyStat}>
                   <Text style={styles.historyStatLabel}>Trips</Text>
                   <View style={styles.historyStatValueRow}>
-                    <MaterialCommunityIcons name="train-car" size={14} color={AppColors.primary} style={styles.historyStatIcon} />
+                    <TrainIcon name={trainData?.routeName} size={14} style={styles.historyStatIcon} />
                     <Text style={styles.historyStatValue}>
                       {routeHistory && routeHistory.trips > 0 ? routeHistory.trips : 0}
                     </Text>

@@ -115,14 +115,6 @@ export const styles = StyleSheet.create({
     marginBottom: 2,
   },
   frequentlyUsedSubtitle: { fontSize: FontSizes.daysLabel, fontFamily: FONTS.family, color: COLORS.secondary },
-  noTrainsContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xl,
-    gap: Spacing.md,
-  },
-  noTrainsText: { fontSize: FontSizes.trainDate, fontFamily: FONTS.family, color: COLORS.secondary },
   trainCard: {
     flexDirection: 'row',
     backgroundColor: COLORS.background.primary,

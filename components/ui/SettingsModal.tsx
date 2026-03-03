@@ -16,6 +16,7 @@ import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handl
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AppColors, BorderRadius, CloseButtonStyle, Spacing } from '../../constants/theme';
+import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { type DistanceUnit, type TempUnit, useUnits } from '../../context/UnitsContext';
 import {
   type DeviceCalendar,
@@ -692,10 +693,11 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
 
       <View style={styles.logContainer}>
         {filteredLogs.length === 0 ? (
-          <View style={styles.logEmptyState}>
-            <Ionicons name="document-text-outline" size={40} color={AppColors.tertiary} />
-            <Text style={styles.logEmptyText}>No logs yet</Text>
-          </View>
+          <PlaceholderBlurb
+            icon="document-text-outline"
+            title="No logs yet"
+            subtitle="App activity will be logged here"
+          />
         ) : (
           filteredLogs.map((entry, i) => (
             <View
@@ -937,8 +939,6 @@ const styles = StyleSheet.create({
   logFilterPillTextActive: { color: AppColors.background.primary },
   logCount: { fontSize: 12, color: AppColors.secondary, marginBottom: Spacing.sm },
   logContainer: { gap: 1 },
-  logEmptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.xl * 2, gap: Spacing.md },
-  logEmptyText: { fontSize: 15, color: AppColors.secondary },
   logEntry: {
     backgroundColor: AppColors.background.primary,
     paddingHorizontal: Spacing.md,

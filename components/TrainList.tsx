@@ -1,6 +1,5 @@
 import * as Haptics from 'expo-haptics';
 import { light as hapticLight } from '../utils/haptics';
-import { TrainTrack } from 'lucide-react-native';
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -16,6 +15,7 @@ import Animated, {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, Spacing } from '../constants/theme';
+import { PlaceholderBlurb } from './PlaceholderBlurb';
 import { COLORS, styles } from '../screens/styles';
 import type { Train } from '../types/train';
 import TimeDisplay from './ui/TimeDisplay';
@@ -271,10 +271,11 @@ export function TrainList({ trains, onTrainSelect, onDeleteTrain }: TrainListPro
 
   if (trains.length === 0) {
     return (
-      <View style={styles.noTrainsContainer}>
-        <TrainTrack size={48} color={COLORS.primary} />
-        <Text style={styles.noTrainsText}>No saved trips yet</Text>
-      </View>
+      <PlaceholderBlurb
+        icon="bookmark-outline"
+        title="No saved trips yet"
+        subtitle="Use the search bar to add a trip"
+      />
     );
   }
 

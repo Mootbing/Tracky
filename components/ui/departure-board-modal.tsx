@@ -16,6 +16,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, BorderRadius, CloseButtonStyle, Spacing } from '../../constants/theme';
+import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { TrainAPIService } from '../../services/api';
 import type { Stop, Train } from '../../types/train';
 import { addDays, getStartOfDay, isSameDay } from '../../utils/date-helpers';
@@ -737,18 +738,19 @@ export default function DepartureBoardModal({
               <Text style={styles.loadingText}>Loading departures...</Text>
             </View>
           ) : filteredDepartures.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="train-outline" size={48} color={AppColors.tertiary} />
-              <Text style={styles.emptyText}>
-                {searchQuery
+            <PlaceholderBlurb
+              icon="train-outline"
+              title={
+                searchQuery
                   ? 'No trains match your search'
                   : filterMode === 'departing'
                     ? 'No departing trains found'
                     : filterMode === 'arriving'
                       ? 'No arriving trains found'
-                      : 'No trains found for this station'}
-              </Text>
-            </View>
+                      : 'No trains found for this station'
+              }
+              subtitle={searchQuery ? 'Try a different search term' : 'Try changing the filter or date'}
+            />
           ) : (
             <View style={styles.departuresList}>
               <Text style={styles.sectionTitle}>
@@ -946,19 +948,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     fontSize: 14,
     color: AppColors.secondary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    marginTop: Spacing.md,
-    fontSize: 14,
-    color: AppColors.secondary,
-    textAlign: 'center',
-    paddingHorizontal: Spacing.xl,
   },
   departuresList: {
     paddingHorizontal: Spacing.xl,
