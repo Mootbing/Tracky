@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import { ScrollView } from 'react-native-gesture-handler';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
@@ -7,6 +7,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AppColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
 import { light as hapticLight, selection as hapticSelection, success as hapticSuccess } from '../utils/haptics';
 import { getTrainDisplayName } from '../services/api';
+import { RealtimeService } from '../services/realtime';
+import { TrainStorageService } from '../services/storage';
 import type { EnrichedStopTime, Route, SearchResult, Stop, Trip } from '../types/train';
 import { SlideUpModalContext } from './ui/slide-up-modal';
 import { gtfsParser } from '../utils/gtfs-parser';
@@ -28,6 +30,7 @@ import { formatDateForDisplay } from '../utils/date-helpers';
 import { formatTime } from '../utils/time-formatting';
 
 const formatDateForPill = formatDateForDisplay;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 function toDateString(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -61,6 +64,7 @@ interface RouteTrainItem {
   trainNumber: string;
   displayName: string;
   headsign: string;
+  endpointLabel: string;
 }
 
 export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProps) {
@@ -94,6 +98,60 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   // --- Route expansion state ---
   const [expandedRouteTrains, setExpandedRouteTrains] = useState<RouteTrainItem[] | null>(null);
   const [expandedRouteName, setExpandedRouteName] = useState<string>('');
+  const [liveTrainNumbers, setLiveTrainNumbers] = useState<Set<string>>(new Set());
+  const [filterLiveOnly, setFilterLiveOnly] = useState(false);
+
+  // --- Suggestions for empty search ---
+  const [suggestions, setSuggestions] = useState<Array<{
+    type: 'route' | 'station';
+    label: string;
+    subtitle: string;
+    routeId?: string;
+    stop?: Stop;
+  }>>([]);
+
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    TrainStorageService.getTripHistory().then(history => {
+      if (history.length > 0) {
+        // Count route frequency
+        const routeCounts = new Map<string, { count: number; routeName: string; fromCode: string; toCode: string }>();
+        for (const trip of history) {
+          const key = `${trip.fromCode}-${trip.toCode}`;
+          const existing = routeCounts.get(key);
+          if (existing) {
+            existing.count++;
+          } else {
+            routeCounts.set(key, { count: 1, routeName: trip.routeName, fromCode: trip.fromCode, toCode: trip.toCode });
+          }
+        }
+        const sorted = [...routeCounts.values()].sort((a, b) => b.count - a.count).slice(0, 3);
+        setSuggestions(sorted.map(r => ({
+          type: 'station' as const,
+          label: `${r.fromCode} → ${r.toCode}`,
+          subtitle: `${r.routeName} • ${r.count} ${r.count === 1 ? 'trip' : 'trips'}`,
+          stop: gtfsParser.getStop(r.fromCode) || undefined,
+        })));
+      } else {
+        // Fallback defaults
+        const allRoutes = gtfsParser.getAllRoutes();
+        const items: typeof suggestions = [];
+        const nerRoute = allRoutes.find(r => r.route_long_name.toLowerCase().includes('northeast regional'));
+        if (nerRoute) {
+          items.push({ type: 'route', label: 'Northeast Regional', subtitle: 'Route', routeId: nerRoute.route_id });
+        }
+        const acelaRoute = allRoutes.find(r => r.route_long_name.toLowerCase().includes('acela'));
+        if (acelaRoute) {
+          items.push({ type: 'route', label: 'Acela', subtitle: 'Route', routeId: acelaRoute.route_id });
+        }
+        const nyp = gtfsParser.getStop('NYP');
+        if (nyp) {
+          items.push({ type: 'station', label: nyp.stop_name, subtitle: 'NYP • Station', stop: nyp });
+        }
+        setSuggestions(items);
+      }
+    });
+  }, [isDataLoaded]);
 
   // --- Train service date range (for constraining date picker in train flow) ---
   const trainServiceInfo = useMemo(() => {
@@ -311,6 +369,11 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
       setExpandedRouteTrains(trains);
       setExpandedRouteName(route.route_long_name);
       setSearchQuery('');
+      // Fetch live train numbers for status indicators
+      RealtimeService.getAllActiveTrains().then(active => {
+        const nums = new Set(active.map(t => t.trainNumber));
+        setLiveTrainNumbers(nums);
+      }).catch(() => {});
     }
   };
 
@@ -371,25 +434,44 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           </TouchableOpacity>
         </View>
 
+        {/* Sticky header for expanded route train list */}
+        {expandedRouteTrains && (
+          <View>
+            <View style={[styles.sectionHeaderRow, { marginBottom: Spacing.xl }]}>
+              <TouchableOpacity
+                onPress={() => {
+                  hapticLight();
+                  setExpandedRouteTrains(null);
+                  setExpandedRouteName('');
+                  setFilterLiveOnly(false);
+                }}
+              >
+                <Ionicons name="arrow-back" size={18} color={AppColors.secondary} />
+              </TouchableOpacity>
+              <Text style={[styles.sectionLabel, { marginBottom: 0, flex: 1 }]}>{expandedRouteName.toUpperCase()} TRAINS</Text>
+              <TouchableOpacity
+                style={[styles.liveFilterBadge, filterLiveOnly && styles.liveFilterBadgeActive]}
+                onPress={() => {
+                  hapticSelection();
+                  setFilterLiveOnly(prev => !prev);
+                }}
+              >
+                <View style={[styles.liveFilterDot, filterLiveOnly && styles.liveFilterDotActive]} />
+                <Text style={[styles.liveFilterText, filterLiveOnly && styles.liveFilterTextActive]}>En Route</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Results */}
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : SCREEN_HEIGHT * 0.5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
           {/* Expanded route train list */}
           {expandedRouteTrains && (
             <View style={styles.resultsContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <TouchableOpacity
-                  onPress={() => {
-                    hapticLight();
-                    setExpandedRouteTrains(null);
-                    setExpandedRouteName('');
-                  }}
-                >
-                  <Ionicons name="arrow-back" size={18} color={AppColors.secondary} />
-                </TouchableOpacity>
-                <Text style={styles.sectionLabel}>{expandedRouteName.toUpperCase()} TRAINS</Text>
-              </View>
-              {expandedRouteTrains.map(train => {
+              {expandedRouteTrains.filter(train => !filterLiveOnly || liveTrainNumbers.has(train.trainNumber)).map(train => {
                 const isAcela = train.displayName.toLowerCase().includes('acela');
+                const isLive = liveTrainNumbers.has(train.trainNumber);
+                const subtitle = train.endpointLabel || train.headsign;
                 return (
                   <TouchableOpacity
                     key={train.trainNumber}
@@ -405,7 +487,14 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                     </View>
                     <View style={styles.stationInfo}>
                       <Text style={styles.stationName}>{train.displayName}</Text>
-                      {train.headsign ? <Text style={styles.stationCode}>{train.headsign}</Text> : null}
+                      {subtitle ? (
+                        <Text style={styles.stationCode}>
+                          {subtitle}
+                          {isLive ? <Text style={styles.liveIndicator}> · En Route</Text> : null}
+                        </Text>
+                      ) : isLive ? (
+                        <Text style={styles.liveIndicator}>En Route</Text>
+                      ) : null}
                     </View>
                   </TouchableOpacity>
                 );
@@ -518,6 +607,39 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               )}
             </View>
           )}
+
+          {/* Suggestions when search is empty */}
+          {!showingSearch && !expandedRouteTrains && suggestions.length > 0 && (
+            <View style={styles.resultsContainer}>
+              <Text style={styles.sectionLabel}>SUGGESTED</Text>
+              {suggestions.map((suggestion, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.stationItem}
+                  onPress={() => {
+                    if (suggestion.type === 'route' && suggestion.routeId) {
+                      const route = gtfsParser.getRoute(suggestion.routeId);
+                      if (route) handleSelectRoute(route);
+                    } else if (suggestion.stop) {
+                      handleSelectStation(suggestion.stop);
+                    }
+                  }}
+                >
+                  <View style={styles.stationIcon}>
+                    {suggestion.type === 'route' ? (
+                      <Ionicons name="git-branch-outline" size={20} color={AppColors.primary} />
+                    ) : (
+                      <Ionicons name="location" size={20} color={AppColors.primary} />
+                    )}
+                  </View>
+                  <View style={styles.stationInfo}>
+                    <Text style={styles.stationName}>{suggestion.label}</Text>
+                    <Text style={styles.stationCode}>{suggestion.subtitle}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </View>
     );
@@ -557,7 +679,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : SCREEN_HEIGHT * 0.5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
           {/* Date picker */}
           {showingTrainDatePicker && (
             <View style={styles.datePickerContainer}>
@@ -694,7 +816,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : SCREEN_HEIGHT * 0.5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isFullscreen} waitFor={panRef} bounces={false} onScroll={e => { if (scrollOffset) scrollOffset.value = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}>
         {/* Station Search Results (for arrival) */}
         {showingStationSearch && (
           <View style={styles.resultsContainer}>
@@ -938,6 +1060,42 @@ const styles = StyleSheet.create({
   stationCode: {
     fontSize: FontSizes.daysLabel,
     color: AppColors.secondary,
+  },
+  liveIndicator: {
+    fontSize: FontSizes.daysLabel,
+    color: '#34C759',
+    fontWeight: '600',
+  },
+  liveFilterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppColors.secondary + '40',
+  },
+  liveFilterBadgeActive: {
+    backgroundColor: '#34C75920',
+    borderColor: '#34C759',
+  },
+  liveFilterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AppColors.secondary,
+  },
+  liveFilterDotActive: {
+    backgroundColor: '#34C759',
+  },
+  liveFilterText: {
+    fontSize: FontSizes.daysLabel,
+    color: AppColors.secondary,
+    fontWeight: '600',
+  },
+  liveFilterTextActive: {
+    color: '#34C759',
   },
   datePickerContainer: {
     flex: 1,

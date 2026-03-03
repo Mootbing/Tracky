@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Text, TouchableOpacity, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -257,6 +257,7 @@ export const ModalContent = React.forwardRef<
         {!isSearchFocused && (
           <ScrollView
             style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: isFullscreen ? 100 : Dimensions.get('window').height * 0.5 }}
             showsVerticalScrollIndicator={false}
             scrollEnabled={isFullscreen}
             nestedScrollEnabled={true}

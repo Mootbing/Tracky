@@ -182,7 +182,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
       try {
         const history = await TrainStorageService.getTripHistory();
         const matchingTrips = history.filter(
-          trip => trip.trainNumber === trainData.trainNumber
+          trip => trip.routeName === trainData.routeName
         );
         
         const totalDistance = matchingTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
@@ -712,9 +712,9 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
 
             {/* My History on This Route */}
             <View style={styles.historyCard}>
-              <Text style={styles.sectionTitle}>My History on This Route</Text>
+              <Text style={[styles.sectionTitle, { marginBottom: Spacing.xs }]}>My History on This Route</Text>
               {trainData && (
-                <Text style={styles.historyRouteSubtitle}>Train {trainData.trainNumber}</Text>
+                <Text style={styles.historyRouteSubtitle}>{trainData.routeName}</Text>
               )}
               <View style={styles.historyStats}>
                 <View style={styles.historyStat}>
@@ -924,7 +924,7 @@ const styles = StyleSheet.create({
   expandableSection: {
     paddingHorizontal: Spacing.xxl,
     paddingVertical: Spacing.xl,
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: AppColors.background.tertiary,
   },
   expandableHeader: {
     flexDirection: 'row',
@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
     left: 11,
     top: 0,
     width: 2,
-    height: 19,
+    height: 18,
     backgroundColor: AppColors.tertiary,
   },
   timelineConnectorBottom: {
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
   timelineConnectorBottomGap: {
     position: 'absolute',
     left: 11,
-    top: 29,
+    top: 38,
     bottom: 0,
     width: 2,
     backgroundColor: AppColors.tertiary,
@@ -1193,7 +1193,6 @@ const styles = StyleSheet.create({
   },
   departArriveBoard: {
     paddingTop: Spacing.xl,
-    paddingBottom: Spacing.xl,
   },
   infoSection: {
     paddingHorizontal: Spacing.xxl,
@@ -1237,6 +1236,7 @@ const styles = StyleSheet.create({
   durationLineRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: Spacing.lg,
     marginBottom: 0,
     gap: Spacing.sm,
   },

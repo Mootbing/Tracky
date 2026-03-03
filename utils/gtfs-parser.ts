@@ -582,8 +582,8 @@ export class GTFSParser {
    * Get all unique train numbers (trip_short_name) that belong to a given route_id.
    * Returns array of { trainNumber, displayName, headsign }.
    */
-  getTrainNumbersForRoute(routeId: string): Array<{ trainNumber: string; displayName: string; headsign: string }> {
-    const results: Array<{ trainNumber: string; displayName: string; headsign: string }> = [];
+  getTrainNumbersForRoute(routeId: string): Array<{ trainNumber: string; displayName: string; headsign: string; endpointLabel: string }> {
+    const results: Array<{ trainNumber: string; displayName: string; headsign: string; endpointLabel: string }> = [];
     const seen = new Set<string>();
     const routeName = this.getRouteName(routeId);
 
@@ -595,10 +595,18 @@ export class GTFSParser {
         const displayName = routeName !== 'Unknown Route'
           ? `${routeName} ${trainNum}`
           : `Train ${trainNum}`;
+        // Get first/last stop abbreviations
+        let endpointLabel = '';
+        const stopTimes = this.stopTimes.get(trip.trip_id);
+        if (stopTimes && stopTimes.length >= 2) {
+          const sorted = [...stopTimes].sort((a, b) => a.stop_sequence - b.stop_sequence);
+          endpointLabel = `${sorted[0].stop_id} → ${sorted[sorted.length - 1].stop_id}`;
+        }
         results.push({
           trainNumber: trainNum,
           displayName,
           headsign: trip.trip_headsign || '',
+          endpointLabel,
         });
       }
     });

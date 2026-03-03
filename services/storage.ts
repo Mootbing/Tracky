@@ -22,7 +22,7 @@ export interface CalendarSyncPrefs {
 import { calculateDaysAway, formatDateForDisplay } from '../utils/date-helpers';
 import { haversineDistance } from '../utils/distance';
 import { logger } from '../utils/logger';
-import { formatTime, parseTimeToMinutes } from '../utils/time-formatting';
+import { formatTime, formatTimeWithDayOffset, parseTimeToMinutes } from '../utils/time-formatting';
 import { stationLoader } from './station-loader';
 
 export class TrainStorageService {
@@ -60,7 +60,9 @@ export class TrainStorageService {
               if (fromStop) {
                 train.from = fromStop.stop_name;
                 train.fromCode = fromStop.stop_id;
-                train.departTime = formatTime(fromStop.departure_time);
+                const departFormatted = formatTimeWithDayOffset(fromStop.departure_time);
+                train.departTime = departFormatted.time;
+                train.departDayOffset = departFormatted.dayOffset;
               }
             }
 
@@ -69,7 +71,9 @@ export class TrainStorageService {
               if (toStop) {
                 train.to = toStop.stop_name;
                 train.toCode = toStop.stop_id;
-                train.arriveTime = formatTime(toStop.arrival_time);
+                const arriveFormatted = formatTimeWithDayOffset(toStop.arrival_time);
+                train.arriveTime = arriveFormatted.time;
+                train.arriveDayOffset = arriveFormatted.dayOffset;
               }
             }
 

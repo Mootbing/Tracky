@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: AppColors.border.primary, marginVertical: Spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.xs },
   subpageHeader: { flexDirection: 'row', alignItems: 'center', paddingTop: Spacing.xs },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, position: 'absolute' as const, right: Spacing.xl, top: Spacing.xs },
   title: { fontSize: 34, fontWeight: 'bold', color: AppColors.primary },
   closeButton: {
     ...CloseButtonStyle,
@@ -922,14 +922,7 @@ const styles = StyleSheet.create({
   pillOptionTextActive: { color: AppColors.background.primary },
   aboutText: { fontSize: 15, color: AppColors.secondary, lineHeight: 22, marginBottom: Spacing.sm },
   logHeaderButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: AppColors.background.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: AppColors.border.primary,
+    ...CloseButtonStyle,
   },
   logFilterPill: {
     paddingHorizontal: Spacing.md,
