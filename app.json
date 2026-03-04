@@ -7,8 +7,10 @@
     "icon": "./assets/images/AppIcon.png",
     "scheme": "tracky",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tracky.app",
@@ -23,7 +25,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.tracky.app",
       "permissions": [
@@ -53,8 +54,17 @@
           "calendarFullAccessPermission": "Tracky needs full calendar access to scan for past train trips."
         }
       ],
-      ["expo-notifications", { "sounds": [] }],
-      ["expo-background-fetch"]
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
+      [
+        "expo-background-fetch"
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
