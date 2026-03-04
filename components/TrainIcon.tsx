@@ -16,9 +16,9 @@ export function isAcelaName(name?: string | null): boolean {
   return !!name && name.toLowerCase().includes('acela');
 }
 
-/** Returns true when the service is Amtrak Connecting Thruway (bus). */
+/** Returns true when the service is Amtrak Thruway Connecting Service (bus). */
 export function isThruwayName(name?: string | null): boolean {
-  return !!name && name.toLowerCase().includes('amtrak connecting thruway');
+  return !!name && name.toLowerCase().includes('amtrak thruway connecting');
 }
 
 /**
