@@ -350,14 +350,32 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
         });
 
         const sign = hourDiff > 0 ? '+' : '';
+        const absHour = Math.abs(hourDiff);
+
+        // Get timezone abbreviations
+        const getAbbrev = (tz: string) => {
+          const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            timeZoneName: 'short',
+          }).formatToParts(now);
+          return parts.find(x => x.type === 'timeZoneName')?.value || tz;
+        };
+        const destAbbrev = getAbbrev(destTz);
+        const originAbbrev = getAbbrev(originTz);
+
+        // Calculate arrival time in departure timezone
+        const arrivalInOriginTz = addDelayToTime(trainData.arriveTime, -hourDiff * 60, trainData.arriveDayOffset || 0);
+
         return {
           hasChange: true,
-          message: `${sign}${hourDiff} hour${Math.abs(hourDiff) !== 1 ? 's' : ''} from departure`,
+          title: `${sign}${hourDiff}h Timezone Change`,
+          message: `${trainData.arriveTime} ${destAbbrev} is ${arrivalInOriginTz.time} ${originAbbrev}`,
         };
       }
 
       return {
         hasChange: false,
+        title: 'No Timezone Change',
         message: 'Both stations are in the same timezone',
       };
     } catch (e) {
@@ -663,7 +681,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 </View>
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoCardTitle}>
-                    {timezoneInfo.hasChange ? 'Timezone Change' : 'No Timezone Change'}
+                    {timezoneInfo.title}
                   </Text>
                   <MarqueeText text={timezoneInfo.message} style={styles.infoCardSubtext} />
                 </View>

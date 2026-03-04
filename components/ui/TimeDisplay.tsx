@@ -151,6 +151,9 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: AppColors.secondary,
     opacity: 0.7,
+    fontSize: 9,
+    marginTop: -1,
+    marginLeft: 1,
   },
   originalSuperscriptSmall: {
     fontSize: 8,

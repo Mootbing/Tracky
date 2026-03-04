@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 9998,
+    zIndex: 999,
   },
   pill: {
     backgroundColor: AppColors.background.tertiary,

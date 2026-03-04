@@ -306,7 +306,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
     };
 
     fetchDelays();
-    const interval = setInterval(fetchDelays, 30000);
+    const interval = setInterval(fetchDelays, 15000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [tripResults, selectedDate]);
 
