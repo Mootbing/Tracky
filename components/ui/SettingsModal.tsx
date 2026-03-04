@@ -60,6 +60,8 @@ const DISTANCE_OPTIONS: { label: string; value: DistanceUnit; desc: string }[] =
   { label: '🍔', value: 'burgers', desc: '🍔' },
 ];
 
+const LOG_FILTER_KEY = 'DEBUG_LOG_FILTER';
+
 const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
   [LogLevel.DEBUG]: '#8B8B8B',
   [LogLevel.INFO]: '#60A5FA',
@@ -162,6 +164,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
     })();
 
     TrainStorageService.getNotificationPrefs().then(setNotifPrefs);
+
+    AsyncStorage.getItem(LOG_FILTER_KEY).then(val => {
+      if (val === 'ALL' || Object.values(LogLevel).includes(val as LogLevel)) {
+        setLogFilter(val as LogLevel | 'ALL');
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -398,19 +406,19 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
       const notifications: Record<string, { title: string; body: string }> = {
         morning: {
           title: 'Train 91 \u2022 NYP \u2192 BOS',
-          body: 'Good morning! Your train today is on time. 54\u00B0 Partly Cloudy at destination.',
+          body: 'Good morning!\nTrain 91 is On Time.\n54\u00B0 Partly Cloudy at NYP\n48\u00B0 Clear at BOS',
         },
         departure: {
           title: 'Train 91 departs in 2 hours',
-          body: 'Departs from New York Penn Station at 2:30 PM. Currently on time.',
+          body: 'Departs from New York Penn Station\nat 2:30 PM.\nCurrently On Time.',
         },
         delay: {
           title: 'Train 91 Delay Update',
-          body: 'NYP \u2192 BOS \u2014 now Delayed 25m (was On Time)',
+          body: 'NYP \u2192 BOS\nNow Delayed 25m\nWas On Time',
         },
         arrival: {
           title: 'Arrived at Boston South Station!',
-          body: 'Train 91 from New York. 48\u00B0 Partly Cloudy. This is your 5th time here.',
+          body: 'Train 91 from New York.\n48\u00B0 Partly Cloudy at BOS\nThis is your 5th time here.',
         },
       };
       const n = notifications[type];
@@ -955,39 +963,6 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
 
   const renderDebugLogPage = () => (
     <>
-      <View style={[styles.pillRow, { marginTop: Spacing.md, flexWrap: 'wrap' }]}>
-        {(['ALL', LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR] as const).map(level => (
-          <TouchableOpacity
-            key={level}
-            style={[
-              styles.logFilterPill,
-              logFilter === level && styles.logFilterPillActive,
-              level !== 'ALL' && { borderColor: LOG_LEVEL_COLORS[level] },
-              logFilter === level && level !== 'ALL' && { backgroundColor: LOG_LEVEL_COLORS[level] },
-            ]}
-            onPress={() => {
-              hapticSelection();
-              setLogFilter(level);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.logFilterPillText,
-                level !== 'ALL' && logFilter !== level && { color: LOG_LEVEL_COLORS[level] },
-                logFilter === level && styles.logFilterPillTextActive,
-              ]}
-            >
-              {level}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={[styles.logCount, { marginTop: Spacing.md }]}>
-        {filteredLogs.length} log{filteredLogs.length !== 1 ? 's' : ''}
-      </Text>
-
       <View style={styles.logContainer}>
         {filteredLogs.length === 0 ? (
           <PlaceholderBlurb
@@ -1192,6 +1167,42 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                   </View>
                 )}
               </View>
+              {currentPage === 'debugLog' && (
+                <>
+                  <View style={[styles.pillRow, { marginTop: Spacing.md, flexWrap: 'wrap' }]}>
+                    {(['ALL', LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR] as const).map(level => (
+                      <TouchableOpacity
+                        key={level}
+                        style={[
+                          styles.logFilterPill,
+                          logFilter === level && styles.logFilterPillActive,
+                          level !== 'ALL' && { borderColor: LOG_LEVEL_COLORS[level] },
+                          logFilter === level && level !== 'ALL' && { backgroundColor: LOG_LEVEL_COLORS[level] },
+                        ]}
+                        onPress={() => {
+                          hapticSelection();
+                          setLogFilter(level);
+                          AsyncStorage.setItem(LOG_FILTER_KEY, level);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.logFilterPillText,
+                            level !== 'ALL' && logFilter !== level && { color: LOG_LEVEL_COLORS[level] },
+                            logFilter === level && styles.logFilterPillTextActive,
+                          ]}
+                        >
+                          {level}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={[styles.logCount, { marginTop: Spacing.sm }]}>
+                    {filteredLogs.length} log{filteredLogs.length !== 1 ? 's' : ''}
+                  </Text>
+                </>
+              )}
             </View>
             <ScrollView
               style={styles.scrollView}
@@ -1242,7 +1253,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     position: 'absolute' as const,
-    right: Spacing.xl,
+    right: 0,
     top: Spacing.xs,
   },
   title: { fontSize: 34, fontWeight: 'bold', color: AppColors.primary },
