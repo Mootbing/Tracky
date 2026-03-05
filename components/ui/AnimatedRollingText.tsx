@@ -151,6 +151,7 @@ export default memo(function AnimatedRollingText({
     margin, marginTop, marginBottom, marginLeft, marginRight,
     marginHorizontal, marginVertical,
     alignSelf, flex, flexGrow, flexShrink, flexBasis,
+    minWidth, maxWidth, width, textAlign,
     ...textStyle
   } = flat as any;
   const containerLayout: ViewStyle = {};
@@ -166,6 +167,11 @@ export default memo(function AnimatedRollingText({
   if (flexGrow !== undefined) containerLayout.flexGrow = flexGrow;
   if (flexShrink !== undefined) containerLayout.flexShrink = flexShrink;
   if (flexBasis !== undefined) containerLayout.flexBasis = flexBasis;
+  if (minWidth !== undefined) containerLayout.minWidth = minWidth;
+  if (maxWidth !== undefined) containerLayout.maxWidth = maxWidth;
+  if (width !== undefined) containerLayout.width = width;
+  if (textAlign === 'right') containerLayout.justifyContent = 'flex-end';
+  else if (textAlign === 'center') containerLayout.justifyContent = 'center';
 
   // Array.from handles multi-codepoint Unicode (emojis) correctly,
   // unlike .split('') which splits on UTF-16 code units.
