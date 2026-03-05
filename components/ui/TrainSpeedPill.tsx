@@ -66,25 +66,23 @@ export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps)
       ]).start();
     } else if (!hasData && isVisible.current) {
       isVisible.current = false;
-      // Fade out content first, then slide the pill up
-      Animated.timing(contentOpacity, {
-        toValue: 0,
-        duration: 80,
-        useNativeDriver: true,
-      }).start(() => {
-        Animated.parallel([
-          Animated.timing(slideAnim, {
-            toValue: -80,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacityAnim, {
-            toValue: 0,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -80,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
   }, [hasData, slideAnim, opacityAnim, contentOpacity]);
 

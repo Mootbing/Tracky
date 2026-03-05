@@ -22,7 +22,6 @@ import { GTFSRefreshProvider, useGTFSRefresh } from '../context/GTFSRefreshConte
 import { ModalProvider, useModalActions, useModalState } from '../context/ModalContext';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
 import { UnitsProvider } from '../context/UnitsContext';
-import { useBatchedItems } from '../hooks/useBatchedItems';
 import { useLiveTrains } from '../hooks/useLiveTrains';
 import { useRealtime } from '../hooks/useRealtime';
 import { useShapes } from '../hooks/useShapes';
@@ -613,11 +612,6 @@ function MapScreenInner() {
     return clusterStations(stations, debouncedLatDelta);
   }, [stations, debouncedLatDelta, stationMode]);
 
-  // Progressive batching — drip-feed markers onto the map like routes do
-  const batchedStationClusters = useBatchedItems(stationClusters, 30, 20);
-  const batchedLiveTrains = useBatchedItems(clusteredLiveTrains, 25, 20);
-  const batchedSavedTrains = useBatchedItems(clusteredSavedTrains, 25, 20);
-
   // Don't render until we have a region
   if (!mapReady || !regionRef.current) {
     return (
@@ -651,12 +645,11 @@ function MapScreenInner() {
                 coordinates={shape.coordinates}
                 strokeColor={colorScheme.stroke}
                 strokeWidth={Math.max(2, baseStrokeWidth)}
-                zoomOpacity={colorScheme.opacity}
               />
             );
           })}
 
-        {batchedStationClusters.map(cluster => {
+        {stationClusters.map(cluster => {
           // Show full name when zoomed in enough
           const showFullName = !cluster.isCluster && debouncedLatDelta < ClusteringConfig.fullNameThreshold;
           const displayName = cluster.isCluster
@@ -692,7 +685,7 @@ function MapScreenInner() {
 
         {/* Render saved trains when mode is 'saved' */}
         {trainMode === 'saved' &&
-          batchedSavedTrains.map(cluster => (
+          clusteredSavedTrains.map(cluster => (
             <LiveTrainMarker
               key={cluster.id}
               trainNumber={cluster.trainNumber || ''}
@@ -714,7 +707,7 @@ function MapScreenInner() {
 
         {/* Render all live trains when mode is 'all' */}
         {trainMode === 'all' &&
-          batchedLiveTrains.map(cluster => (
+          clusteredLiveTrains.map(cluster => (
             <LiveTrainMarker
               key={cluster.id}
               trainNumber={cluster.trainNumber || ''}

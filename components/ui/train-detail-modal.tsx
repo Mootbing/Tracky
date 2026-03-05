@@ -512,7 +512,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
       </View>
 
       {/* Content */}
-      <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]} pointerEvents={isCollapsed ? 'none' : 'auto'}>
+      <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]}>
         <ScrollView
           style={styles.scrollContent}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: isHalfHeight ? SCREEN_HEIGHT * 0.5 : 100 }}

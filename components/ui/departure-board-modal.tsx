@@ -668,7 +668,7 @@ export default function DepartureBoardModal({
           </TouchableOpacity>
         </View>
 
-        <Animated.View style={fadeAnimatedStyle} pointerEvents={isCollapsed ? 'none' : 'auto'}>
+        <Animated.View style={fadeAnimatedStyle}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={18} color={AppColors.secondary} />
@@ -753,7 +753,7 @@ export default function DepartureBoardModal({
         </Animated.View>
       </View>
 
-      <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]} pointerEvents={isCollapsed ? 'none' : 'auto'}>
+      <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]}>
         {/* Date Picker */}
         {showDatePicker && (
           <View style={styles.datePickerContainer}>
