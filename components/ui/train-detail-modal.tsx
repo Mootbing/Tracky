@@ -524,7 +524,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   activeOpacity={0.7}
                 >
                   <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                  <Text style={styles.locationName}> • {trainData.from}</Text>
+                  <Text style={styles.locationName}> · {trainData.from}</Text>
                 </TouchableOpacity>
               </View>
               {(() => {
@@ -572,13 +572,13 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   <AnimatedRollingText value={duration} style={styles.durationText} />
                   {distanceMiles !== null && (
                     <AnimatedRollingText
-                      value={` • ${Math.round(convertDistance(distanceMiles, distanceUnit)).toLocaleString()} ${distanceSuffix(distanceUnit)}`}
+                      value={` · ${Math.round(convertDistance(distanceMiles, distanceUnit)).toLocaleString()} ${distanceSuffix(distanceUnit)}`}
                       style={[styles.durationText, { marginLeft: 0 }]}
                     />
                   )}
                   {allStops.length > 0 && (
                     <AnimatedRollingText
-                      value={` • ${allStops.length - 1} ${pluralize(allStops.length - 1, 'stop')}`}
+                      value={` · ${allStops.length - 1} ${pluralize(allStops.length - 1, 'stop')}`}
                       style={[styles.durationText, { marginLeft: 0 }]}
                     />
                   )}
@@ -597,7 +597,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   activeOpacity={0.7}
                 >
                   <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                  <Text style={styles.locationName}> • {trainData.to}</Text>
+                  <Text style={styles.locationName}> · {trainData.to}</Text>
                 </TouchableOpacity>
               </View>
               {(() => {
@@ -763,7 +763,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                                 </Text>
                                 {stopWeather[stop.code] && (
                                   <>
-                                    <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}> • </Text>
+                                    <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}> ·</Text>
                                     <Ionicons name={stopWeather[stop.code].icon as any} size={11} color={isCurrent ? '#FFFFFF' : AppColors.secondary} style={isPast ? { opacity: 0.6 } : undefined} />
                                     <AnimatedRollingText value={` ${stopWeather[stop.code].temp}°${tempUnit}`} style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]} />
                                   </>
@@ -780,7 +780,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                                     : `In ${diffMin} min`;
                                   return (
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                      <Text style={styles.arrivalCountdown}> • </Text>
+                                      <Text style={styles.arrivalCountdown}> ·</Text>
                                       <AnimatedRollingText value={arrivalText} style={styles.arrivalCountdown} />
                                     </View>
                                   );

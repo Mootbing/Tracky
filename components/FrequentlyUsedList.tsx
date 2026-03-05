@@ -45,14 +45,14 @@ export function FrequentlyUsedList({
                 <Text style={styles.frequentlyUsedName}>{item.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                   <Text style={styles.frequentlyUsedSubtitle}>{item.code.split('-')[0]}</Text>
-                  <Text style={styles.frequentlyUsedSubtitle}> • </Text>
+                  <Text style={styles.frequentlyUsedSubtitle}> · </Text>
                   <MaterialCommunityIcons
                     name="arrow-right"
                     size={16}
                     color={COLORS.secondary}
                     style={{ marginHorizontal: 2 }}
                   />
-                  <Text style={styles.frequentlyUsedSubtitle}> • {item.code.split('-')[1]}</Text>
+                  <Text style={styles.frequentlyUsedSubtitle}> · {item.code.split('-')[1]}</Text>
                 </View>
               </>
             ) : (

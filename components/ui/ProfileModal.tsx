@@ -479,7 +479,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             <Ionicons name="share-outline" size={22} color={AppColors.primary} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.passportSubtitle}>🎫 SUPERTICKET • RAIL • EXPRESS</Text>
+        <Text style={styles.passportSubtitle}>🎫 SUPERTICKET · RAIL · EXPRESS</Text>
 
         <View style={styles.passportStatsGrid}>
           <View style={styles.passportStatBlock}>

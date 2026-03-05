@@ -668,7 +668,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 </View>
                 <View style={styles.stationInfo}>
                   <Text style={styles.stationName}>Alternatives to {todayTrain.trainNumber}</Text>
-                  <Text style={styles.stationCode}>{todayTrain.fromCode} → {todayTrain.toCode} • {todayTrain.routeName}</Text>
+                  <Text style={styles.stationCode}>{todayTrain.fromCode} → {todayTrain.toCode} · {todayTrain.routeName}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={AppColors.secondary} />
               </TouchableOpacity>
