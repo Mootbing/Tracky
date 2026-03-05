@@ -14,7 +14,8 @@ import { FlatList } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AppColors, BorderRadius, CloseButtonStyle, Spacing } from '../../constants/theme';
+import { type ColorPalette, BorderRadius, Spacing } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { TrainAPIService } from '../../services/api';
 import type { Stop, Train } from '../../types/train';
@@ -29,7 +30,7 @@ import { getCurrentMinutesInTimezone, getTimezoneForStop } from '../../utils/tim
 import { formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
 import { SlideUpModalContext } from './slide-up-modal';
-import { styles as trainCardStyles } from '../../screens/styles';
+import { createStyles as createTrainCardStyles } from '../../screens/styles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -37,22 +38,22 @@ function toDateString(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-const calendarTheme = {
-  calendarBackground: AppColors.background.tertiary,
-  dayTextColor: AppColors.primary,
-  monthTextColor: AppColors.primary,
-  arrowColor: AppColors.primary,
-  selectedDayBackgroundColor: '#FFFFFF',
-  selectedDayTextColor: '#000000',
-  textDisabledColor: 'rgba(255, 255, 255, 0.2)',
-  todayTextColor: AppColors.primary,
-  todayBackgroundColor: AppColors.background.primary,
-  textSectionTitleColor: AppColors.secondary,
+const getCalendarTheme = (colors: ColorPalette, isDark: boolean) => ({
+  calendarBackground: colors.background.tertiary,
+  dayTextColor: colors.primary,
+  monthTextColor: colors.primary,
+  arrowColor: colors.primary,
+  selectedDayBackgroundColor: isDark ? '#FFFFFF' : '#000000',
+  selectedDayTextColor: isDark ? '#000000' : '#FFFFFF',
+  textDisabledColor: colors.tertiary,
+  todayTextColor: colors.primary,
+  todayBackgroundColor: colors.background.primary,
+  textSectionTitleColor: colors.secondary,
   textDayFontWeight: 'bold' as const,
   textMonthFontWeight: 'bold' as const,
   textDayHeaderFontWeight: 'bold' as const,
   textMonthFontSize: 18,
-};
+});
 
 interface DepartureBoardModalProps {
   station: Stop;
@@ -185,6 +186,10 @@ interface DepartureItemProps {
 }
 
 const DepartureItem = React.memo(function DepartureItem({ train, stationTime, stationId, selectedDate, onPress }: DepartureItemProps) {
+  const { colors } = useTheme();
+  const trainCardStyles = useMemo(() => createTrainCardStyles(colors), [colors]);
+  const departStyles = useMemo(() => createDepartureStyles(colors), [colors]);
+
   const countdown = useMemo(() => {
     const [hStr, mStr] = stationTime.time.split(':');
     let h = parseInt(hStr, 10);
@@ -247,7 +252,7 @@ const DepartureItem = React.memo(function DepartureItem({ train, stationTime, st
           />
         </View>
       </TouchableOpacity>
-      <View style={departureStyles.separator} />
+      <View style={departStyles.separator} />
     </View>
   );
 });
@@ -258,6 +263,12 @@ export default function DepartureBoardModal({
   onTrainSelect,
   onSaveTrain,
 }: DepartureBoardModalProps) {
+  const { colors, isDark, closeButtonStyle } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const departStyles = useMemo(() => createDepartureStyles(colors), [colors]);
+  const trainCardStyles = useMemo(() => createTrainCardStyles(colors), [colors]);
+  const calendarTheme = useMemo(() => getCalendarTheme(colors, isDark), [colors, isDark]);
+
   const [departures, setDepartures] = useState<Train[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -445,9 +456,9 @@ export default function DepartureBoardModal({
 
   const calendarMarkedDates = useMemo(() => {
     const marks: Record<string, { selected?: boolean; selectedColor?: string }> = {};
-    marks[toDateString(selectedDate)] = { selected: true, selectedColor: '#FFFFFF' };
+    marks[toDateString(selectedDate)] = { selected: true, selectedColor: isDark ? '#FFFFFF' : '#000000' };
     return marks;
-  }, [selectedDate]);
+  }, [selectedDate, isDark]);
 
   // Date navigation
   const navigateDate = useCallback((direction: 'prev' | 'next') => {
@@ -505,13 +516,13 @@ export default function DepartureBoardModal({
       {filterMode === 'arriving' ? 'Arriving' : filterMode === 'departing' ? 'Departing' : 'All Trains'}{' '}
       ({filteredDepartures.length})
     </Text>
-  ), [filterMode, filteredDepartures.length]);
+  ), [filterMode, filteredDepartures.length, styles]);
 
   const departureListEmpty = useMemo(() => {
     if (loading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={AppColors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading departures...</Text>
         </View>
       );
@@ -531,7 +542,7 @@ export default function DepartureBoardModal({
         subtitle={searchQuery ? 'Try a different search term' : 'Try changing the filter or date'}
       />
     );
-  }, [loading, searchQuery, filterMode]);
+  }, [loading, searchQuery, filterMode, styles, colors]);
 
   return (
     <View style={styles.modalContent}>
@@ -545,7 +556,7 @@ export default function DepartureBoardModal({
               {weather && (
                 <View style={styles.weatherBadge}>
                   <Text style={styles.weatherDot}> · </Text>
-                  <Ionicons name={weather.icon as any} size={14} color={AppColors.secondary} />
+                  <Ionicons name={weather.icon as any} size={14} color={colors.secondary} />
                   <Text style={styles.weatherTemp}> {weather.temp}°{tempUnit}</Text>
                 </View>
               )}
@@ -558,19 +569,19 @@ export default function DepartureBoardModal({
             </View>
             <MarqueeText text={station.stop_name} style={styles.headerTitle} />
           </View>
-          <TouchableOpacity onPress={() => { hapticLight(); onClose(); }} style={styles.closeButton} activeOpacity={0.6}>
-            <Ionicons name="close" size={24} color={AppColors.primary} />
+          <TouchableOpacity onPress={() => { hapticLight(); onClose(); }} style={[closeButtonStyle, styles.closeButton]} activeOpacity={0.6}>
+            <Ionicons name="close" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
         <Animated.View style={fadeAnimatedStyle}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={18} color={AppColors.secondary} />
+            <Ionicons name="search" size={18} color={colors.secondary} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by destination or train..."
-              placeholderTextColor={AppColors.tertiary}
+              placeholderTextColor={colors.tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => { hapticLight(); if (!isFullscreen) snapToPoint?.('max'); }}
@@ -579,7 +590,7 @@ export default function DepartureBoardModal({
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => { hapticLight(); setSearchQuery(''); }}>
-                <Ionicons name="close-circle" size={18} color={AppColors.secondary} />
+                <Ionicons name="close-circle" size={18} color={colors.secondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -593,14 +604,14 @@ export default function DepartureBoardModal({
                 onPress={() => { if (canGoBack) { hapticLight(); navigateDate('prev'); } }}
                 disabled={!canGoBack}
               >
-                <Ionicons name="chevron-back" size={20} color={canGoBack ? AppColors.primary : AppColors.tertiary} />
+                <Ionicons name="chevron-back" size={20} color={canGoBack ? colors.primary : colors.tertiary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.dateDisplay} onPress={() => { hapticLight(); setShowDatePicker(true); }} activeOpacity={0.7}>
-                <Ionicons name="calendar-outline" size={16} color={AppColors.secondary} />
+                <Ionicons name="calendar-outline" size={16} color={colors.secondary} />
                 <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.dateArrow} onPress={() => { hapticLight(); navigateDate('next'); }}>
-                <Ionicons name="chevron-forward" size={20} color={AppColors.primary} />
+                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -625,7 +636,7 @@ export default function DepartureBoardModal({
                 <MaterialCommunityIcons
                   name="arrow-top-right"
                   size={18}
-                  color={filterMode === 'departing' ? AppColors.primary : AppColors.tertiary}
+                  color={filterMode === 'departing' ? colors.primary : colors.tertiary}
                 />
               </TouchableOpacity>
               <TouchableOpacity
@@ -640,7 +651,7 @@ export default function DepartureBoardModal({
                 <MaterialCommunityIcons
                   name="arrow-bottom-left"
                   size={18}
-                  color={filterMode === 'arriving' ? AppColors.primary : AppColors.tertiary}
+                  color={filterMode === 'arriving' ? colors.primary : colors.tertiary}
                 />
               </TouchableOpacity>
             </View>
@@ -692,7 +703,7 @@ export default function DepartureBoardModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   modalContent: {
     flex: 1,
     marginHorizontal: -Spacing.xl,
@@ -703,7 +714,7 @@ const styles = StyleSheet.create({
   },
   fixedHeaderScrolled: {
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border.primary,
+    borderBottomColor: colors.border.primary,
   },
   header: {
     paddingHorizontal: Spacing.xl,
@@ -727,7 +738,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   weatherBadge: {
     flexDirection: 'row',
@@ -735,20 +746,19 @@ const styles = StyleSheet.create({
   },
   weatherDot: {
     fontSize: 14,
-    color: AppColors.tertiary,
+    color: colors.tertiary,
   },
   weatherTemp: {
     fontSize: 14,
-    color: AppColors.secondary,
+    color: colors.secondary,
     fontWeight: '500',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: colors.primary,
   },
   closeButton: {
-    ...CloseButtonStyle,
     position: 'absolute',
     zIndex: 20,
     right: Spacing.xl,
@@ -769,7 +779,7 @@ const styles = StyleSheet.create({
   filterToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: 18,
     height: 36,
   },
@@ -788,26 +798,26 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 18,
   },
   filterButtonActive: {
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
   },
   filterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.tertiary,
+    color: colors.tertiary,
   },
   filterTextActive: {
-    color: AppColors.primary,
+    color: colors.primary,
   },
   dateArrow: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   dateArrowDisabled: {
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
   },
   dateDisplay: {
     flexDirection: 'row',
@@ -815,18 +825,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: BorderRadius.md,
   },
   dateText: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.primary,
+    color: colors.primary,
   },
   datePickerContainer: {
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.md,
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
     padding: Spacing.md,
@@ -837,14 +847,14 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: AppColors.primary,
+    color: colors.primary,
     paddingVertical: Spacing.xs,
   },
   loadingContainer: {
@@ -856,21 +866,21 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     fontSize: 14,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginBottom: Spacing.md,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 });
 
-const departureStyles = StyleSheet.create({
+const createDepartureStyles = (colors: ColorPalette) => StyleSheet.create({
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: AppColors.border.primary,
+    backgroundColor: colors.border.primary,
   },
 });

@@ -1,15 +1,16 @@
 import * as Network from 'expo-network';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { AppColors } from '../../constants/theme';
+import { type ColorPalette } from '../../constants/theme';
+import { useColors } from '../../context/ThemeContext';
 import { light as hapticLight } from '../../utils/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PILL_WIDTH = 48;
-const PILL_HEIGHT = 104; // Two buttons (48 each) + 8px gap
+const PILL_HEIGHT = 104;
 const STRIP_WIDTH = SCREEN_WIDTH - 32;
 const STRIP_HEIGHT = 56;
 
@@ -68,11 +69,88 @@ function getTrainModeLabel(mode: TrainMode): string {
   return 'All';
 }
 
-function getModeColor(mode: string): string {
-  if (mode === 'hidden') return AppColors.tertiary;
-  if (mode === 'visible' || mode === 'auto' || mode === 'saved' || mode === 'standard') return AppColors.primary;
-  return AppColors.accentBlue;
+function getModeColor(mode: string, colors: ColorPalette): string {
+  if (mode === 'hidden') return colors.tertiary;
+  if (mode === 'visible' || mode === 'auto' || mode === 'saved' || mode === 'standard') return colors.primary;
+  return colors.accentBlue;
 }
+
+const createStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    container: {
+      position: 'absolute',
+      right: 16,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      overflow: 'hidden',
+    },
+    collapsedContent: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 0,
+    },
+    pillButton: {
+      width: PILL_WIDTH,
+      height: PILL_WIDTH,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    expandedContent: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+      paddingHorizontal: 8,
+    },
+    settingOption: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      minWidth: 50,
+    },
+    settingLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    closeButton: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 20,
+      backgroundColor: colors.background.secondary,
+    },
+    offlineIconContainer: {
+      position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    offlineSlash: {
+      position: 'absolute',
+      width: 2,
+      height: 26,
+      backgroundColor: colors.error,
+      borderRadius: 1,
+      transform: [{ rotate: '45deg' }],
+    },
+  });
 
 export default function MapSettingsPill({
   top,
@@ -86,11 +164,12 @@ export default function MapSettingsPill({
   setTrainMode,
   onRecenter,
 }: MapSettingsPillProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isConnected, setIsConnected] = React.useState(true);
   const expandProgress = useSharedValue(0);
 
-  // Monitor network connectivity
   React.useEffect(() => {
     let mounted = true;
 
@@ -105,10 +184,8 @@ export default function MapSettingsPill({
       }
     };
 
-    // Check immediately
     checkNetwork();
 
-    // Poll every 5 seconds
     const interval = setInterval(checkNetwork, 5000);
 
     return () => {
@@ -154,30 +231,30 @@ export default function MapSettingsPill({
 
   return (
     <Animated.View style={[styles.container, { top }, animatedContainerStyle]}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: AppColors.background.secondary }]}>
-          {/* Collapsed Content - Settings + Recenter + (optional) Offline buttons */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background.secondary }]}>
+          {/* Collapsed Content */}
           <Animated.View
             style={[styles.collapsedContent, collapsedContentStyle]}
             pointerEvents={isExpanded ? 'none' : 'auto'}
           >
             <TouchableOpacity style={styles.pillButton} onPress={handleSettingsPress} activeOpacity={0.7}>
-              <Ionicons name="map-outline" size={24} color={AppColors.primary} />
+              <Ionicons name="map-outline" size={24} color={colors.primary} />
             </TouchableOpacity>
             {isConnected ? (
               <TouchableOpacity style={styles.pillButton} onPress={() => { hapticLight(); onRecenter(); }} activeOpacity={0.7}>
-                <MaterialIcons name="my-location" size={22} color={AppColors.primary} />
+                <MaterialIcons name="my-location" size={22} color={colors.primary} />
               </TouchableOpacity>
             ) : (
               <View style={styles.pillButton}>
                 <View style={styles.offlineIconContainer}>
-                  <Ionicons name="wifi" size={22} color={AppColors.error} />
+                  <Ionicons name="wifi" size={22} color={colors.error} />
                   <View style={styles.offlineSlash} />
                 </View>
               </View>
             )}
           </Animated.View>
 
-          {/* Expanded Content - Settings strip */}
+          {/* Expanded Content */}
           <Animated.View
             style={[styles.expandedContent, expandedContentStyle]}
             pointerEvents={isExpanded ? 'auto' : 'none'}
@@ -188,8 +265,8 @@ export default function MapSettingsPill({
               onPress={() => { hapticLight(); setRouteMode(getNextRouteMode(routeMode)); }}
               activeOpacity={0.7}
             >
-              <MaterialIcons name="route" size={20} color={getModeColor(routeMode)} />
-              <Text style={[styles.settingLabel, { color: getModeColor(routeMode) }]}>
+              <MaterialIcons name="route" size={20} color={getModeColor(routeMode, colors)} />
+              <Text style={[styles.settingLabel, { color: getModeColor(routeMode, colors) }]}>
                 {getRouteModeLabel(routeMode)}
               </Text>
             </TouchableOpacity>
@@ -203,12 +280,12 @@ export default function MapSettingsPill({
               <Ionicons
                 name={stationMode === 'all' ? 'location' : 'location-outline'}
                 size={20}
-                color={stationMode === 'hidden' ? AppColors.tertiary : AppColors.primary}
+                color={stationMode === 'hidden' ? colors.tertiary : colors.primary}
               />
               <Text
                 style={[
                   styles.settingLabel,
-                  { color: stationMode === 'hidden' ? AppColors.tertiary : AppColors.primary },
+                  { color: stationMode === 'hidden' ? colors.tertiary : colors.primary },
                 ]}
               >
                 {getStationModeLabel(stationMode)}
@@ -222,11 +299,11 @@ export default function MapSettingsPill({
               activeOpacity={0.7}
             >
               {mapType === 'standard' ? (
-                <Ionicons name="map" size={20} color={AppColors.primary} />
+                <Ionicons name="map" size={20} color={colors.primary} />
               ) : (
-                <MaterialIcons name="satellite-alt" size={20} color={AppColors.primary} />
+                <MaterialIcons name="satellite-alt" size={20} color={colors.primary} />
               )}
-              <Text style={[styles.settingLabel, { color: AppColors.primary }]}>
+              <Text style={[styles.settingLabel, { color: colors.primary }]}>
                 {mapType === 'standard' ? 'Std' : 'Sat'}
               </Text>
             </TouchableOpacity>
@@ -237,94 +314,18 @@ export default function MapSettingsPill({
               onPress={() => { hapticLight(); setTrainMode(getNextTrainMode(trainMode)); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="train" size={20} color={getModeColor(trainMode)} />
-              <Text style={[styles.settingLabel, { color: getModeColor(trainMode) }]}>
+              <Ionicons name="train" size={20} color={getModeColor(trainMode, colors)} />
+              <Text style={[styles.settingLabel, { color: getModeColor(trainMode, colors) }]}>
                 {getTrainModeLabel(trainMode)}
               </Text>
             </TouchableOpacity>
 
             {/* Close */}
             <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color={AppColors.primary} />
+              <Ionicons name="close" size={24} color={colors.primary} />
             </TouchableOpacity>
           </Animated.View>
       </View>
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    right: 16,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: AppColors.border.primary,
-    overflow: 'hidden',
-  },
-  collapsedContent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 0,
-  },
-  pillButton: {
-    width: PILL_WIDTH,
-    height: PILL_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandedContent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-  },
-  settingOption: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    minWidth: 50,
-  },
-  settingLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: AppColors.background.secondary,
-  },
-  offlineIconContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  offlineSlash: {
-    position: 'absolute',
-    width: 2,
-    height: 26,
-    backgroundColor: AppColors.error,
-    borderRadius: 1,
-    transform: [{ rotate: '45deg' }],
-  },
-});

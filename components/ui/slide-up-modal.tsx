@@ -12,7 +12,8 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { AppColors, BorderRadius, Spacing } from '../../constants/theme';
+import { BorderRadius, Spacing } from '../../constants/theme';
+import { useColors } from '../../context/ThemeContext';
 import { medium as hapticMedium } from '../../utils/haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -53,11 +54,8 @@ interface SlideUpModalProps {
   onSnapChange?: (snapPoint: 'min' | 'half' | 'max') => void;
   onHeightChange?: (height: number) => void;
   onDismiss?: () => void;
-  /** Custom minimum snap point as percentage (e.g., 0.25 for 25%). Defaults to 0.35 */
   minSnapPercent?: number;
-  /** Initial snap point. Defaults to 'half' */
   initialSnap?: 'min' | 'half' | 'max';
-  /** When true, mount off-screen without auto-sliding in. Use slideIn() to show. */
   startHidden?: boolean;
 }
 
@@ -65,14 +63,17 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   { children, onSnapChange, onHeightChange, onDismiss, minSnapPercent = 0.35, initialSnap = 'half', startHidden = false }: SlideUpModalProps,
   ref: React.Ref<SlideUpModalHandle>
 ) {
-  // Get safe area insets dynamically
+  const colors = useColors();
+  // Capture color strings as locals for worklet closures
+  const bgPrimary = colors.background.primary;
+  const borderPrimary = colors.border.primary;
+  const shadowColor = colors.shadow;
+
   const screenHeight = Dimensions.get('screen').height;
   const windowHeight = Dimensions.get('window').height;
   const safeAreaBottomInset = screenHeight - windowHeight;
-  // Get status bar height to extend modal to true top of screen
   const statusBarHeight = StatusBar.currentHeight || 0;
 
-  // Calculate snap points with customizable min
   const SNAP_POINTS = React.useMemo(
     () => ({
       MIN: SCREEN_HEIGHT * minSnapPercent,
@@ -88,7 +89,6 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
     return SNAP_POINTS.HALF;
   };
 
-  // Start off-screen (at bottom)
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const context = useSharedValue({ y: 0 });
   const currentSnap = useSharedValue<'min' | 'half' | 'max'>(initialSnap);
@@ -98,7 +98,6 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   const [isCollapsed, setIsCollapsed] = useState(initialSnap === 'min');
   const [gestureEnabled, setGestureEnabled] = useState(true);
   const panRef = React.useRef<any>(undefined);
-  // Refs for callbacks so imperative handle + gesture don't capture stale closures
   const onSnapChangeRef = useRef(onSnapChange);
   onSnapChangeRef.current = onSnapChange;
   const onHeightChangeRef = useRef(onHeightChange);
@@ -110,15 +109,11 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   const panStartX = useSharedValue(0);
   const panDecided = useSharedValue(false);
 
-  // Content opacity - fades elements between HALF (50%) and MIN (collapsed) height
-  // At HALF height: opacity = 1 (fully visible)
-  // At MIN height: opacity = 0 (hidden)
   const contentOpacity = useDerivedValue(() => {
     const currentHeight = SCREEN_HEIGHT - translateY.value;
     const minHeight = SNAP_POINTS.MIN;
     const halfHeight = SNAP_POINTS.HALF;
 
-    // Clamp and interpolate
     return interpolate(currentHeight, [minHeight, halfHeight], [0, 1], 'clamp');
   });
 
@@ -141,8 +136,6 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
     });
   }, [SNAP_POINTS, translateY, currentSnap, modalHeight]);
 
-  // Dismiss function to animate out and call onDismiss
-  // When fast=true, uses a quick timing animation for snappy modal-to-modal transitions
   const dismiss = useCallback((fast?: boolean) => {
     if (fast) {
       translateY.value = withTiming(
@@ -170,7 +163,6 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
     }
   }, [translateY]);
 
-  // Slide in function to animate modal back into view
   const slideIn = useCallback((targetSnap: 'min' | 'half' | 'max' = 'half') => {
     const snapPoint =
       targetSnap === 'min' ? SNAP_POINTS.MIN : targetSnap === 'half' ? SNAP_POINTS.HALF : SNAP_POINTS.MAX;
@@ -199,8 +191,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   );
 
   useEffect(() => {
-    if (startHidden) return; // Stay off-screen, wait for explicit slideIn()
-    // Animate in on mount from bottom of screen
+    if (startHidden) return;
     translateY.value = withSpring(SCREEN_HEIGHT - getInitialHeight(), {
       damping: 60,
       stiffness: 500,
@@ -233,31 +224,24 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
       const dy = event.allTouches[0].absoluteY - panStartY.value;
       const dx = event.allTouches[0].absoluteX - panStartX.value;
 
-      // Fail on horizontal movement
       if (Math.abs(dx) > 20) {
         stateManager.fail();
         panDecided.value = true;
         return;
       }
 
-      // Wait for enough vertical movement to decide
       if (Math.abs(dy) < 15) return;
 
-      // Decision: should the pan gesture handle this, or the ScrollView?
       if (currentSnap.value !== 'max') {
-        // Not fullscreen — pan always handles (move modal)
         stateManager.activate();
         panDecided.value = true;
       } else if (scrollOffset.value > 1) {
-        // Fullscreen + content scrolled — let ScrollView handle it
         stateManager.fail();
         panDecided.value = true;
       } else if (dy > 0) {
-        // Fullscreen + at scroll top + swiping DOWN — pan handles (retract modal)
         stateManager.activate();
         panDecided.value = true;
       } else {
-        // Fullscreen + at scroll top + swiping UP — let ScrollView scroll content
         stateManager.fail();
         panDecided.value = true;
       }
@@ -325,7 +309,6 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   });
 
   const animatedBorderRadius = useAnimatedStyle(() => {
-    // Keep border radius constant at BorderRadius.xl (32)
     return {
       borderTopLeftRadius: BorderRadius.xl,
       borderTopRightRadius: BorderRadius.xl,
@@ -333,42 +316,31 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   });
 
   const animatedBackground = useAnimatedStyle(() => {
-    // Calculate current height of modal
     const currentHeight = SCREEN_HEIGHT - translateY.value;
 
-    // Progress from HALF (50%) to MAX (95%)
     const halfHeight = SNAP_POINTS.HALF;
     const maxHeight = SNAP_POINTS.MAX;
 
-    // Calculate interpolation progress (0 at 50%, 1 at 95%)
     const progress = Math.max(0, Math.min(1, (currentHeight - halfHeight) / (maxHeight - halfHeight)));
 
-    // Interpolate border opacity (fade out at fullscreen)
     const borderOpacity = 1 - progress;
 
     return {
-      borderColor: progress >= 1 ? AppColors.background.primary : borderOpacity > 0.01 ? AppColors.border.primary : 'transparent',
+      borderColor: progress >= 1 ? bgPrimary : borderOpacity > 0.01 ? borderPrimary : 'transparent',
       borderWidth: 1,
     };
   });
 
   const animatedMargins = useAnimatedStyle(() => {
-    // Calculate current height of modal
     const currentHeight = SCREEN_HEIGHT - translateY.value;
 
-    // Progress from HALF (50%) to MAX (95%)
     const halfHeight = SNAP_POINTS.HALF;
     const maxHeight = SNAP_POINTS.MAX;
 
-    // Calculate interpolation progress (0 at 50%, 1 at 95%)
     const progress = Math.max(0, Math.min(1, (currentHeight - halfHeight) / (maxHeight - halfHeight)));
 
-    // Interpolate horizontal margins from 10px to 0px
-    // At 35% and 50%: 10px margins
-    // At 95%: 0px margins
     const horizontalMargin = 10 * (1 - progress);
 
-    // Add 15px top margin at fullscreen (95%)
     const topMargin = 15 * progress;
 
     return {
@@ -380,7 +352,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
 
   return (
     <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.container, animatedStyle]}>
+      <Animated.View style={[staticStyles.container, animatedStyle]}>
         <SlideUpModalContext.Provider
           value={useMemo(() => ({
             isFullscreen,
@@ -395,17 +367,17 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
         >
           <Animated.View
             style={[
-              styles.blurContainer,
+              { flex: 1, overflow: 'hidden', borderBottomWidth: 0, shadowColor, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 10 },
               animatedBorderRadius,
               animatedBackground,
               animatedMargins,
-              isFullscreen && styles.blurContainerFullscreen,
+              isFullscreen && staticStyles.blurContainerFullscreen,
             ]}
           >
-            <Animated.View style={[StyleSheet.absoluteFill, animatedBorderRadius, { overflow: 'hidden', backgroundColor: AppColors.background.primary }]}>
-              <Animated.View style={styles.content}>
-                <View style={styles.handleContainer} />
-                <View style={styles.childrenContainer}>{children}</View>
+            <Animated.View style={[StyleSheet.absoluteFill, animatedBorderRadius, { overflow: 'hidden', backgroundColor: bgPrimary }]}>
+              <Animated.View style={staticStyles.content}>
+                <View style={staticStyles.handleContainer} />
+                <View style={staticStyles.childrenContainer}>{children}</View>
               </Animated.View>
             </Animated.View>
           </Animated.View>
@@ -415,7 +387,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   );
 });
 
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
   container: {
     position: 'absolute',
     top: 0,
@@ -424,26 +396,11 @@ const styles = StyleSheet.create({
     height: SCREEN_HEIGHT,
     zIndex: 1000,
   },
-  blurContainer: {
-    flex: 1,
-    overflow: 'hidden',
-    // backgroundColor and borderColor are now animated
-    borderBottomWidth: 0,
-    shadowColor: AppColors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
   blurContainerFullscreen: {
     borderWidth: 0,
     borderBottomWidth: 0,
     shadowOpacity: 0,
   },
-
   content: {
     flex: 1,
   },

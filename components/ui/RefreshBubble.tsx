@@ -1,18 +1,86 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppColors } from '../../constants/theme';
+import { type ColorPalette } from '../../constants/theme';
+import { useColors } from '../../context/ThemeContext';
 import { useGTFSRefresh } from '../../context/GTFSRefreshContext';
 import { light as hapticLight, warning as hapticWarning } from '../../utils/haptics';
 import AnimatedRollingText from './AnimatedRollingText';
 
-/**
- * A floating pill that appears below the Dynamic Island / status bar
- * showing GTFS refresh progress while the user continues using the app.
- * Persists on failure with a tap-to-retry action until dismissed.
- */
+const createStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    container: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      zIndex: 9999,
+    },
+    pill: {
+      backgroundColor: colors.background.tertiary,
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+      minWidth: 200,
+      maxWidth: 280,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    pillFailed: {
+      borderColor: 'rgba(255, 69, 58, 0.4)',
+    },
+    progressTrack: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 3,
+      backgroundColor: colors.border.primary,
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: colors.accentBlue,
+      borderRadius: 2,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    icon: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+    stepText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.secondary,
+      fontWeight: '500',
+    },
+    pctText: {
+      fontSize: 12,
+      color: colors.primary,
+      fontWeight: '700',
+      minWidth: 32,
+      textAlign: 'right',
+    },
+    retryText: {
+      fontSize: 11,
+      color: 'rgba(255, 69, 58, 0.9)',
+      fontWeight: '600',
+    },
+  });
+
 export function RefreshBubble() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { isRefreshing, refreshProgress, refreshStep, refreshFailed, triggerRefresh, dismissRefreshFailure } =
     useGTFSRefresh();
   const slideAnim = useRef(new Animated.Value(-80)).current;
@@ -73,7 +141,6 @@ export function RefreshBubble() {
 
   const pillContent = (
     <View style={[styles.pill, refreshFailed && styles.pillFailed]}>
-      {/* Progress bar background */}
       {!refreshFailed && (
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${Math.max(5, progressPct)}%` }]} />
@@ -112,72 +179,3 @@ export function RefreshBubble() {
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 9999,
-  },
-  pill: {
-    backgroundColor: AppColors.background.tertiary,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: AppColors.border.secondary,
-    minWidth: 200,
-    maxWidth: 280,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  pillFailed: {
-    borderColor: 'rgba(255, 69, 58, 0.4)',
-  },
-  progressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 3,
-    backgroundColor: AppColors.border.primary,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: AppColors.accentBlue,
-    borderRadius: 2,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  icon: {
-    fontSize: 14,
-    color: AppColors.primary,
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 12,
-    color: AppColors.secondary,
-    fontWeight: '500',
-  },
-  pctText: {
-    fontSize: 12,
-    color: AppColors.primary,
-    fontWeight: '700',
-    minWidth: 32,
-    textAlign: 'right',
-  },
-  retryText: {
-    fontSize: 11,
-    color: 'rgba(255, 69, 58, 0.9)',
-    fontWeight: '600',
-  },
-});

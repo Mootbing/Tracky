@@ -3,7 +3,8 @@ import { Dimensions, Keyboard, Platform, StyleSheet, Text, TextInput, TouchableO
 import { Calendar, DateData } from 'react-native-calendars';
 import { ScrollView } from 'react-native-gesture-handler';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { AppColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { type ColorPalette, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import TrainCardContent from './TrainCardContent';
 import { light as hapticLight, selection as hapticSelection, success as hapticSuccess } from '../utils/haptics';
 import { getTrainDisplayName } from '../services/api';
@@ -65,22 +66,22 @@ function toDateString(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-const calendarTheme = {
-  calendarBackground: AppColors.background.tertiary,
-  dayTextColor: AppColors.primary,
-  monthTextColor: AppColors.primary,
-  arrowColor: AppColors.primary,
-  selectedDayBackgroundColor: '#FFFFFF',
-  selectedDayTextColor: '#000000',
-  textDisabledColor: 'rgba(255, 255, 255, 0.2)',
-  todayTextColor: AppColors.primary,
-  todayBackgroundColor: AppColors.background.primary,
-  textSectionTitleColor: AppColors.secondary,
+const getCalendarTheme = (colors: ColorPalette, isDark: boolean) => ({
+  calendarBackground: colors.background.tertiary,
+  dayTextColor: colors.primary,
+  monthTextColor: colors.primary,
+  arrowColor: colors.primary,
+  selectedDayBackgroundColor: isDark ? '#FFFFFF' : '#000000',
+  selectedDayTextColor: isDark ? '#000000' : '#FFFFFF',
+  textDisabledColor: colors.tertiary,
+  todayTextColor: colors.primary,
+  todayBackgroundColor: colors.background.primary,
+  textSectionTitleColor: colors.secondary,
   textDayFontWeight: 'bold' as const,
   textMonthFontWeight: 'bold' as const,
   textDayHeaderFontWeight: 'bold' as const,
   textMonthFontSize: 18,
-};
+});
 
 interface UnifiedResults {
   trains: SearchResult[];
@@ -97,6 +98,9 @@ interface RouteTrainItem {
 }
 
 export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const calendarTheme = useMemo(() => getCalendarTheme(colors, isDark), [colors, isDark]);
   const { panRef, scrollOffset, isFullscreen } = React.useContext(SlideUpModalContext);
 
   // --- Keyboard height tracking ---
@@ -519,12 +523,12 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
       <View style={styles.container}>
         {/* Search bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={AppColors.secondary} />
+          <Ionicons name="search" size={20} color={colors.secondary} />
           <TextInput
             ref={searchInputRef}
             style={styles.fullSearchInput}
             placeholder="Train number, route, or station"
-            placeholderTextColor={AppColors.secondary}
+            placeholderTextColor={colors.secondary}
             value={searchQuery}
             onChangeText={text => {
               setSearchQuery(text);
@@ -538,7 +542,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               onClose();
             }}
           >
-            <Ionicons name="close-circle" size={20} color={AppColors.secondary} />
+            <Ionicons name="close-circle" size={20} color={colors.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -566,7 +570,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                             onPress={() => handleSelectStation(stop)}
                           >
                             <View style={styles.stationIcon}>
-                              <Ionicons name="location" size={20} color={AppColors.primary} />
+                              <Ionicons name="location" size={20} color={colors.primary} />
                             </View>
                             <View style={styles.stationInfo}>
                               <Text style={styles.stationName}>{result.name}</Text>
@@ -595,7 +599,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                             onPress={() => handleSelectRoute(route)}
                           >
                             <View style={styles.stationIcon}>
-                              <Ionicons name="git-branch-outline" size={20} color={AppColors.primary} />
+                              <Ionicons name="git-branch-outline" size={20} color={colors.primary} />
                             </View>
                             <View style={styles.stationInfo}>
                               <Text style={styles.stationName}>{result.name}</Text>
@@ -664,13 +668,13 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 }}
               >
                 <View style={styles.stationIcon}>
-                  <Ionicons name="git-branch-outline" size={20} color={AppColors.primary} />
+                  <Ionicons name="git-branch-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.stationInfo}>
                   <Text style={styles.stationName}>Alternatives to {todayTrain.trainNumber}</Text>
                   <Text style={styles.stationCode}>{todayTrain.fromCode} → {todayTrain.toCode} · {todayTrain.routeName}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={AppColors.secondary} />
+                <Ionicons name="chevron-forward" size={16} color={colors.secondary} />
               </TouchableOpacity>
             </View>
           )}
@@ -707,9 +711,9 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                     {suggestion.type === 'train' ? (
                       <TrainIcon name={suggestion.label} size={20} />
                     ) : suggestion.type === 'route' || (suggestion.stop && suggestion.toStop) ? (
-                      <Ionicons name="git-branch-outline" size={20} color={AppColors.primary} />
+                      <Ionicons name="git-branch-outline" size={20} color={colors.primary} />
                     ) : (
-                      <Ionicons name="location" size={20} color={AppColors.primary} />
+                      <Ionicons name="location" size={20} color={colors.primary} />
                     )}
                   </View>
                   <View style={styles.stationInfo}>
@@ -755,7 +759,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 ref={searchInputRef}
                 style={styles.segmentTextInput}
                 placeholder="Enter number"
-                placeholderTextColor={AppColors.secondary}
+                placeholderTextColor={colors.secondary}
                 value={routeFilterQuery}
                 onChangeText={setRouteFilterQuery}
                 autoFocus
@@ -764,12 +768,12 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
             </View>
           ) : !selectedDate ? (
             <View style={[styles.segment, styles.segmentDatePlaceholder]}>
-              <Ionicons name="calendar-outline" size={14} color={AppColors.secondary} />
-              <Text style={[styles.segmentText, { color: AppColors.secondary }]}>Select date</Text>
+              <Ionicons name="calendar-outline" size={14} color={colors.secondary} />
+              <Text style={[styles.segmentText, { color: colors.secondary }]}>Select date</Text>
             </View>
           ) : (
             <TouchableOpacity style={[styles.segment, styles.segmentDate]} onPress={handleClearDate}>
-              <Ionicons name="calendar-outline" size={14} color={AppColors.primary} />
+              <Ionicons name="calendar-outline" size={14} color={colors.primary} />
               <Text style={styles.segmentText}>{formatDateForPill(selectedDate)}</Text>
             </TouchableOpacity>
           )}
@@ -847,13 +851,13 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 return (
                   <TouchableOpacity key={label} style={styles.stationItem} onPress={() => handleDayPress({ dateString: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`, day: d.getDate(), month: d.getMonth()+1, year: d.getFullYear(), timestamp: d.getTime() })}>
                     <View style={styles.stationIcon}>
-                      <Ionicons name="calendar-outline" size={20} color={AppColors.primary} />
+                      <Ionicons name="calendar-outline" size={20} color={colors.primary} />
                     </View>
                     <View style={styles.stationInfo}>
                       <Text style={styles.stationName}>{label}</Text>
                       <Text style={styles.stationCode}>{formatDateForPill(d)}</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={AppColors.secondary} />
+                    <Ionicons name="chevron-forward" size={16} color={colors.secondary} />
                   </TouchableOpacity>
                 );
               })}
@@ -874,8 +878,8 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
           {/* Train doesn't run message */}
           {!isRouteMode && trainNotRunning && selectedDate && (
             <View style={styles.hintContainer}>
-              <Ionicons name="alert-circle-outline" size={20} color={AppColors.error} />
-              <Text style={[styles.hintText, { color: AppColors.error }]}>
+              <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+              <Text style={[styles.hintText, { color: colors.error }]}>
                 This train does not run on {formatDateForPill(selectedDate)}
               </Text>
             </View>
@@ -963,7 +967,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               ref={searchInputRef}
               style={styles.segmentTextInput}
               placeholder="Enter arrival station"
-              placeholderTextColor={AppColors.secondary}
+              placeholderTextColor={colors.secondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -974,15 +978,15 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         {/* Date segment: placeholder when toStation set but no date */}
         {toStation && !selectedDate && (
           <View style={[styles.segment, styles.segmentDatePlaceholder]}>
-            <Ionicons name="calendar-outline" size={14} color={AppColors.secondary} />
-            <Text style={[styles.segmentText, { color: AppColors.secondary }]}>Select date</Text>
+            <Ionicons name="calendar-outline" size={14} color={colors.secondary} />
+            <Text style={[styles.segmentText, { color: colors.secondary }]}>Select date</Text>
           </View>
         )}
 
         {/* Date segment: filled when date is selected */}
         {selectedDate && (
           <TouchableOpacity style={[styles.segment, styles.segmentDate]} onPress={handleClearDate}>
-            <Ionicons name="calendar-outline" size={14} color={AppColors.primary} />
+            <Ionicons name="calendar-outline" size={14} color={colors.primary} />
             <Text style={styles.segmentText}>{formatDateForPill(selectedDate)}</Text>
           </TouchableOpacity>
         )}
@@ -1006,7 +1010,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                   onPress={() => handleSelectStation(station)}
                 >
                   <View style={styles.stationIcon}>
-                    <Ionicons name="location" size={20} color={AppColors.primary} />
+                    <Ionicons name="location" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.stationInfo}>
                     <Text style={styles.stationName}>{station.stop_name}</Text>
@@ -1031,13 +1035,13 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
               return (
                 <TouchableOpacity key={label} style={styles.stationItem} onPress={() => handleDayPress({ dateString: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`, day: d.getDate(), month: d.getMonth()+1, year: d.getFullYear(), timestamp: d.getTime() })}>
                   <View style={styles.stationIcon}>
-                    <Ionicons name="calendar-outline" size={20} color={AppColors.primary} />
+                    <Ionicons name="calendar-outline" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.stationInfo}>
                     <Text style={styles.stationName}>{label}</Text>
                     <Text style={styles.stationCode}>{formatDateForPill(d)}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={AppColors.secondary} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.secondary} />
                 </TouchableOpacity>
               );
             })}
@@ -1137,7 +1141,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         {/* Hint when from is selected but no to search */}
         {!showingStationSearch && !showingResults && !showingDatePicker && searchQuery.length === 0 && !toStation && (
           <View style={styles.hintContainer}>
-            <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} />
+            <Ionicons name="information-circle-outline" size={20} color={colors.secondary} />
             <Text style={styles.hintText}>Now enter your arrival station</Text>
           </View>
         )}
@@ -1146,7 +1150,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -1154,7 +1158,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xl,
@@ -1163,7 +1167,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.sm,
-    color: AppColors.primary,
+    color: colors.primary,
     fontSize: FontSizes.searchLabel,
   },
   // Segment row (after first selection)
@@ -1176,14 +1180,14 @@ const styles = StyleSheet.create({
   segment: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     gap: 6,
   },
   segmentText: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontSize: FontSizes.searchLabel,
     fontWeight: '600',
     flexShrink: 1,
@@ -1193,7 +1197,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   segmentTextInput: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontSize: FontSizes.searchLabel,
     flex: 1,
     paddingVertical: Spacing.md,
@@ -1204,7 +1208,7 @@ const styles = StyleSheet.create({
   segmentDatePlaceholder: {
     flex: 1,
     borderWidth: 1,
-    borderColor: AppColors.border.secondary,
+    borderColor: colors.border.secondary,
     borderStyle: 'dashed' as const,
   },
   resultsContainer: {
@@ -1212,7 +1216,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: FontSizes.timeLabel,
-    color: AppColors.secondary,
+    color: colors.secondary,
     letterSpacing: 0.5,
     marginBottom: Spacing.md,
     fontWeight: '600',
@@ -1224,7 +1228,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   noResults: {
-    color: AppColors.secondary,
+    color: colors.secondary,
     fontSize: FontSizes.trainDate,
     textAlign: 'center',
     paddingVertical: Spacing.xl,
@@ -1232,7 +1236,7 @@ const styles = StyleSheet.create({
   stationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
@@ -1249,13 +1253,13 @@ const styles = StyleSheet.create({
   },
   stationName: {
     fontSize: FontSizes.searchLabel,
-    color: AppColors.primary,
+    color: colors.primary,
     fontWeight: '600',
     marginBottom: 2,
   },
   stationCode: {
     fontSize: FontSizes.daysLabel,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   liveIndicator: {
     fontSize: FontSizes.daysLabel,
@@ -1270,7 +1274,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: AppColors.secondary + '40',
+    borderColor: colors.secondary + '40',
   },
   liveFilterBadgeActive: {
     backgroundColor: '#34C75920',
@@ -1280,14 +1284,14 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: AppColors.secondary,
+    backgroundColor: colors.secondary,
   },
   liveFilterDotActive: {
     backgroundColor: '#34C759',
   },
   liveFilterText: {
     fontSize: FontSizes.daysLabel,
-    color: AppColors.secondary,
+    color: colors.secondary,
     fontWeight: '600',
   },
   liveFilterTextActive: {
@@ -1297,7 +1301,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   datePickerWrapper: {
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     overflow: 'hidden' as const,
@@ -1306,7 +1310,7 @@ const styles = StyleSheet.create({
   },
   tripCardSeparator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: AppColors.border.primary,
+    backgroundColor: colors.border.primary,
   },
   hintContainer: {
     flexDirection: 'row',
@@ -1316,7 +1320,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   hintText: {
-    color: AppColors.secondary,
+    color: colors.secondary,
     fontSize: FontSizes.trainDate,
   },
   // Train-number flow: stop list styles
@@ -1332,7 +1336,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: 2,
     height: 12,
-    backgroundColor: AppColors.border.secondary,
+    backgroundColor: colors.border.secondary,
   },
   stopConnectorBottom: {
     position: 'absolute' as const,
@@ -1340,7 +1344,7 @@ const styles = StyleSheet.create({
     top: 12 + 24, // top connector height + marker height area
     bottom: 0,
     width: 2,
-    backgroundColor: AppColors.border.secondary,
+    backgroundColor: colors.border.secondary,
   },
   stopRow: {
     flexDirection: 'row',
@@ -1360,12 +1364,12 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: AppColors.secondary,
+    borderColor: colors.secondary,
     backgroundColor: 'transparent',
   },
   stopDotSelected: {
-    backgroundColor: AppColors.primary,
-    borderColor: AppColors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   stopInfo: {
     flex: 1,
@@ -1373,22 +1377,22 @@ const styles = StyleSheet.create({
   },
   stopName: {
     fontSize: 15,
-    color: AppColors.primary,
+    color: colors.primary,
     fontWeight: '500',
     marginBottom: 2,
   },
   stopTime: {
     fontSize: FontSizes.daysLabel,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   stopCode: {
     fontSize: FontSizes.daysLabel,
-    color: AppColors.secondary,
+    color: colors.secondary,
     fontWeight: '500',
     marginTop: 4,
   },
   stopTextDimmed: {
-    color: AppColors.secondary,
+    color: colors.secondary,
     opacity: 0.6,
   },
 });

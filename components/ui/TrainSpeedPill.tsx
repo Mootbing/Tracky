@@ -1,14 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { AppColors } from '../../constants/theme';
+import { type ColorPalette } from '../../constants/theme';
+import { useColors } from '../../context/ThemeContext';
 import { useUnits } from '../../context/UnitsContext';
 import AnimatedRollingText from './AnimatedRollingText';
 
 interface TrainSpeedPillProps {
-  speed: number | undefined; // m/s from GTFS-RT
-  bearing: number | undefined; // degrees from GTFS-RT
+  speed: number | undefined;
+  bearing: number | undefined;
   visible: boolean;
 }
 
@@ -27,8 +28,55 @@ function metersPerSecToKmh(mps: number): number {
   return mps * 3.6;
 }
 
+const createStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    container: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      zIndex: 999,
+    },
+    pill: {
+      backgroundColor: colors.background.tertiary,
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    segment: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    divider: {
+      width: 1,
+      height: 14,
+      backgroundColor: colors.border.secondary,
+    },
+    valueText: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+  });
+
 export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps) {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { distanceUnit } = useUnits();
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -37,7 +85,6 @@ export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps)
 
   const hasData = visible && (speed != null || bearing != null);
 
-  // Store last known values so content stays rendered during exit animation
   const lastSpeed = useRef(speed);
   const lastBearing = useRef(bearing);
   if (speed != null) lastSpeed.current = speed;
@@ -110,14 +157,14 @@ export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps)
         <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
           {speedDisplay && (
             <View style={styles.segment}>
-              <Ionicons name="speedometer-outline" size={14} color={AppColors.secondary} />
+              <Ionicons name="speedometer-outline" size={14} color={colors.secondary} />
               <AnimatedRollingText value={speedDisplay} style={styles.valueText} />
             </View>
           )}
           {speedDisplay && bearingDisplay && <View style={styles.divider} />}
           {bearingDisplay && (
             <View style={styles.segment}>
-              <Ionicons name="compass-outline" size={14} color={AppColors.secondary} />
+              <Ionicons name="compass-outline" size={14} color={colors.secondary} />
               <AnimatedRollingText value={bearingDisplay} style={styles.valueText} />
               <AnimatedRollingText value={`${Math.round(displayBearing!)}°`} style={styles.valueText} />
             </View>
@@ -127,47 +174,3 @@ export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps)
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  pill: {
-    backgroundColor: AppColors.background.tertiary,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: AppColors.border.secondary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  segment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  divider: {
-    width: 1,
-    height: 14,
-    backgroundColor: AppColors.border.secondary,
-  },
-  valueText: {
-    fontSize: 13,
-    color: AppColors.primary,
-    fontWeight: '600',
-  },
-});

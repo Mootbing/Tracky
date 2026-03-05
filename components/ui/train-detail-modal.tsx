@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { Easing, FadeInDown, useAnimatedStyle } from 'react-native-reanimated';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AppColors, CloseButtonStyle, Spacing } from '../../constants/theme';
+import { type ColorPalette, Spacing, getCloseButtonStyle } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { light as hapticLight } from '../../utils/haptics';
 import { isThruwayName, TrainIcon } from '../TrainIcon';
 import { addDelayToTime, formatDelayStatus, formatTimeWithDayOffset, getDelayColorKey, parseTimeToDate, timeToMinutes } from '../../utils/time-formatting';
@@ -57,6 +58,8 @@ interface StopInfo {
 }
 
 export default function TrainDetailModal({ train, onClose, onStationSelect, onTrainSelect }: TrainDetailModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { selectedTrain } = useTrainContext();
   const { tempUnit, distanceUnit } = useUnits();
   const trainData = train || selectedTrain;
@@ -350,7 +353,12 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     } catch {}
   }
 
-  const countdown = trainData ? getCountdownForTrain(trainData) : null;
+  const departTz = React.useMemo(() => {
+    if (!trainData) return null;
+    const stop = gtfsParser.getStop(trainData.fromCode);
+    return stop ? getTimezoneForStop(stop) : null;
+  }, [trainData]);
+  const countdown = trainData ? getCountdownForTrain(trainData, departTz) : null;
   const unitLabel = countdown ? `${countdown.unit}${countdown.past ? ' AGO' : ''}` : '';
 
   // Local time at the train's next stop (only for live trains)
@@ -437,7 +445,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
         <View style={[styles.header]}>
           <View style={styles.headerContent} />
           <TouchableOpacity onPress={() => { hapticLight(); onClose(); }} style={styles.absoluteCloseButton} activeOpacity={0.6}>
-            <Ionicons name="close" size={24} color={AppColors.primary} />
+            <Ionicons name="close" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -463,7 +471,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
           </View>
         </View>
         <TouchableOpacity onPress={() => { hapticLight(); onClose(); }} style={styles.absoluteCloseButton} activeOpacity={0.6}>
-          <Ionicons name="close" size={24} color={AppColors.primary} />
+          <Ionicons name="close" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -491,16 +499,16 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             const bannerBg = liveDelayKey === 'delayed' ? 'rgba(239, 68, 68, 0.15)'
               : liveDelayKey === 'onTime' ? 'rgba(16, 185, 129, 0.15)'
               : undefined;
-            const bannerColor = liveDelayKey === 'delayed' ? AppColors.delayed
-              : liveDelayKey === 'onTime' ? AppColors.success
-              : AppColors.primary;
+            const bannerColor = liveDelayKey === 'delayed' ? colors.delayed
+              : liveDelayKey === 'onTime' ? colors.success
+              : colors.primary;
             return (
             <View style={[styles.expandableSection, bannerBg != null && { backgroundColor: bannerBg }]}>
               <View style={styles.statusRow}>
                 {isLiveTrain ? (
                   <TrainIcon name={trainData?.routeName} size={20} color={bannerColor} style={{ marginRight: Spacing.sm }} />
                 ) : (
-                  <Ionicons name="time-outline" size={20} color={AppColors.primary} style={{ marginRight: Spacing.sm }} />
+                  <Ionicons name="time-outline" size={20} color={colors.primary} style={{ marginRight: Spacing.sm }} />
                 )}
                 <Text style={[styles.statusText, { color: bannerColor }]}>
                   {isLiveTrain ? 'En route, ' : ''}
@@ -518,7 +526,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             {/* Departure Info */}
             <View style={[styles.infoSection, { paddingBottom: 0 }]}>
               <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-top-right" size={16} color={AppColors.primary} />
+                <MaterialCommunityIcons name="arrow-top-right" size={16} color={colors.primary} />
                 <TouchableOpacity
                   style={styles.stationTouchable}
                   onPress={() => handleStationPress(trainData.fromCode)}
@@ -532,7 +540,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 const dDelay = trainData.daysAway <= 0 ? trainData.realtime?.delay : undefined;
                 const dDelayed = dDelay && dDelay > 0 ? addDelayToTime(trainData.departTime, dDelay, 0) : undefined;
                 const colorKey = getDelayColorKey(dDelay);
-                const timeColor = colorKey === 'onTime' ? AppColors.success : undefined;
+                const timeColor = colorKey === 'onTime' ? colors.success : undefined;
                 return (
                   <>
                     <TimeDisplay
@@ -567,7 +575,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   <MaterialCommunityIcons
                     name="clock-outline"
                     size={14}
-                    color={AppColors.secondary}
+                    color={colors.secondary}
                     style={{ marginRight: Spacing.sm }}
                   />
                   <AnimatedRollingText value={duration} style={styles.durationText} />
@@ -591,7 +599,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             {/* Arrival Info */}
             <View style={[styles.infoSection, { paddingTop: 0 }]}>
               <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={AppColors.primary} />
+                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={colors.primary} />
                 <TouchableOpacity
                   style={styles.stationTouchable}
                   onPress={() => handleStationPress(trainData.toCode)}
@@ -605,7 +613,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 const aDelay = trainData.daysAway <= 0 ? trainData.realtime?.arrivalDelay : undefined;
                 const aDelayed = aDelay && aDelay > 0 ? addDelayToTime(trainData.arriveTime, aDelay, trainData.arriveDayOffset || 0) : undefined;
                 const colorKey = getDelayColorKey(aDelay);
-                const timeColor = colorKey === 'onTime' ? AppColors.success : undefined;
+                const timeColor = colorKey === 'onTime' ? colors.success : undefined;
                 // Compute arrival countdown
                 const arriveTime = aDelayed?.time || trainData.arriveTime;
                 const arriveDayOffset = aDelayed?.dayOffset ?? (trainData.arriveDayOffset || 0);
@@ -664,7 +672,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             {timezoneInfo && (
               <Animated.View entering={FadeInDown.delay(0).duration(200).easing(Easing.out(Easing.quad))} style={styles.infoCard}>
                 <View style={styles.infoCardIcon}>
-                  <Ionicons name="time-outline" size={24} color={AppColors.primary} />
+                  <Ionicons name="time-outline" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoCardTitle}>
@@ -679,11 +687,11 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             <Animated.View entering={FadeInDown.delay(100).duration(200).easing(Easing.out(Easing.quad))} style={styles.infoCard}>
               <View style={styles.infoCardIcon}>
                 {isLoadingWeather ? (
-                  <ActivityIndicator size="small" color={AppColors.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : weatherData ? (
-                  <Ionicons name={weatherData.icon as any} size={24} color={AppColors.primary} />
+                  <Ionicons name={weatherData.icon as any} size={24} color={colors.primary} />
                 ) : (
-                  <Ionicons name="partly-sunny-outline" size={24} color={AppColors.primary} />
+                  <Ionicons name="partly-sunny-outline" size={24} color={colors.primary} />
                 )}
               </View>
               <View style={styles.infoCardContent}>
@@ -704,7 +712,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             >
               <View style={styles.infoCardRow}>
                 <View style={styles.infoCardIcon}>
-                  <TrainIcon name={trainData?.routeName} size={24} color={AppColors.primary} />
+                  <TrainIcon name={trainData?.routeName} size={24} color={colors.primary} />
                 </View>
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoCardTitle}>{isThruwayName(trainData?.routeName) ? "Where's My Bus?" : "Where's My Train?"}</Text>
@@ -713,7 +721,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 <Ionicons
                   name={isWhereIsMyTrainExpanded ? "chevron-up" : "chevron-down"}
                   size={20}
-                  color={AppColors.secondary}
+                  color={colors.secondary}
                   style={{ alignSelf: 'center' }}
                 />
               </View>
@@ -741,7 +749,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                           {!isOrigin && !isPast && <View style={styles.timelineConnectorGap} />}
                           {isCurrent && !isOrigin && (
                             <View style={styles.timelineTrainPosition}>
-                              <TrainIcon name={trainData?.routeName} size={14} color={AppColors.primary} />
+                              <TrainIcon name={trainData?.routeName} size={14} color={colors.primary} />
                             </View>
                           )}
                           {!isDest && isPast && <View style={[styles.timelineConnectorBottom, styles.timelineConnectorPast]} />}
@@ -765,7 +773,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                                 {stopWeather[stop.code] && (
                                   <>
                                     <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}> ·</Text>
-                                    <Ionicons name={stopWeather[stop.code].icon as any} size={11} color={isCurrent ? '#FFFFFF' : AppColors.secondary} style={isPast ? { opacity: 0.6 } : undefined} />
+                                    <Ionicons name={stopWeather[stop.code].icon as any} size={11} color={isCurrent ? '#FFFFFF' : colors.secondary} style={isPast ? { opacity: 0.6 } : undefined} />
                                     <AnimatedRollingText value={` ${stopWeather[stop.code].temp}°${tempUnit}`} style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]} />
                                   </>
                                 )}
@@ -837,7 +845,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 <View style={styles.historyStat}>
                   <Text style={styles.historyStatLabel}>Distance</Text>
                   <View style={styles.historyStatValueRow}>
-                    <Ionicons name="navigate" size={14} color={AppColors.primary} style={styles.historyStatIcon} />
+                    <Ionicons name="navigate" size={14} color={colors.primary} style={styles.historyStatIcon} />
                     <AnimatedRollingText
                       value={routeHistory && routeHistory.trips > 0
                         ? `${Math.round(convertDistance(routeHistory.distance, distanceUnit)).toLocaleString()} ${distanceSuffix(distanceUnit)}`
@@ -849,7 +857,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 <View style={styles.historyStat}>
                   <Text style={styles.historyStatLabel}>Travel Time</Text>
                   <View style={styles.historyStatValueRow}>
-                    <Ionicons name="time" size={14} color={AppColors.primary} style={styles.historyStatIcon} />
+                    <Ionicons name="time" size={14} color={colors.primary} style={styles.historyStatIcon} />
                     <AnimatedRollingText
                       value={routeHistory && routeHistory.trips > 0
                         ? `${Math.floor(routeHistory.duration / 60)}h ${routeHistory.duration % 60}m`
@@ -871,7 +879,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             activeOpacity={0.7}
             onPress={() => { hapticLight(); openReportBadDataEmail(); }}
           >
-            <Ionicons name="information-circle-outline" size={16} color={AppColors.secondary} />
+            <Ionicons name="information-circle-outline" size={16} color={colors.secondary} />
             <Text style={styles.reportBadDataText}>Report Bad Data</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -880,7 +888,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   modalContent: {
     flex: 1,
     marginHorizontal: -Spacing.xxl,
@@ -896,7 +904,7 @@ const styles = StyleSheet.create({
   },
   headerScrolled: {
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border.primary,
+    borderBottomColor: colors.border.primary,
   },
   scrollContent: {
     flex: 1,
@@ -924,10 +932,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   absoluteCloseButton: {
-    ...CloseButtonStyle,
+    ...getCloseButtonStyle(colors),
     position: 'absolute',
     top: 0,
     right: Spacing.xxl,
@@ -937,7 +945,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   statusSection: {
     flexDirection: 'row',
@@ -952,12 +960,12 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   fullWidthLine: {
     width: '100%',
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.tertiary,
+    borderBottomColor: colors.tertiary,
     backgroundColor: 'transparent',
   },
   journeySection: {
@@ -988,18 +996,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   bigTimeText: {
     fontSize: 32,
     fontWeight: 'bold',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   bigTimeSuperscript: {
     fontSize: 12,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginLeft: 2,
   },
   journeyInfoBar: {
@@ -1011,7 +1019,7 @@ const styles = StyleSheet.create({
   verticalLine: {
     width: 2,
     height: '100%',
-    backgroundColor: AppColors.tertiary,
+    backgroundColor: colors.tertiary,
     marginRight: Spacing.xl,
   },
   journeyDetails: {
@@ -1028,12 +1036,12 @@ const styles = StyleSheet.create({
   journeyDetailText: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   expandableSection: {
     paddingHorizontal: Spacing.xxl,
     paddingVertical: Spacing.xl,
-    backgroundColor: AppColors.background.tertiary,
+    backgroundColor: colors.background.tertiary,
   },
   expandableHeader: {
     flexDirection: 'row',
@@ -1044,14 +1052,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
     flex: 1,
   },
   expandedContent: {
     paddingHorizontal: Spacing.xxl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xl,
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: colors.background.secondary,
   },
   fullRouteTimeline: {
   },
@@ -1064,7 +1072,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: 2,
     height: 24,
-    backgroundColor: AppColors.tertiary,
+    backgroundColor: colors.tertiary,
   },
   timelineConnectorGap: {
     position: 'absolute',
@@ -1072,7 +1080,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: 2,
     height: 18,
-    backgroundColor: AppColors.tertiary,
+    backgroundColor: colors.tertiary,
   },
   timelineConnectorBottom: {
     position: 'absolute',
@@ -1080,7 +1088,7 @@ const styles = StyleSheet.create({
     top: 24,
     bottom: 0,
     width: 2,
-    backgroundColor: AppColors.tertiary,
+    backgroundColor: colors.tertiary,
   },
   timelineConnectorBottomGap: {
     position: 'absolute',
@@ -1088,10 +1096,10 @@ const styles = StyleSheet.create({
     top: 38,
     bottom: 0,
     width: 2,
-    backgroundColor: AppColors.tertiary,
+    backgroundColor: colors.tertiary,
   },
   timelineConnectorPast: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
   },
   timelineStopRow: {
     flexDirection: 'row',
@@ -1110,12 +1118,12 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: AppColors.tertiary,
+    borderColor: colors.tertiary,
     backgroundColor: 'transparent',
   },
   timelineDotPast: {
-    borderColor: AppColors.primary,
-    backgroundColor: AppColors.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   timelineTrainPosition: {
     position: 'absolute',
@@ -1135,7 +1143,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   arrivalCountdown: {
     fontSize: 12,
@@ -1149,7 +1157,7 @@ const styles = StyleSheet.create({
   timelineStopCode: {
     fontSize: 12,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   timelineStopCodeRow: {
     flexDirection: 'row',
@@ -1159,21 +1167,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   timelineStopTimeSuperscript: {
     fontSize: 10,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginLeft: 2,
   },
   timelineTextPast: {
-    color: AppColors.secondary,
+    color: colors.secondary,
     opacity: 0.6,
   },
   weatherNote: {
     fontSize: 11,
-    color: AppColors.secondary,
+    color: colors.secondary,
     opacity: 0.6,
     textAlign: 'center',
     marginTop: Spacing.sm,
@@ -1190,7 +1198,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
     marginBottom: Spacing.lg,
   },
   infoCard: {
@@ -1200,7 +1208,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: AppColors.border.primary,
+    borderColor: colors.border.primary,
   },
   infoCardRow: {
     flexDirection: 'row',
@@ -1221,13 +1229,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
     marginBottom: Spacing.xs,
   },
   infoCardSubtext: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   historySection: {
     paddingHorizontal: Spacing.xxl,
@@ -1236,7 +1244,7 @@ const styles = StyleSheet.create({
   historyRouteSubtitle: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginBottom: Spacing.md,
     fontWeight: '400',
   },
@@ -1245,7 +1253,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: AppColors.border.primary,
+    borderColor: colors.border.primary,
   },
   historyStats: {
     flexDirection: 'row',
@@ -1259,7 +1267,7 @@ const styles = StyleSheet.create({
   historyStatLabel: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginBottom: Spacing.sm,
     fontWeight: '400',
   },
@@ -1274,7 +1282,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   helpSection: {
     paddingHorizontal: Spacing.xxl,
@@ -1283,7 +1291,7 @@ const styles = StyleSheet.create({
   historyEmptyText: {
     fontSize: 14,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
     textAlign: 'left',
     paddingTop: Spacing.sm,
     fontWeight: '400',
@@ -1298,7 +1306,7 @@ const styles = StyleSheet.create({
   reportBadDataText: {
     fontSize: 13,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   departArriveBoard: {
     paddingTop: Spacing.xl,
@@ -1321,42 +1329,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   locationName: {
     fontSize: 16,
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
   },
   timeText: {
     fontSize: 36,
     fontWeight: 'bold',
     fontFamily: FONTS.family,
-    color: AppColors.primary,
+    color: colors.primary,
     marginBottom: 0,
   },
   timeSuperscript: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginLeft: Spacing.xs,
     marginTop: 0,
   },
   delayStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: AppColors.success,
+    color: colors.success,
     marginTop: 2,
   },
   delayStatusLate: {
-    color: AppColors.delayed,
+    color: colors.delayed,
   },
   delayStatusEarly: {
-    color: AppColors.success,
+    color: colors.success,
   },
   countdownInline: {
     fontWeight: '400',
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   durationLineRow: {
     flexDirection: 'row',
@@ -1372,12 +1380,12 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 12,
     fontFamily: FONTS.family,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   horizontalLine: {
     flex: 1,
     height: 1,
-    backgroundColor: AppColors.border.primary,
+    backgroundColor: colors.border.primary,
     marginLeft: Spacing.sm,
   },
 });

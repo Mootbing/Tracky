@@ -1,5 +1,5 @@
 import { light as hapticLight, heavy as hapticHeavy, success as hapticSuccess } from '../utils/haptics';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -12,21 +12,22 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { AppColors, Spacing } from '../constants/theme';
+import { type ColorPalette, Spacing } from '../constants/theme';
+import { useColors } from '../context/ThemeContext';
 import { PlaceholderBlurb } from './PlaceholderBlurb';
-import { styles } from '../screens/styles';
+import { createStyles } from '../screens/styles';
 import type { Train } from '../types/train';
 import TrainCardContent from './TrainCardContent';
 import { SlideUpModalContext } from './ui/slide-up-modal';
 import { addDelayToTime, parseTimeToDate } from '../utils/time-formatting';
+import { gtfsParser } from '../utils/gtfs-parser';
+import { getTimezoneForStop } from '../utils/timezone';
 import { getCountdownForTrain } from '../utils/train-display';
 
 // Re-export for backwards compatibility
 export { parseTimeToDate, getCountdownForTrain };
 
-// First threshold - shows delete button
 const FIRST_THRESHOLD = -80;
-// Second threshold - triggers auto-delete on release
 const SECOND_THRESHOLD = -200;
 
 interface SwipeableTrainCardProps {
@@ -39,6 +40,9 @@ interface SwipeableTrainCardProps {
 }
 
 const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPress, onDelete, isFirst, isLast, contentOpacity }: SwipeableTrainCardProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const sStyles = useMemo(() => createSwipeStyles(colors), [colors]);
   const translateX = useSharedValue(0);
   const hasTriggeredSecondHaptic = useSharedValue(false);
   const isDeleting = useSharedValue(false);
@@ -100,11 +104,9 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     .onUpdate(event => {
       if (isDeleting.value) return;
 
-      // Only allow left swipe (negative values), no max limit
       const clampedX = Math.min(0, event.translationX);
       translateX.value = clampedX;
 
-      // Haptic only when crossing second threshold (auto-delete point)
       if (clampedX <= SECOND_THRESHOLD && !hasTriggeredSecondHaptic.value) {
         hasTriggeredSecondHaptic.value = true;
         runOnJS(triggerSecondHaptic)();
@@ -117,17 +119,14 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
 
       const fastSwipe = event.velocityX < -800;
 
-      // If past second threshold, auto-delete
       if (translateX.value <= SECOND_THRESHOLD) {
         runOnJS(performDelete)();
       } else if (translateX.value <= FIRST_THRESHOLD || fastSwipe) {
-        // Snap to show delete button
         translateX.value = withSpring(FIRST_THRESHOLD, {
           damping: 50,
           stiffness: 200,
         });
       } else {
-        // Snap back
         translateX.value = withSpring(0, {
           damping: 50,
           stiffness: 200,
@@ -144,7 +143,6 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     if (isDeleting.value) return;
 
     if (translateX.value < -10) {
-      // If swiped, tap closes it
       translateX.value = withSpring(0, {
         damping: 50,
         stiffness: 200,
@@ -159,7 +157,6 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
 
   const cardAnimatedStyle = useAnimatedStyle(() => {
     const absX = Math.abs(translateX.value);
-    // Fade from 1 to 0 as we go from FIRST_THRESHOLD to SECOND_THRESHOLD
     const fadeProgress = interpolate(absX, [Math.abs(FIRST_THRESHOLD), Math.abs(SECOND_THRESHOLD)], [1, 0], 'clamp');
 
     return {
@@ -168,7 +165,6 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     };
   });
 
-  // Delete button container fills the revealed space
   const deleteContainerAnimatedStyle = useAnimatedStyle(() => {
     const absX = Math.abs(translateX.value);
     const progress = Math.min(1, absX / Math.abs(FIRST_THRESHOLD));
@@ -179,7 +175,6 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     };
   });
 
-  // Delete button (the pill) - icon alignment changes based on swipe distance
   const deleteButtonAnimatedStyle = useAnimatedStyle(() => {
     const absX = Math.abs(translateX.value);
     const pastSecondThreshold = absX >= Math.abs(SECOND_THRESHOLD);
@@ -190,14 +185,16 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     };
   });
 
-  const countdown = getCountdownForTrain(train);
-  // Proper pluralization: "1 HOUR" vs "2 HOURS"
-  const singularUnit = countdown.unit.slice(0, -1); // Remove trailing 'S' (DAYS->DAY, HOURS->HOUR, etc.)
+  const departTz = useMemo(() => {
+    const stop = gtfsParser.getStop(train.fromCode);
+    return stop ? getTimezoneForStop(stop) : null;
+  }, [train.fromCode]);
+  const countdown = getCountdownForTrain(train, departTz);
+  const singularUnit = countdown.unit.slice(0, -1);
   const unitText = countdown.value === 1 ? singularUnit : countdown.unit;
   const unitLabel = unitText;
   const isPast = countdown.past;
 
-  // Compute delayed times for today's trains
   const departDelay = train.daysAway <= 0 ? train.realtime?.delay : undefined;
   const arriveDelay = train.daysAway <= 0 ? train.realtime?.arrivalDelay : undefined;
   const departDelayed = departDelay && departDelay > 0
@@ -207,20 +204,16 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     ? addDelayToTime(train.arriveTime, arriveDelay, train.arriveDayOffset)
     : undefined;
 
-  // Animated margin for first item - increases as modal collapses
   const firstItemMarginStyle = useAnimatedStyle(() => {
     if (!isFirst || !contentOpacity) {
       return {};
     }
-    // When contentOpacity is 1 (half height), margin is default (Spacing.md)
-    // When contentOpacity is 0 (collapsed), margin is 100
     const marginBottom = interpolate(contentOpacity.value, [0, 1], [100, Spacing.md], 'clamp');
     return {
       marginBottom,
     };
   });
 
-  // Animated opacity for rest of the list (not the first item) - fades out as modal collapses
   const restItemOpacityStyle = useAnimatedStyle(() => {
     if (isFirst || !contentOpacity) {
       return {};
@@ -235,19 +228,17 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
   };
 
   return (
-    <Animated.View style={[swipeStyles.container, firstItemMarginStyle, restItemOpacityStyle]}>
-      {/* Delete button behind the card */}
-      <Animated.View style={[swipeStyles.deleteButtonContainer, deleteContainerAnimatedStyle]}>
-        <View style={swipeStyles.deleteButtonWrapper}>
+    <Animated.View style={[sStyles.container, firstItemMarginStyle, restItemOpacityStyle]}>
+      <Animated.View style={[sStyles.deleteButtonContainer, deleteContainerAnimatedStyle]}>
+        <View style={sStyles.deleteButtonWrapper}>
           <GestureDetector gesture={Gesture.Tap().onEnd(() => runOnJS(handleDeletePress)())}>
-            <Animated.View style={[swipeStyles.deleteButton, deleteButtonAnimatedStyle]}>
-              <Ionicons name="trash" size={22} color={AppColors.primary} />
+            <Animated.View style={[sStyles.deleteButton, deleteButtonAnimatedStyle]}>
+              <Ionicons name="trash" size={22} color="#fff" />
             </Animated.View>
           </GestureDetector>
         </View>
       </Animated.View>
 
-      {/* The actual card */}
       <GestureDetector gesture={composedGesture}>
         <Animated.View style={[styles.trainCard, cardAnimatedStyle]}>
           <TrainCardContent
@@ -276,7 +267,7 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
           />
         </Animated.View>
       </GestureDetector>
-      {!isLast && <View style={swipeStyles.separator} />}
+      {!isLast && <View style={sStyles.separator} />}
     </Animated.View>
   );
 });
@@ -322,35 +313,36 @@ export function TrainList({ trains, onTrainSelect, onDeleteTrain }: TrainListPro
   );
 }
 
-const swipeStyles = StyleSheet.create({
-  container: {
-    position: 'relative',
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: AppColors.border.primary,
-  },
-  deleteButtonContainer: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'stretch',
-    paddingRight: 4,
-    paddingLeft: 12,
-  },
-  deleteButtonWrapper: {
-    height: 44,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  deleteButton: {
-    flex: 1,
-    borderRadius: 22,
-    backgroundColor: AppColors.error,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-});
+const createSwipeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    container: {
+      position: 'relative',
+    },
+    separator: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border.primary,
+    },
+    deleteButtonContainer: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'stretch',
+      paddingRight: 4,
+      paddingLeft: 12,
+    },
+    deleteButtonWrapper: {
+      height: 44,
+      flex: 1,
+      justifyContent: 'center',
+    },
+    deleteButton: {
+      flex: 1,
+      borderRadius: 22,
+      backgroundColor: colors.error,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+    },
+  });

@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Text } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { AppColors } from '../../constants/theme';
+import { useColors } from '../../context/ThemeContext';
 import { TrainIcon } from '../TrainIcon';
 
 interface LiveTrainMarkerProps {
@@ -31,18 +31,15 @@ export function LiveTrainMarker({
   clusterCount = 0,
   onPress,
 }: LiveTrainMarkerProps) {
-  // Train icon type is determined by TrainIcon component based on route name
+  const colors = useColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
-  // Track current display state for smooth transitions
   const [currentLabel, setCurrentLabel] = useState(isCluster ? `${clusterCount}+` : trainNumber);
   const [currentIsCluster, setCurrentIsCluster] = useState(isCluster);
 
-  // Determine icon color based on state
-  const iconColor = isSaved ? AppColors.accentBlue : AppColors.primary;
+  const iconColor = isSaved ? colors.accentBlue : colors.primary;
 
-  // Fade in on mount
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -59,11 +56,9 @@ export function LiveTrainMarker({
     ]).start();
   }, [fadeAnim, scaleAnim]);
 
-  // Animate when cluster state or label changes
   const newLabel = isCluster ? `${clusterCount}+` : trainNumber;
   useEffect(() => {
     if (newLabel !== currentLabel || isCluster !== currentIsCluster) {
-      // Quick fade out, update, fade in
       Animated.sequence([
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -77,7 +72,7 @@ export function LiveTrainMarker({
             useNativeDriver: true,
           }),
         ]),
-        Animated.delay(10), // Small delay for state update
+        Animated.delay(10),
       ]).start(() => {
         setCurrentLabel(newLabel);
         setCurrentIsCluster(isCluster);

@@ -1,17 +1,13 @@
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AppColors, FontSizes, Spacing } from '../constants/theme';
-import { COLORS, styles } from '../screens/styles';
+import { type ColorPalette, FontSizes, Spacing } from '../constants/theme';
+import { useColors } from '../context/ThemeContext';
+import { createStyles } from '../screens/styles';
 import { getDelayColorKey, parseTimeToDate } from '../utils/time-formatting';
 import AnimatedRollingText from './ui/AnimatedRollingText';
 import MarqueeText from './ui/MarqueeText';
 import TimeDisplay from './ui/TimeDisplay';
-
-const DELAY_COLORS = {
-  delayed: AppColors.delayed,
-  onTime: AppColors.success,
-} as const;
 
 interface TrainCardContentProps {
   countdownValue: number;
@@ -30,15 +26,12 @@ interface TrainCardContentProps {
   departDayOffset?: number;
   arriveDayOffset?: number;
   intermediateStopCount?: number;
-  // Delay props for departure
   departDelayMinutes?: number;
   departDelayedTime?: string;
   departDelayedDayOffset?: number;
-  // Delay props for arrival
   arriveDelayMinutes?: number;
   arriveDelayedTime?: string;
   arriveDelayedDayOffset?: number;
-  /** When true, only fade out after arrival (not on departure). Used in My Trains list. */
   fadeOnlyOnArrival?: boolean;
 }
 
@@ -67,6 +60,15 @@ export default function TrainCardContent({
   arriveDelayedDayOffset,
   fadeOnlyOnArrival,
 }: TrainCardContentProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const localStyles = useMemo(() => createLocalStyles(colors), [colors]);
+
+  const DELAY_COLORS = {
+    delayed: colors.delayed,
+    onTime: colors.success,
+  } as const;
+
   const isToday = daysAway != null && daysAway <= 0;
 
   const isArrived = useMemo(() => {
@@ -79,7 +81,7 @@ export default function TrainCardContent({
   }, [isPast, arriveTime, arriveDayOffset, arriveDelayMinutes]);
 
   const shouldFadeTitle = fadeOnlyOnArrival ? isArrived : isPast;
-  const pastColor = isPast ? { color: AppColors.secondary } : undefined;
+  const pastColor = isPast ? { color: colors.secondary } : undefined;
 
   return (
     <View style={localStyles.row}>
@@ -95,7 +97,7 @@ export default function TrainCardContent({
             style={[styles.amtrakLogo, isPast && { opacity: 0.4 }]}
             fadeDuration={0}
           />
-          <Text style={[styles.trainNumber, { color: COLORS.secondary, fontWeight: '400' }]}>
+          <Text style={[styles.trainNumber, { color: colors.secondary, fontWeight: '400' }]}>
             {routeName} {trainNumber}
           </Text>
           {intermediateStopCount != null && intermediateStopCount > 0 && (
@@ -108,7 +110,7 @@ export default function TrainCardContent({
             <AnimatedRollingText
               style={[styles.trainDate, {
                 color: isPast
-                  ? (isArrived ? AppColors.secondary : AppColors.inProgress)
+                  ? (isArrived ? colors.secondary : colors.inProgress)
                   : departDelayMinutes && departDelayMinutes > 0
                     ? DELAY_COLORS.delayed
                     : DELAY_COLORS.onTime,
@@ -126,7 +128,7 @@ export default function TrainCardContent({
 
         <MarqueeText
           text={`${fromName} to ${toName}`}
-          style={[styles.route, { fontSize: 18 }, shouldFadeTitle ? { color: AppColors.secondary } : undefined]}
+          style={[styles.route, { fontSize: 18 }, shouldFadeTitle ? { color: colors.secondary } : undefined]}
         >
           {fromName} <Text style={{ fontWeight: 'normal' }}>to</Text> {toName}
         </MarqueeText>
@@ -134,11 +136,11 @@ export default function TrainCardContent({
         <View style={styles.timeRow}>
           {(() => {
             const depColorKey = getDelayColorKey(departDelayMinutes);
-            const depBg = depColorKey ? DELAY_COLORS[depColorKey] : pastColor?.color ?? AppColors.secondary;
+            const depBg = depColorKey ? DELAY_COLORS[depColorKey] : pastColor?.color ?? colors.secondary;
             return (
               <View style={styles.timeInfo}>
                 <View style={[styles.arrowIcon, { backgroundColor: depBg }]}>
-                  <MaterialCommunityIcons name="arrow-top-right" size={10} color={AppColors.background.tertiary} />
+                  <MaterialCommunityIcons name="arrow-top-right" size={10} color={colors.background.tertiary} />
                 </View>
                 <Text style={styles.timeCode}>{fromCode}</Text>
                 <TimeDisplay
@@ -153,11 +155,11 @@ export default function TrainCardContent({
 
           {(() => {
             const arrColorKey = getDelayColorKey(arriveDelayMinutes);
-            const arrBg = arrColorKey ? DELAY_COLORS[arrColorKey] : pastColor?.color ?? AppColors.secondary;
+            const arrBg = arrColorKey ? DELAY_COLORS[arrColorKey] : pastColor?.color ?? colors.secondary;
             return (
               <View style={styles.timeInfo}>
                 <View style={[styles.arrowIcon, { backgroundColor: arrBg }]}>
-                  <MaterialCommunityIcons name="arrow-bottom-left" size={10} color={AppColors.background.tertiary} />
+                  <MaterialCommunityIcons name="arrow-bottom-left" size={10} color={colors.background.tertiary} />
                 </View>
                 <Text style={styles.timeCode}>{toCode}</Text>
                 <TimeDisplay
@@ -175,21 +177,22 @@ export default function TrainCardContent({
   );
 }
 
-const localStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    padding: Spacing.lg,
-  },
-  stops: {
-    fontSize: FontSizes.daysLabel,
-    color: AppColors.secondary,
-    marginLeft: 'auto',
-  },
-  timeSuperscript: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: AppColors.secondary,
-    marginLeft: 2,
-    marginTop: -2,
-  },
-});
+const createLocalStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      padding: Spacing.lg,
+    },
+    stops: {
+      fontSize: FontSizes.daysLabel,
+      color: colors.secondary,
+      marginLeft: 'auto',
+    },
+    timeSuperscript: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.secondary,
+      marginLeft: 2,
+      marginTop: -2,
+    },
+  });

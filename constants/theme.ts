@@ -1,4 +1,26 @@
-export const AppColors = {
+export type ColorPalette = {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+  accent: string;
+  accentBlue: string;
+  success: string;
+  error: string;
+  delayed: string;
+  inProgress: string;
+  shadow: string;
+  background: {
+    primary: string;
+    secondary: string;
+    tertiary: string;
+  };
+  border: {
+    primary: string;
+    secondary: string;
+  };
+};
+
+export const DarkColors: ColorPalette = {
   primary: '#fff',
   secondary: 'rgba(255, 255, 255, 0.5)',
   tertiary: 'rgba(255, 255, 255, 0.2)',
@@ -17,6 +39,28 @@ export const AppColors = {
   border: {
     primary: '#2C2C30',
     secondary: '#3A3A3F',
+  },
+};
+
+export const LightColors: ColorPalette = {
+  primary: '#1C1C1E',
+  secondary: 'rgba(0, 0, 0, 0.5)',
+  tertiary: 'rgba(0, 0, 0, 0.2)',
+  accent: '#FF6B35',
+  accentBlue: '#007AFF',
+  success: '#10B981',
+  error: '#EF4444',
+  delayed: '#EF4444',
+  inProgress: '#10B981',
+  shadow: 'rgba(0, 0, 0, 0.1)',
+  background: {
+    primary: '#FFFFFF',
+    secondary: '#F2F2F7',
+    tertiary: '#E5E5EA',
+  },
+  border: {
+    primary: '#D1D1D6',
+    secondary: '#C7C7CC',
   },
 };
 
@@ -49,13 +93,14 @@ export const BorderRadius = {
   xl: 32,
 };
 
-export const CloseButtonStyle = {
+export const getCloseButtonStyle = (colors: ColorPalette) => ({
   width: 44,
   height: 44,
   borderRadius: 22,
-  backgroundColor: AppColors.background.secondary,
+  backgroundColor: colors.background.secondary,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
   borderWidth: 1,
-  borderColor: AppColors.border.primary,
-};
+  borderColor: colors.border.primary,
+});
+

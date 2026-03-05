@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ThemeProvider } from '../context/ThemeContext';
 import '../services/background-tasks';
 import { info } from '../utils/logger';
 
@@ -35,14 +36,16 @@ function RootLayout() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </GestureHandlerRootView>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Text } from 'react-native';
 import { Marker } from 'react-native-maps';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { AppColors } from '../../constants/theme';
+import { useColors } from '../../context/ThemeContext';
 
 interface StationCluster {
   id: string;
@@ -20,12 +20,12 @@ interface AnimatedStationMarkerProps {
 }
 
 export function AnimatedStationMarker({ cluster, showFullName, displayName, onPress }: AnimatedStationMarkerProps) {
+  const colors = useColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const [currentDisplay, setCurrentDisplay] = useState(displayName);
   const [currentIsCluster, setCurrentIsCluster] = useState(cluster.isCluster);
 
-  // Fade in on mount
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -42,10 +42,8 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
     ]).start();
   }, [fadeAnim, scaleAnim]);
 
-  // Animate when display name or cluster state changes
   useEffect(() => {
     if (displayName !== currentDisplay || cluster.isCluster !== currentIsCluster) {
-      // Quick fade out, update, fade in
       Animated.sequence([
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -59,7 +57,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
             useNativeDriver: true,
           }),
         ]),
-        Animated.delay(10), // Small delay for state update
+        Animated.delay(10),
       ]).start(() => {
         setCurrentDisplay(displayName);
         setCurrentIsCluster(cluster.isCluster);
@@ -98,7 +96,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
         <Ionicons
           name="location"
           size={24}
-          color={AppColors.primary}
+          color={colors.primary}
           style={{
             textShadowColor: 'rgba(0, 0, 0, 0.75)',
             textShadowOffset: { width: 0, height: 1 },
@@ -107,7 +105,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
         />
         <Text
           style={{
-            color: AppColors.primary,
+            color: colors.primary,
             fontSize: currentIsCluster ? 10 : 9,
             fontWeight: '600',
             marginTop: 0,

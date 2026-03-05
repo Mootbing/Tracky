@@ -12,7 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AppColors, BorderRadius, CloseButtonStyle, FontSizes, Spacing } from '../../constants/theme';
+import { type ColorPalette, BorderRadius, FontSizes, Spacing } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { useModalState } from '../../context/ModalContext';
 import { useUnits } from '../../context/UnitsContext';
@@ -58,6 +59,9 @@ const SwipeableHistoryCard = React.memo(function SwipeableHistoryCard({
   onDelete: () => void;
   isLast?: boolean;
 }) {
+  const { colors } = useTheme();
+  const swipeStyles = useMemo(() => createSwipeStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const translateX = useSharedValue(0);
   const hasTriggeredSecondHaptic = useSharedValue(false);
   const isDeleting = useSharedValue(false);
@@ -196,7 +200,7 @@ const SwipeableHistoryCard = React.memo(function SwipeableHistoryCard({
         <View style={swipeStyles.deleteButtonWrapper}>
           <GestureDetector gesture={Gesture.Tap().onEnd(() => runOnJS(handleDeletePress)())}>
             <Animated.View style={[swipeStyles.deleteButton, deleteButtonAnimatedStyle]}>
-              <Ionicons name="trash" size={22} color={AppColors.primary} />
+              <Ionicons name="trash" size={22} color={colors.primary} />
             </Animated.View>
           </GestureDetector>
         </View>
@@ -234,6 +238,8 @@ type ListItem =
   | { type: 'trip'; key: string; trip: CompletedTrip; isLast: boolean };
 
 export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalProps) {
+  const { colors, closeButtonStyle } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [history, setHistory] = useState<CompletedTrip[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
@@ -501,7 +507,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
       <View style={styles.passportCard}>
         <View style={styles.passportHeader}>
           <View style={styles.passportTitleRow}>
-            <MaterialCommunityIcons name="train" size={16} color={AppColors.primary} />
+            <MaterialCommunityIcons name="train" size={16} color={'#fff'} />
             <Text style={styles.passportTitle}>{selectedYear || 'ALL-TIME'} SUPERTICKET</Text>
           </View>
           <TouchableOpacity
@@ -509,7 +515,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
           >
-            <Ionicons name="share-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="share-outline" size={22} color={'#fff'} />
           </TouchableOpacity>
         </View>
         <Text style={styles.passportSubtitle}>🎫 SUPERTICKET · RAIL · EXPRESS</Text>
@@ -550,7 +556,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           onPress={() => handleComingSoon('Coming Soon', 'Detailed train stats are on the way!')}
         >
           <Text style={styles.allStatsButtonText}>All Train Stats</Text>
-          <Ionicons name="chevron-forward" size={16} color={AppColors.primary} />
+          <Ionicons name="chevron-forward" size={16} color={'#fff'} />
         </TouchableOpacity>
       </View>
 
@@ -563,7 +569,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
           >
-            <Ionicons name="share-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="share-outline" size={22} color={'#fff'} />
           </TouchableOpacity>
         </View>
         <Text style={styles.delayTitle}>hours lost from delays</Text>
@@ -579,7 +585,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           onPress={() => handleComingSoon('Coming Soon', 'Detailed delay stats are on the way!')}
         >
           <Text style={styles.delayButtonText}>All Delay Stats</Text>
-          <Ionicons name="chevron-forward" size={16} color={AppColors.primary} />
+          <Ionicons name="chevron-forward" size={16} color={'#fff'} />
         </TouchableOpacity>
       </View>
 
@@ -593,13 +599,13 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               activeOpacity={0.7}
             >
-              <Ionicons name="share-outline" size={22} color={AppColors.secondary} />
+              <Ionicons name="share-outline" size={22} color={colors.secondary} />
             </TouchableOpacity>
           </View>
           <Text style={styles.mostRiddenRouteName}>{stats.mostRiddenRoute.routeName}</Text>
           <AnimatedRollingText value={`${stats.mostRiddenRoute.count} trips`} style={styles.mostRiddenCount} />
           <View style={styles.mostRiddenIcon}>
-            <MaterialCommunityIcons name="train-car" size={32} color={AppColors.secondary} />
+            <MaterialCommunityIcons name="train-car" size={32} color={colors.secondary} />
           </View>
         </View>
       )}
@@ -660,7 +666,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
         />
       )}
     </>
-  ), [selectedYear, stats, distanceUnit, history.length, sortField, sortDirection, filteredAndSortedHistory.length, handleSharePassport, handleShareDelays, handleShareMostRidden, handleSortPress, handleComingSoon]);
+  ), [selectedYear, stats, distanceUnit, history.length, sortField, sortDirection, filteredAndSortedHistory.length, handleSharePassport, handleShareDelays, handleShareMostRidden, handleSortPress, handleComingSoon, styles, colors]);
 
   return (
     <View style={{ flex: 1, marginHorizontal: -Spacing.xl }}>
@@ -675,15 +681,15 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
             <Text style={styles.profileSubtitle}>My Train Log</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={handleClosePress} style={styles.closeButton} activeOpacity={0.6}>
-          <Ionicons name="close" size={24} color={AppColors.primary} />
+        <TouchableOpacity onPress={handleClosePress} style={closeButtonStyle} activeOpacity={0.6}>
+          <Ionicons name="close" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* Action Pills */}
       <View style={[styles.actionPillsContainer, { paddingHorizontal: Spacing.xl }]}>
         <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={handleSettingsPress}>
-          <Ionicons name="settings-sharp" size={14} color={AppColors.primary} />
+          <Ionicons name="settings-sharp" size={14} color={colors.primary} />
           <Text style={styles.actionPillText}>Settings</Text>
         </TouchableOpacity>
       </View>
@@ -738,13 +744,13 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
   );
 }
 
-const swipeStyles = StyleSheet.create({
+const createSwipeStyles = (colors: ColorPalette) => StyleSheet.create({
   container: {
     position: 'relative',
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: AppColors.border.primary,
+    backgroundColor: colors.border.primary,
   },
   deleteButtonContainer: {
     position: 'absolute',
@@ -764,14 +770,14 @@ const swipeStyles = StyleSheet.create({
   deleteButton: {
     flex: 1,
     borderRadius: 22,
-    backgroundColor: AppColors.error,
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
 });
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -788,11 +794,11 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: colors.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: AppColors.border.primary,
+    borderColor: colors.border.primary,
   },
   avatarEmoji: {
     fontSize: 32,
@@ -803,14 +809,11 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: colors.primary,
   },
   profileSubtitle: {
     fontSize: 15,
-    color: AppColors.secondary,
-  },
-  closeButton: {
-    ...CloseButtonStyle,
+    color: colors.secondary,
   },
   actionPillsContainer: {
     flexDirection: 'row',
@@ -820,18 +823,18 @@ const styles = StyleSheet.create({
   actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: colors.background.secondary,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 5,
     borderWidth: 1,
-    borderColor: AppColors.border.secondary,
+    borderColor: colors.border.secondary,
   },
   actionPillText: {
     fontSize: 13,
     fontWeight: '500',
-    color: AppColors.primary,
+    color: colors.primary,
   },
   yearFilterContainer: {
     flexDirection: 'row',
@@ -844,15 +847,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   yearButtonActive: {
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: colors.background.secondary,
   },
   yearButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   yearButtonTextActive: {
-    color: AppColors.primary,
+    color: colors.primary,
   },
   scrollContent: {},
   passportCard: {
@@ -880,7 +883,7 @@ const styles = StyleSheet.create({
   passportTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: '#fff',
     letterSpacing: 0.5,
   },
   passportSubtitle: {
@@ -907,11 +910,11 @@ const styles = StyleSheet.create({
   passportStatValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: '#fff',
   },
   passportStatSubtext: {
     fontSize: 13,
-    color: AppColors.primary,
+    color: '#fff',
     marginTop: 2,
   },
   passportStatsRow: {
@@ -925,7 +928,7 @@ const styles = StyleSheet.create({
   passportStatValueSmall: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: '#fff',
   },
   allStatsButton: {
     flexDirection: 'row',
@@ -938,7 +941,7 @@ const styles = StyleSheet.create({
   allStatsButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: AppColors.primary,
+    color: '#fff',
   },
   delayCard: {
     backgroundColor: '#B71C1C',
@@ -960,13 +963,13 @@ const styles = StyleSheet.create({
   delayBigNumber: {
     fontSize: 64,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: '#fff',
     lineHeight: 64,
   },
   delayTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: AppColors.primary,
+    color: '#fff',
     marginBottom: Spacing.sm,
   },
   delaySubtext: {
@@ -985,15 +988,15 @@ const styles = StyleSheet.create({
   delayButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: AppColors.primary,
+    color: '#fff',
   },
   mostRiddenCard: {
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: colors.background.secondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: AppColors.border.primary,
+    borderColor: colors.border.primary,
     position: 'relative',
     overflow: 'hidden',
     minHeight: 200,
@@ -1007,17 +1010,17 @@ const styles = StyleSheet.create({
   mostRiddenTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   mostRiddenRouteName: {
     fontSize: 42,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: colors.primary,
     marginBottom: Spacing.xs,
   },
   mostRiddenCount: {
     fontSize: 16,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   mostRiddenIcon: {
     position: 'absolute',
@@ -1027,7 +1030,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 10,
-    color: AppColors.secondary,
+    color: colors.secondary,
     letterSpacing: 0.5,
     marginBottom: Spacing.md,
     marginTop: Spacing.md,
@@ -1043,21 +1046,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: AppColors.background.secondary,
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: AppColors.border.secondary,
+    borderColor: colors.border.secondary,
   },
   filterButtonActive: {
-    backgroundColor: AppColors.background.primary,
-    borderColor: AppColors.border.primary,
+    backgroundColor: colors.background.primary,
+    borderColor: colors.border.primary,
   },
   filterButtonText: {
     fontSize: 13,
     fontWeight: '500',
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   filterButtonTextActive: {
-    color: AppColors.primary,
+    color: colors.primary,
   },
   groupHeader: {
     flexDirection: 'row',
@@ -1070,20 +1073,20 @@ const styles = StyleSheet.create({
   groupHeaderText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: AppColors.primary,
+    color: colors.primary,
   },
   groupHeaderCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     letterSpacing: 0.5,
   },
   groupDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: AppColors.border.primary,
+    backgroundColor: colors.border.primary,
   },
   historyCard: {
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
     padding: Spacing.lg,
   },
   historyDetailRow: {
@@ -1099,16 +1102,16 @@ const styles = StyleSheet.create({
   },
   historyDetailText: {
     fontSize: 13,
-    color: AppColors.secondary,
+    color: colors.secondary,
   },
   historyDate: {
     fontSize: FontSizes.trainDate,
-    color: AppColors.secondary,
+    color: colors.secondary,
     marginLeft: 'auto',
   },
   historyRouteName: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.primary,
+    color: colors.primary,
   },
 });

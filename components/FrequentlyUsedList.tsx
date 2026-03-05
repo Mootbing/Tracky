@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, styles } from '../screens/styles';
+import { useColors } from '../context/ThemeContext';
+import { createStyles } from '../screens/styles';
 import { selection as hapticSelection } from '../utils/haptics';
 import { TrainIcon } from './TrainIcon';
 
@@ -21,6 +22,9 @@ export function FrequentlyUsedList({
   items: FrequentlyUsedItemProps[];
   onSelect: (item: FrequentlyUsedItemProps) => void;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <>
       {items.map(item => (
@@ -35,9 +39,9 @@ export function FrequentlyUsedList({
           accessibilityHint={`Select ${item.type === 'train' ? 'train route' : 'station'} ${item.name}`}
         >
           <View style={styles.frequentlyUsedIcon}>
-            {item.type === 'train' && <TrainIcon name={item.name} size={24} color={COLORS.primary} />}
-            {item.type === 'station' && <Ionicons name="location" size={24} color={COLORS.primary} />}
-            {item.type === 'route' && <MaterialCommunityIcons name="train-track" size={24} color={COLORS.primary} />}
+            {item.type === 'train' && <TrainIcon name={item.name} size={24} color={colors.primary} />}
+            {item.type === 'station' && <Ionicons name="location" size={24} color={colors.primary} />}
+            {item.type === 'route' && <MaterialCommunityIcons name="train-track" size={24} color={colors.primary} />}
           </View>
           <View style={styles.frequentlyUsedText}>
             {item.type === 'train' ? (
@@ -49,7 +53,7 @@ export function FrequentlyUsedList({
                   <MaterialCommunityIcons
                     name="arrow-right"
                     size={16}
-                    color={COLORS.secondary}
+                    color={colors.secondary}
                     style={{ marginHorizontal: 2 }}
                   />
                   <Text style={styles.frequentlyUsedSubtitle}> · {item.code.split('-')[1]}</Text>
@@ -62,7 +66,7 @@ export function FrequentlyUsedList({
               </>
             )}
           </View>
-          <Ionicons name="arrow-forward" size={20} color={COLORS.secondary} />
+          <Ionicons name="arrow-forward" size={20} color={colors.secondary} />
         </TouchableOpacity>
       ))}
     </>

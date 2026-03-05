@@ -15,7 +15,8 @@ import { hasCalendarPermission, syncFutureTrips } from '../services/calendar-syn
 import { TrainStorageService } from '../services/storage';
 import { TrainActivityManager } from '../services/train-activity-manager';
 import type { SavedTrainRef, Train } from '../types/train';
-import { COLORS, styles } from './styles';
+import { useColors } from '../context/ThemeContext';
+import { createStyles } from './styles';
 import { light as hapticLight } from '../utils/haptics';
 import { parseTimeToDate } from '../utils/time-formatting';
 import { logger } from '../utils/logger';
@@ -28,6 +29,8 @@ export const ModalContent = React.forwardRef<
   ModalContentHandle,
   { onTrainSelect?: (train: Train) => void; onOpenProfile?: () => void }
 >(function ModalContent({ onTrainSelect, onOpenProfile }, ref) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { isFullscreen, isCollapsed, scrollOffset, contentOpacity, panRef, snapToPoint } =
     useContext(SlideUpModalContext);
 
@@ -293,7 +296,7 @@ export const ModalContent = React.forwardRef<
             accessibilityRole="button"
             accessibilityLabel="Profile"
           >
-            <Ionicons name="person" size={22} color={COLORS.primary} />
+            <Ionicons name="person" size={22} color={colors.primary} />
           </TouchableOpacity>
         )}
 
@@ -312,7 +315,7 @@ export const ModalContent = React.forwardRef<
             accessibilityRole="button"
             accessibilityLabel="Add a train"
           >
-            <Ionicons name="search" size={20} color={COLORS.secondary} />
+            <Ionicons name="search" size={20} color={colors.secondary} />
             <Text style={styles.searchButtonText}>Train number, route, or station</Text>
           </TouchableOpacity>
         )}

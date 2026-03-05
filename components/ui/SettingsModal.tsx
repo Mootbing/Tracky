@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +16,8 @@ import {
 import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { AppColors, BorderRadius, CloseButtonStyle, Spacing } from '../../constants/theme';
+import { type ColorPalette, BorderRadius, Spacing, getCloseButtonStyle } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { type DistanceUnit, type TempUnit, useUnits } from '../../context/UnitsContext';
 import {
   type DeviceCalendar,
@@ -80,6 +81,8 @@ function formatLogDate(iso: string): string {
 }
 
 export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { isFullscreen, scrollOffset, panRef } = useContext(SlideUpModalContext);
   const { tempUnit, distanceUnit, setTempUnit, setDistanceUnit } = useUnits();
   const [currentPage, setCurrentPage] = useState<
@@ -527,13 +530,13 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           onPress={() => openSubpage('notifications')}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="notifications-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Notifications</Text>
             <Text style={styles.itemSubtitle}>Reminders, alerts, Live Activities</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={AppColors.secondary} />
+          <Ionicons name="chevron-forward" size={20} color={colors.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -545,7 +548,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           onPress={() => openSubpage('units')}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="speedometer-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="speedometer-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Units</Text>
@@ -554,7 +557,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               {DISTANCE_OPTIONS.find(o => o.value === distanceUnit)?.desc}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={AppColors.secondary} />
+          <Ionicons name="chevron-forward" size={20} color={colors.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -566,12 +569,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           onPress={() => openSubpage('calendar')}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="calendar-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="calendar-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Calendar Sync</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={AppColors.secondary} />
+          <Ionicons name="chevron-forward" size={20} color={colors.secondary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.settingsItem, styles.settingsItemLast]}
@@ -582,10 +585,10 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           }}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="trash-outline" size={22} color={AppColors.error} />
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
           </View>
           <View style={styles.itemContent}>
-            <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete All Synced Trips</Text>
+            <Text style={[styles.itemTitle, { color: colors.error }]}>Delete All Synced Trips</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -601,7 +604,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           }}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="refresh" size={22} color={AppColors.primary} />
+            <Ionicons name="refresh" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Refresh Amtrak Schedule</Text>
@@ -616,12 +619,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           }}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="bug-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="bug-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Report a Bug</Text>
           </View>
-          <Ionicons name="mail-outline" size={20} color={AppColors.secondary} />
+          <Ionicons name="mail-outline" size={20} color={colors.secondary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.settingsItem, styles.settingsItemLast]}
@@ -632,12 +635,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           }}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="alert-circle-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="alert-circle-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Report Bad Data</Text>
           </View>
-          <Ionicons name="mail-outline" size={20} color={AppColors.secondary} />
+          <Ionicons name="mail-outline" size={20} color={colors.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -645,12 +648,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
       <View style={styles.settingsList}>
         <TouchableOpacity style={styles.settingsItem} activeOpacity={0.7} onPress={() => openSubpage('about')}>
           <View style={styles.itemIconContainer}>
-            <Ionicons name="information-circle-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>About This App</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={AppColors.secondary} />
+          <Ionicons name="chevron-forward" size={20} color={colors.secondary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.settingsItem, styles.settingsItemLast]}
@@ -658,12 +661,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           onPress={() => openSubpage('dataProviders')}
         >
           <View style={styles.itemIconContainer}>
-            <Ionicons name="server-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="server-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Data Providers</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={AppColors.secondary} />
+          <Ionicons name="chevron-forward" size={20} color={colors.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -673,12 +676,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <View style={styles.settingsList}>
             <TouchableOpacity style={styles.settingsItem} activeOpacity={0.7} onPress={() => openSubpage('debugLog')}>
               <View style={styles.itemIconContainer}>
-                <Ionicons name="document-text-outline" size={22} color={AppColors.primary} />
+                <Ionicons name="document-text-outline" size={22} color={colors.primary} />
               </View>
               <View style={styles.itemContent}>
                 <Text style={styles.itemTitle}>View Debug Log</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={AppColors.secondary} />
+              <Ionicons name="chevron-forward" size={20} color={colors.secondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingsItem}
@@ -750,10 +753,10 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               }}
             >
               <View style={styles.itemIconContainer}>
-                <Ionicons name="trash-outline" size={22} color={AppColors.error} />
+                <Ionicons name="trash-outline" size={22} color={colors.error} />
               </View>
               <View style={styles.itemContent}>
-                <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete GTFS Data</Text>
+                <Text style={[styles.itemTitle, { color: colors.error }]}>Delete GTFS Data</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -765,10 +768,10 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               }}
             >
               <View style={styles.itemIconContainer}>
-                <Ionicons name="trash-outline" size={22} color={AppColors.error} />
+                <Ionicons name="trash-outline" size={22} color={colors.error} />
               </View>
               <View style={styles.itemContent}>
-                <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete All Past Routes</Text>
+                <Text style={[styles.itemTitle, { color: colors.error }]}>Delete All Past Routes</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -780,10 +783,10 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               }}
             >
               <View style={styles.itemIconContainer}>
-                <Ionicons name="trash-outline" size={22} color={AppColors.error} />
+                <Ionicons name="trash-outline" size={22} color={colors.error} />
               </View>
               <View style={styles.itemContent}>
-                <Text style={[styles.itemTitle, { color: AppColors.error }]}>Delete All Active & Future Routes</Text>
+                <Text style={[styles.itemTitle, { color: colors.error }]}>Delete All Active & Future Routes</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -796,7 +799,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
     <>
       {syncState === 'idle' && (
         <View style={styles.syncingRow}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.syncingText}>Loading calendars...</Text>
         </View>
       )}
@@ -836,7 +839,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                   <Text style={styles.itemTitle}>{cal.title}</Text>
                   <Text style={styles.itemSubtitle}>{cal.source}</Text>
                 </View>
-                {selectedCalendarIds.has(cal.id) && <Ionicons name="checkmark" size={20} color={AppColors.primary} />}
+                {selectedCalendarIds.has(cal.id) && <Ionicons name="checkmark" size={20} color={colors.primary} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -859,7 +862,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                 <View style={styles.itemContent}>
                   <Text style={styles.itemTitle}>{opt.label}</Text>
                 </View>
-                {scanDays === opt.value && <Ionicons name="checkmark" size={20} color={AppColors.primary} />}
+                {scanDays === opt.value && <Ionicons name="checkmark" size={20} color={colors.primary} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -882,7 +885,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                   <Text style={styles.itemTitle}>{opt.label}</Text>
                   <Text style={styles.itemSubtitle}>{opt.desc}</Text>
                 </View>
-                {matchGtfs === opt.value && <Ionicons name="checkmark" size={20} color={AppColors.primary} />}
+                {matchGtfs === opt.value && <Ionicons name="checkmark" size={20} color={colors.primary} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -900,7 +903,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
       )}
       {syncState === 'syncing' && (
         <View style={styles.syncingRow}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.syncingText}>Scanning events...</Text>
         </View>
       )}
@@ -928,7 +931,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             <View style={styles.itemContent}>
               <Text style={styles.itemTitle}>{opt.label}</Text>
             </View>
-            {tempUnit === opt.value && <Ionicons name="checkmark" size={20} color={AppColors.primary} />}
+            {tempUnit === opt.value && <Ionicons name="checkmark" size={20} color={colors.primary} />}
           </TouchableOpacity>
         ))}
       </View>
@@ -951,7 +954,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             <View style={styles.itemContent}>
               <Text style={styles.itemTitle}>{opt.label}</Text>
             </View>
-            {distanceUnit === opt.value && <Ionicons name="checkmark" size={20} color={AppColors.primary} />}
+            {distanceUnit === opt.value && <Ionicons name="checkmark" size={20} color={colors.primary} />}
           </TouchableOpacity>
         ))}
       </View>
@@ -981,7 +984,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               <Text style={styles.itemTitle}>A Jason Xu Project</Text>
               <Text style={styles.itemSubtitle}>Moo? Moo... Moo!</Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+            <Ionicons name="open-outline" size={18} color={colors.secondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.settingsItem, styles.settingsItemLast]}
@@ -992,13 +995,13 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             }}
           >
             <View style={styles.itemIconContainer}>
-              <Ionicons name="logo-github" size={22} color={AppColors.primary} />
+              <Ionicons name="logo-github" size={22} color={colors.primary} />
             </View>
             <View style={styles.itemContent}>
               <Text style={styles.itemTitle}>View on GitHub</Text>
               <Text style={styles.itemSubtitle}>Tracky's open-source!</Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+            <Ionicons name="open-outline" size={18} color={colors.secondary} />
           </TouchableOpacity>
         </View>
         <Text style={[styles.sectionHeader, { marginTop: Spacing.xl }]}>CONTRIBUTORS WANTED</Text>
@@ -1016,13 +1019,13 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             }}
           >
             <View style={styles.itemIconContainer}>
-              <Ionicons name="git-pull-request-outline" size={22} color={AppColors.primary} />
+              <Ionicons name="git-pull-request-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.itemContent}>
               <Text style={styles.itemTitle}>I'm Interested!</Text>
               <Text style={styles.itemSubtitle}>Open a PR — Note: the app is built with Expo, not Swift</Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+            <Ionicons name="open-outline" size={18} color={colors.secondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1046,13 +1049,13 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             }}
           >
             <View style={styles.itemIconContainer}>
-              <Ionicons name="train-outline" size={22} color={AppColors.primary} />
+              <Ionicons name="train-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.itemContent}>
               <Text style={styles.itemTitle}>Amtrak GTFS</Text>
               <Text style={styles.itemSubtitle}>Routes, stops, trips, and timetables</Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+            <Ionicons name="open-outline" size={18} color={colors.secondary} />
           </TouchableOpacity>
         </View>
         <Text style={styles.sectionHeader}>REAL-TIME DATA</Text>
@@ -1066,13 +1069,13 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             }}
           >
             <View style={styles.itemIconContainer}>
-              <Ionicons name="pulse-outline" size={22} color={AppColors.primary} />
+              <Ionicons name="pulse-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.itemContent}>
               <Text style={styles.itemTitle}>Transitdocs</Text>
               <Text style={styles.itemSubtitle}>Live positions, delays, and service alerts</Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={AppColors.secondary} />
+            <Ionicons name="open-outline" size={18} color={colors.secondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1122,7 +1125,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
       <View style={styles.settingsList}>
         <View style={styles.settingsItem}>
           <View style={styles.itemIconContainer}>
-            <Ionicons name="sunny-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="sunny-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Morning Status Alerts</Text>
@@ -1131,12 +1134,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <Switch
             value={notifPrefs.morningAlerts}
             onValueChange={v => handleNotifToggle('morningAlerts', v)}
-            trackColor={{ false: AppColors.border.primary, true: AppColors.accent }}
+            trackColor={{ false: colors.border.primary, true: colors.accent }}
           />
         </View>
         <View style={[styles.settingsItem, styles.settingsItemLast]}>
           <View style={styles.itemIconContainer}>
-            <Ionicons name="time-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="time-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Departure Reminders</Text>
@@ -1145,7 +1148,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <Switch
             value={notifPrefs.departureReminders}
             onValueChange={v => handleNotifToggle('departureReminders', v)}
-            trackColor={{ false: AppColors.border.primary, true: AppColors.accent }}
+            trackColor={{ false: colors.border.primary, true: colors.accent }}
           />
         </View>
       </View>
@@ -1154,7 +1157,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
       <View style={styles.settingsList}>
         <View style={styles.settingsItem}>
           <View style={styles.itemIconContainer}>
-            <Ionicons name="warning-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="warning-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Delay Alerts</Text>
@@ -1163,12 +1166,12 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <Switch
             value={notifPrefs.delayAlerts}
             onValueChange={v => handleNotifToggle('delayAlerts', v)}
-            trackColor={{ false: AppColors.border.primary, true: AppColors.accent }}
+            trackColor={{ false: colors.border.primary, true: colors.accent }}
           />
         </View>
         <View style={[styles.settingsItem, styles.settingsItemLast]}>
           <View style={styles.itemIconContainer}>
-            <Ionicons name="flag-outline" size={22} color={AppColors.primary} />
+            <Ionicons name="flag-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.itemContent}>
             <Text style={styles.itemTitle}>Arrival Alerts</Text>
@@ -1177,7 +1180,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <Switch
             value={notifPrefs.arrivalAlerts}
             onValueChange={v => handleNotifToggle('arrivalAlerts', v)}
-            trackColor={{ false: AppColors.border.primary, true: AppColors.accent }}
+            trackColor={{ false: colors.border.primary, true: colors.accent }}
           />
         </View>
       </View>
@@ -1188,7 +1191,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           <View style={styles.settingsList}>
             <View style={[styles.settingsItem, styles.settingsItemLast]}>
               <View style={styles.itemIconContainer}>
-                <Ionicons name="phone-portrait-outline" size={22} color={AppColors.primary} />
+                <Ionicons name="phone-portrait-outline" size={22} color={colors.primary} />
               </View>
               <View style={styles.itemContent}>
                 <Text style={styles.itemTitle}>Live Activities</Text>
@@ -1197,7 +1200,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               <Switch
                 value={notifPrefs.liveActivities}
                 onValueChange={v => handleNotifToggle('liveActivities', v)}
-                trackColor={{ false: AppColors.border.primary, true: AppColors.accent }}
+                trackColor={{ false: colors.border.primary, true: colors.accent }}
               />
             </View>
           </View>
@@ -1230,7 +1233,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
               style={styles.closeButton}
               activeOpacity={0.7}
             >
-              <Ionicons name="close" size={24} color={AppColors.primary} />
+              <Ionicons name="close" size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1257,7 +1260,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
             <View style={styles.fixedHeader}>
               <View style={styles.subpageHeader}>
                 <TouchableOpacity onPress={closeSubpage} style={styles.backButton} activeOpacity={0.7}>
-                  <Ionicons name="chevron-back" size={28} color={AppColors.primary} />
+                  <Ionicons name="chevron-back" size={28} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.title}>{subpageTitles[currentPage]}</Text>
                 {currentPage === 'debugLog' && (
@@ -1270,7 +1273,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                       style={styles.logHeaderButton}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="share-outline" size={20} color={AppColors.primary} />
+                      <Ionicons name="share-outline" size={20} color={colors.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => {
@@ -1280,7 +1283,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                       style={styles.logHeaderButton}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="trash-outline" size={20} color={AppColors.error} />
+                      <Ionicons name="trash-outline" size={20} color={colors.error} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1348,22 +1351,22 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   modalContent: { flex: 1, marginHorizontal: -Spacing.xl, minHeight: '100%', overflow: 'hidden' },
   pageContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
   },
   subpageContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
   },
   fixedHeader: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.sm,
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
   },
-  divider: { height: 1, backgroundColor: AppColors.border.primary, marginVertical: Spacing.md },
+  divider: { height: 1, backgroundColor: colors.border.primary, marginVertical: Spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.xs },
   subpageHeader: { flexDirection: 'row', alignItems: 'center', paddingTop: Spacing.xs },
   headerActions: {
@@ -1374,9 +1377,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: Spacing.xs,
   },
-  title: { fontSize: 34, fontWeight: 'bold', color: AppColors.primary },
+  title: { fontSize: 34, fontWeight: 'bold', color: colors.primary },
   closeButton: {
-    ...CloseButtonStyle,
+    ...getCloseButtonStyle(colors),
   },
   backButton: {
     width: 44,
@@ -1389,25 +1392,25 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 13,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     letterSpacing: 0.5,
     marginTop: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  settingsList: { backgroundColor: AppColors.background.primary, borderRadius: BorderRadius.md, overflow: 'hidden' },
+  settingsList: { backgroundColor: colors.background.primary, borderRadius: BorderRadius.md, overflow: 'hidden' },
   settingsItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border.primary,
+    borderBottomColor: colors.border.primary,
   },
   settingsItemLast: { borderBottomWidth: 0 },
   itemIconContainer: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
   itemContent: { flex: 1 },
-  itemTitle: { fontSize: 17, color: AppColors.primary },
-  itemSubtitle: { fontSize: 13, color: AppColors.secondary, marginTop: 2 },
+  itemTitle: { fontSize: 17, color: colors.primary },
+  itemSubtitle: { fontSize: 13, color: colors.secondary, marginTop: 2 },
   panelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1417,57 +1420,57 @@ const styles = StyleSheet.create({
   panelLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: AppColors.secondary,
+    color: colors.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  toggleAllText: { fontSize: 15, fontWeight: '600', color: AppColors.primary },
+  toggleAllText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   calendarDot: { alignItems: 'center', justifyContent: 'center' },
   syncButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
   },
-  syncButtonText: { fontSize: 17, fontWeight: '600', color: AppColors.background.primary },
+  syncButtonText: { fontSize: 17, fontWeight: '600', color: colors.background.primary },
   syncingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md },
-  syncingText: { fontSize: 15, color: AppColors.secondary, marginLeft: Spacing.md },
+  syncingText: { fontSize: 15, color: colors.secondary, marginLeft: Spacing.md },
   pillRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   pillOption: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
     borderWidth: 1,
-    borderColor: AppColors.border.primary,
+    borderColor: colors.border.primary,
   },
-  pillOptionActive: { backgroundColor: AppColors.primary, borderColor: AppColors.primary },
-  pillOptionText: { fontSize: 15, fontWeight: '600', color: AppColors.primary },
-  pillOptionTextActive: { color: AppColors.background.primary },
-  aboutText: { fontSize: 15, color: AppColors.secondary, lineHeight: 22, marginBottom: Spacing.sm },
+  pillOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  pillOptionText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+  pillOptionTextActive: { color: colors.background.primary },
+  aboutText: { fontSize: 15, color: colors.secondary, lineHeight: 22, marginBottom: Spacing.sm },
   logHeaderButton: {
-    ...CloseButtonStyle,
+    ...getCloseButtonStyle(colors),
   },
   logFilterPill: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs + 2,
     borderRadius: BorderRadius.sm,
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
     borderWidth: 1,
-    borderColor: AppColors.border.primary,
+    borderColor: colors.border.primary,
   },
-  logFilterPillActive: { backgroundColor: AppColors.primary, borderColor: AppColors.primary },
-  logFilterPillText: { fontSize: 11, fontWeight: '700', color: AppColors.secondary, letterSpacing: 0.5 },
-  logFilterPillTextActive: { color: AppColors.background.primary },
-  logCount: { fontSize: 12, color: AppColors.secondary, marginBottom: Spacing.sm },
+  logFilterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  logFilterPillText: { fontSize: 11, fontWeight: '700', color: colors.secondary, letterSpacing: 0.5 },
+  logFilterPillTextActive: { color: colors.background.primary },
+  logCount: { fontSize: 12, color: colors.secondary, marginBottom: Spacing.sm },
   logContainer: { gap: 1 },
   logEntry: {
-    backgroundColor: AppColors.background.primary,
+    backgroundColor: colors.background.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border.primary,
+    borderBottomColor: colors.border.primary,
   },
   logEntryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   logLevel: {
@@ -1478,18 +1481,18 @@ const styles = StyleSheet.create({
   },
   logTimestamp: {
     fontSize: 10,
-    color: AppColors.tertiary,
+    color: colors.tertiary,
     fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
   },
   logMessage: {
     fontSize: 12,
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
     lineHeight: 17,
   },
   logData: {
     fontSize: 10,
-    color: AppColors.secondary,
+    color: colors.secondary,
     fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
     marginTop: 2,
     lineHeight: 14,

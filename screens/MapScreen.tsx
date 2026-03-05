@@ -17,7 +17,8 @@ import { TrainSpeedPill } from '../components/ui/TrainSpeedPill';
 import SettingsModal from '../components/ui/SettingsModal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
-import { AppColors } from '../constants/theme';
+import { type ColorPalette } from '../constants/theme';
+import { useColors } from '../context/ThemeContext';
 import { GTFSRefreshProvider, useGTFSRefresh } from '../context/GTFSRefreshContext';
 import { ModalProvider, useModalActions, useModalState } from '../context/ModalContext';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
@@ -38,7 +39,7 @@ import { getRouteColor, getStrokeWidthForZoom } from '../utils/route-colors';
 import { clusterStations, getStationAbbreviation } from '../utils/station-clustering';
 import { clusterTrains } from '../utils/train-clustering';
 import { ModalContent, ModalContentHandle } from './ModalContent';
-import { styles } from './styles';
+import { createStyles } from './styles';
 
 interface MapRegion {
   latitude: number;
@@ -75,7 +76,35 @@ function getLatitudeOffsetForModal(latitudeDelta: number, modalSnap: 'min' | 'ha
   return 0;
 }
 
+const createLoadingStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.background.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 99999,
+      elevation: 99999,
+    },
+    logo: {
+      width: 360,
+      height: 360,
+      marginBottom: 16,
+      resizeMode: 'contain',
+    },
+    copyright: {
+      position: 'absolute',
+      bottom: '15%',
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: '400',
+      opacity: 0.6,
+    },
+  });
+
 function LoadingOverlay({ visible }: { visible: boolean }) {
+  const colors = useColors();
+  const lStyles = useMemo(() => createLoadingStyles(colors), [colors]);
   const opacity = useRef(new Animated.Value(1)).current;
   const [mounted, setMounted] = useState(true);
 
@@ -95,14 +124,16 @@ function LoadingOverlay({ visible }: { visible: boolean }) {
   if (!mounted) return null;
 
   return (
-    <Animated.View style={[loadingStyles.overlay, { opacity }]} pointerEvents={visible ? 'auto' : 'none'}>
-      <Image source={require('../assets/images/tracky-logo.png')} style={loadingStyles.logo} />
-      <Text style={loadingStyles.copyright}>Tracky - Made with &lt;3 by Jason</Text>
+    <Animated.View style={[lStyles.overlay, { opacity }]} pointerEvents={visible ? 'auto' : 'none'}>
+      <Image source={require('../assets/images/tracky-logo.png')} style={lStyles.logo} />
+      <Text style={lStyles.copyright}>Tracky - Made with &lt;3 by Jason</Text>
     </Animated.View>
   );
 }
 
 function MapScreenInner() {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const mapRef = useRef<MapView>(null);
   const modalContentRef = useRef<ModalContentHandle>(null);
   const { triggerRefresh, isLoadingCache } = useGTFSRefresh();
@@ -626,7 +657,7 @@ function MapScreenInner() {
   if (!mapReady || !regionRef.current) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: AppColors.primary }}>Loading map...</Text>
+        <Text style={{ color: colors.primary }}>Loading map...</Text>
       </View>
     );
   }
@@ -865,31 +896,6 @@ function MapScreenInner() {
     </View>
   );
 }
-
-const loadingStyles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 99999,
-    elevation: 99999,
-  },
-  logo: {
-    width: 360,
-    height: 360,
-    marginBottom: 16,
-    resizeMode: 'contain',
-  },
-  copyright: {
-    position: 'absolute',
-    bottom: '15%',
-    color: AppColors.secondary,
-    fontSize: 12,
-    fontWeight: '400',
-    opacity: 0.6,
-  },
-});
 
 export default function MapScreen() {
   return (

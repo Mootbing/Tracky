@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AppColors, BorderRadius, Spacing } from '../constants/theme';
+import { type ColorPalette, BorderRadius, Spacing } from '../constants/theme';
+import { useColors } from '../context/ThemeContext';
 import { error as logError, openCrashReportEmail } from '../utils/logger';
 
 interface ErrorBoundaryProps {
@@ -14,6 +15,43 @@ interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
   componentStack: string | null;
+}
+
+function ErrorFallback({
+  error,
+  componentStack,
+  onReload,
+}: {
+  error: Error | null;
+  componentStack: string | null;
+  onReload: () => void;
+}) {
+  const colors = useColors();
+
+  const handleReport = () => {
+    openCrashReportEmail(error, componentStack);
+  };
+
+  return (
+    <View style={[errorStyles.container, { backgroundColor: colors.background.primary }]}>
+      <View style={errorStyles.content}>
+        <Ionicons name="bug-outline" size={48} color={colors.secondary} />
+        <Text style={[errorStyles.title, { color: colors.primary }]}>Something went wrong</Text>
+        <Text style={[errorStyles.message, { color: colors.secondary }]}>
+          {error?.message || 'An unexpected error occurred'}
+        </Text>
+        <TouchableOpacity style={[errorStyles.button, { backgroundColor: colors.background.tertiary }]} onPress={onReload}>
+          <Ionicons name="refresh" size={18} color={colors.primary} />
+          <Text style={[errorStyles.buttonText, { color: colors.primary }]}>Reload App</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={errorStyles.reportButton} onPress={handleReport}>
+          <Ionicons name="mail-outline" size={16} color={colors.secondary} />
+          <Text style={[errorStyles.reportButtonText, { color: colors.secondary }]}>Report Issue</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={[errorStyles.copyright, { color: colors.secondary }]}>Tracky - Made with &lt;3 by Jason</Text>
+    </View>
+  );
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -36,10 +74,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.props.onDismiss?.();
   };
 
-  handleReport = () => {
-    openCrashReportEmail(this.state.error, this.state.componentStack);
-  };
-
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -47,24 +81,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       }
 
       return (
-        <View style={errorStyles.container}>
-          <View style={errorStyles.content}>
-            <Ionicons name="bug-outline" size={48} color={AppColors.secondary} />
-            <Text style={errorStyles.title}>Something went wrong</Text>
-            <Text style={errorStyles.message}>
-              {this.state.error?.message || 'An unexpected error occurred'}
-            </Text>
-            <TouchableOpacity style={errorStyles.button} onPress={this.handleReload}>
-              <Ionicons name="refresh" size={18} color={AppColors.primary} />
-              <Text style={errorStyles.buttonText}>Reload App</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={errorStyles.reportButton} onPress={this.handleReport}>
-              <Ionicons name="mail-outline" size={16} color={AppColors.secondary} />
-              <Text style={errorStyles.reportButtonText}>Report Issue</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={errorStyles.copyright}>Tracky - Made with &lt;3 by Jason</Text>
-        </View>
+        <ErrorFallback
+          error={this.state.error}
+          componentStack={this.state.componentStack}
+          onReload={this.handleReload}
+        />
       );
     }
 
@@ -75,7 +96,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 const errorStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -87,12 +107,10 @@ const errorStyles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: AppColors.primary,
     marginTop: Spacing.lg,
   },
   message: {
     fontSize: 13,
-    color: AppColors.secondary,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -100,7 +118,6 @@ const errorStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: AppColors.background.tertiary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.sm,
@@ -109,7 +126,6 @@ const errorStyles = StyleSheet.create({
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.primary,
   },
   reportButton: {
     flexDirection: 'row',
@@ -119,12 +135,10 @@ const errorStyles = StyleSheet.create({
   },
   reportButtonText: {
     fontSize: 13,
-    color: AppColors.secondary,
   },
   copyright: {
     position: 'absolute',
     bottom: '15%',
-    color: AppColors.secondary,
     fontSize: 12,
     fontWeight: '400',
     opacity: 0.6,
