@@ -22,13 +22,13 @@ import { addDays, getStartOfDay, isSameDay } from '../../utils/date-helpers';
 import { useUnits } from '../../context/UnitsContext';
 import { logger } from '../../utils/logger';
 import { fetchWithTimeout } from '../../utils/fetch-with-timeout';
-import { addDelayToTime, formatDelayShort, parseTimeToMinutes } from '../../utils/time-formatting';
-import AnimatedRollingText from './AnimatedRollingText';
+import { addDelayToTime, parseTimeToMinutes } from '../../utils/time-formatting';
+import TrainCardContent from '../TrainCardContent';
 import { getCurrentMinutesInTimezone, getTimezoneForStop } from '../../utils/timezone';
 import { formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
 import { SlideUpModalContext } from './slide-up-modal';
-import TimeDisplay from './TimeDisplay';
+import { styles as trainCardStyles } from '../../screens/styles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -183,11 +183,12 @@ interface SwipeableDepartureItemProps {
   train: Train;
   stationTime: { time: string; dayOffset?: number };
   stationId: string;
+  selectedDate: Date;
   onPress: () => void;
   onSave: () => void;
 }
 
-const SwipeableDepartureItem = React.memo(function SwipeableDepartureItem({ train, stationTime, stationId, onPress, onSave }: SwipeableDepartureItemProps) {
+const SwipeableDepartureItem = React.memo(function SwipeableDepartureItem({ train, stationTime, stationId, selectedDate, onPress, onSave }: SwipeableDepartureItemProps) {
   const translateX = useSharedValue(0);
   const hasTriggeredHaptic = useSharedValue(false);
   const isSaving = useSharedValue(false);
@@ -285,6 +286,40 @@ const SwipeableDepartureItem = React.memo(function SwipeableDepartureItem({ trai
     handleSave();
   };
 
+  const countdown = useMemo(() => {
+    const [hStr, mStr] = stationTime.time.split(':');
+    let h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    const totalDayOffset = (stationTime.dayOffset ?? 0) + Math.floor(h / 24);
+    h = h % 24;
+
+    const depart = new Date(selectedDate);
+    depart.setDate(depart.getDate() + totalDayOffset);
+    depart.setHours(h, m, 0, 0);
+
+    const now = new Date();
+    const deltaSec = (depart.getTime() - now.getTime()) / 1000;
+    const past = deltaSec < 0;
+    const absSec = Math.abs(deltaSec);
+
+    const days = Math.round(absSec / 86400);
+    if (days >= 1) return { value: days, unit: 'DAYS', past };
+    const hours = Math.round(absSec / 3600);
+    if (hours >= 1) return { value: hours, unit: 'HOURS', past };
+    const minutes = Math.round(absSec / 60);
+    if (minutes >= 1) return { value: minutes, unit: 'MINUTES', past };
+    const seconds = Math.round(absSec);
+    return { value: seconds, unit: 'SECONDS', past };
+  }, [stationTime, selectedDate]);
+
+  const singularUnit = countdown.unit.slice(0, -1);
+  const countdownLabel = countdown.value === 1 ? singularUnit : countdown.unit;
+
+  const depDelay = train.realtime?.delay;
+  const arrDelay = train.realtime?.arrivalDelay;
+  const depDelayed = depDelay && depDelay > 0 ? addDelayToTime(train.departTime, depDelay, train.departDayOffset) : undefined;
+  const arrDelayed = arrDelay && arrDelay > 0 ? addDelayToTime(train.arriveTime, arrDelay, train.arriveDayOffset) : undefined;
+
   return (
     <View style={swipeStyles.container}>
       {/* Save button behind the card */}
@@ -300,52 +335,32 @@ const SwipeableDepartureItem = React.memo(function SwipeableDepartureItem({ trai
 
       {/* The actual card */}
       <GestureDetector gesture={composedGesture}>
-        <Animated.View style={[styles.departureItem, { borderBottomWidth: 0 }, cardAnimatedStyle]}>
-          <View style={styles.departureTime}>
-            {train.realtime?.delay != null && train.realtime.delay > 0 ? (
-              (() => {
-                const delayed = addDelayToTime(stationTime.time, train.realtime.delay, stationTime.dayOffset);
-                return (
-                  <>
-                    <TimeDisplay
-                      time={delayed.time}
-                      dayOffset={delayed.dayOffset}
-                      style={[styles.timeText, styles.timeTextDelayed]}
-                      superscriptStyle={[styles.timeSuperscript, styles.timeTextDelayed]}
-                    />
-                    <AnimatedRollingText value={`${formatDelayShort(train.realtime.delay)} delay`} style={styles.delayText} />
-                  </>
-                );
-              })()
-            ) : (
-              <TimeDisplay
-                time={stationTime.time}
-                dayOffset={stationTime.dayOffset}
-                style={styles.timeText}
-                superscriptStyle={styles.timeSuperscript}
-              />
-            )}
-          </View>
-          <View style={styles.departureInfo}>
-            <View style={styles.trainHeader}>
-              <Text style={styles.trainNumber}>
-                {train.routeName || 'Amtrak'}
-                {train.trainNumber ? ` ${train.trainNumber}` : ''}
-              </Text>
-            </View>
-            <View style={styles.destinationRow}>
-              <Text style={styles.destinationText}>
-                {stationId === train.fromCode || stationId === train.toCode
-                  ? `${train.fromCode} → ${train.toCode}`
-                  : `${train.fromCode} → ${stationId} → ${train.toCode}`}
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={AppColors.tertiary} />
+        <Animated.View style={[trainCardStyles.trainCard, cardAnimatedStyle]}>
+          <TrainCardContent
+            countdownValue={countdown.value}
+            countdownLabel={countdownLabel}
+            isPast={countdown.past}
+            routeName={train.routeName || train.operator}
+            trainNumber={train.trainNumber}
+            fromName={train.from}
+            toName={train.to}
+            fromCode={train.fromCode}
+            toCode={train.toCode}
+            departTime={train.departTime}
+            arriveTime={train.arriveTime}
+            departDayOffset={train.departDayOffset}
+            arriveDayOffset={train.arriveDayOffset}
+            intermediateStopCount={train.intermediateStops?.length}
+            departDelayMinutes={depDelay}
+            departDelayedTime={depDelayed?.time}
+            departDelayedDayOffset={depDelayed?.dayOffset}
+            arriveDelayMinutes={arrDelay}
+            arriveDelayedTime={arrDelayed?.time}
+            arriveDelayedDayOffset={arrDelayed?.dayOffset}
+          />
         </Animated.View>
       </GestureDetector>
-      {/* Border at bottom of container */}
-      <View style={swipeStyles.borderBottom} />
+      <View style={swipeStyles.separator} />
     </View>
   );
 });
@@ -603,11 +618,12 @@ export default function DepartureBoardModal({
         train={train}
         stationTime={stationTime}
         stationId={station.stop_id}
+        selectedDate={selectedDate}
         onPress={() => handleTrainPress(train)}
         onSave={() => onSaveTrain?.(train)}
       />
     );
-  }, [filterMode, station.stop_id, handleTrainPress, onSaveTrain]);
+  }, [filterMode, station.stop_id, selectedDate, handleTrainPress, onSaveTrain]);
 
   const departureListHeader = useMemo(() => (
     <Text style={styles.sectionTitle}>
@@ -963,9 +979,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.secondary,
   },
-  departuresList: {
-    paddingHorizontal: Spacing.xl,
-  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -973,78 +986,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-  departureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border.primary,
-  },
-  departureTime: {
-    width: 80,
-    alignItems: 'flex-start',
-  },
-  timeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: AppColors.primary,
-  },
-  timeSuperscript: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: AppColors.secondary,
-    marginLeft: 2,
-    marginTop: -2,
-  },
-  timeTextDelayed: {
-    color: AppColors.error,
-  },
-  departureInfo: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  trainHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: 4,
-  },
-  trainNumber: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: AppColors.primary,
-  },
-  delayText: {
-    fontSize: 12,
-    color: AppColors.error,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  destinationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
-  },
-  destinationText: {
-    fontSize: 14,
-    color: AppColors.secondary,
-  },
-  arrivalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  arrivalText: {
-    fontSize: 12,
-    color: AppColors.tertiary,
-  },
-  arrivalSuperscript: {
-    fontSize: 8,
-    fontWeight: '600',
-    color: AppColors.tertiary,
-    marginLeft: 1,
-    marginTop: -2,
   },
 });
 
@@ -1075,12 +1016,8 @@ const swipeStyles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
   },
-  borderBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 1,
+  separator: {
+    height: StyleSheet.hairlineWidth,
     backgroundColor: AppColors.border.primary,
   },
 });

@@ -1307,7 +1307,6 @@ const styles = StyleSheet.create({
   tripCardSeparator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: AppColors.border.primary,
-    marginHorizontal: Spacing.lg,
   },
   hintContainer: {
     flexDirection: 'row',

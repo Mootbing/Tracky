@@ -296,7 +296,6 @@ const swipeStyles = StyleSheet.create({
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: AppColors.border.primary,
-    marginHorizontal: Spacing.lg,
   },
   deleteButtonContainer: {
     position: 'absolute',

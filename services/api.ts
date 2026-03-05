@@ -8,6 +8,7 @@ import { gtfsParser } from '../utils/gtfs-parser';
 import { RealtimeService } from './realtime';
 import { formatTime, formatTimeWithDayOffset, type FormattedTime } from '../utils/time-formatting';
 import { extractTrainNumber } from '../utils/train-helpers';
+import { calculateDaysAway, formatDateForDisplay, getDaysAwayLabel } from '../utils/date-helpers';
 import { logger } from '../utils/logger';
 
 // Re-export for backwards compatibility
@@ -405,7 +406,7 @@ export class TrainAPIService {
   /**
    * Get train details for a specific trip
    */
-  static async getTrainDetails(tripId: string): Promise<Train | null> {
+  static async getTrainDetails(tripId: string, date?: Date): Promise<Train | null> {
     try {
       const stopTimes = gtfsParser.getStopTimesForTrip(tripId);
 
@@ -436,8 +437,9 @@ export class TrainAPIService {
         arriveTime: arriveFormatted.time,
         departDayOffset: departFormatted.dayOffset,
         arriveDayOffset: arriveFormatted.dayOffset,
-        date: 'Today',
-        daysAway: 0,
+        date: date ? getDaysAwayLabel(calculateDaysAway(date)) : 'Today',
+        daysAway: date ? calculateDaysAway(date) : 0,
+        travelDate: date ? date.getTime() : undefined,
         routeName: routeName || '',
         tripId: tripId,
         intermediateStops: stopTimes.slice(1, -1).map(stop => {
@@ -450,8 +452,10 @@ export class TrainAPIService {
         }),
       };
 
-      // Fetch real-time data - try both trip ID and extracted train number
-      await this.enrichWithRealtimeData(train);
+      // Fetch real-time data only for today's trains
+      if (train.daysAway <= 0) {
+        await this.enrichWithRealtimeData(train);
+      }
 
       return train;
     } catch (error) {
@@ -489,7 +493,7 @@ export class TrainAPIService {
     try {
       const tripIds = gtfsParser.getTripsForStop(stopId, date);
       logger.debug(`[API] getTrainsForStation(${stopId}): ${tripIds.length} trip IDs`);
-      const trains = await Promise.all(tripIds.map(tripId => this.getTrainDetails(tripId)));
+      const trains = await Promise.all(tripIds.map(tripId => this.getTrainDetails(tripId, date)));
       return trains.filter((train): train is Train => train !== null);
     } catch (error) {
       logger.error('Error fetching trains for station:', error);
