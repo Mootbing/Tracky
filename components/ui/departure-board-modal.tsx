@@ -27,6 +27,7 @@ import { addDelayToTime, parseTimeToMinutes } from '../../utils/time-formatting'
 import TrainCardContent from '../TrainCardContent';
 import MarqueeText from './MarqueeText';
 import { getCurrentMinutesInTimezone, getTimezoneForStop } from '../../utils/timezone';
+import { gtfsParser } from '../../utils/gtfs-parser';
 import { formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
 import { SlideUpModalContext } from './slide-up-modal';
@@ -90,7 +91,7 @@ function isTrainUpcoming(
   selectedDate: Date,
   stationId: string,
   filterMode: 'all' | 'departing' | 'arriving',
-  stationTimezone: string | null
+  _stationTimezone: string | null
 ): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -102,9 +103,8 @@ function isTrainUpcoming(
     return true;
   }
 
-  // For today, determine which time to check based on filter mode and station
-  // Use the station's timezone so we compare against the correct local time
-  const currentMinutes = getCurrentMinutesInTimezone(stationTimezone);
+  // GTFS times are in the agency timezone, so compare "now" in that timezone
+  const currentMinutes = getCurrentMinutesInTimezone(gtfsParser.agencyTimezone);
 
   let relevantTime: string;
   if (filterMode === 'arriving' || train.toCode === stationId) {

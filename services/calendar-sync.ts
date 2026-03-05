@@ -10,7 +10,7 @@ import { gtfsParser } from '../utils/gtfs-parser';
 import { logger } from '../utils/logger';
 import { haversineDistance } from '../utils/distance';
 import { formatTime, parseTimeToMinutes } from '../utils/time-formatting';
-import { getMinutesInTimezone, getTimezoneForStop } from '../utils/timezone';
+import { getMinutesInTimezone } from '../utils/timezone';
 import { stationLoader } from './station-loader';
 import { TrainStorageService } from './storage';
 
@@ -229,9 +229,8 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
         `Calendar sync: origin "${originLocation}" → "${originStation.stop_name}" (${originStation.stop_id})`
       );
 
-      // Convert event time to the origin station's timezone for comparison with GTFS times
-      const originTz = getTimezoneForStop(originStation);
-      const eventMinutesAtOrigin = getMinutesInTimezone(eventStartDate, originTz);
+      // GTFS times are in the agency timezone — convert event time to that timezone
+      const eventMinutesAtOrigin = getMinutesInTimezone(eventStartDate, gtfsParser.agencyTimezone);
 
       // Use findTripsWithStops for precise origin→destination matching
       const trips = gtfsParser.findTripsWithStops(originStation.stop_id, destStation.stop_id, gtfsLookupDate);
@@ -276,10 +275,8 @@ function matchEventToTrip(eventTitle: string, eventStartDate: Date, eventLocatio
     if (stopTimes.length < 2) continue;
 
     for (const stop of stopTimes) {
-      // Convert event time to this stop's timezone before comparing with GTFS schedule
-      const stopStation = gtfsParser.getStop(stop.stop_id);
-      const stopTz = stopStation ? getTimezoneForStop(stopStation) : null;
-      const eventMinutesAtStop = getMinutesInTimezone(eventStartDate, stopTz);
+      // GTFS times are in the agency timezone — convert event time to that timezone
+      const eventMinutesAtStop = getMinutesInTimezone(eventStartDate, gtfsParser.agencyTimezone);
       const stopMinutes = gtfsTimeToMinutes(stop.departure_time);
       if (Math.abs(stopMinutes - eventMinutesAtStop) <= TIME_TOLERANCE_MINUTES) {
         const destStopTime = stopTimes.find(s => s.stop_id === destStation.stop_id);

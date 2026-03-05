@@ -18,6 +18,7 @@ export class GTFSParser {
   private calendarDateExceptions: Map<string, Map<number, number>> = new Map(); // service_id -> (date -> exception_type)
   private hasCalendarData: boolean = false;
   private _isLoaded: boolean = false;
+  private _agencyTimezone: string | null = null;
 
   constructor() {
     // Parser starts empty - data is loaded dynamically via overrideData()
@@ -25,6 +26,11 @@ export class GTFSParser {
 
   get isLoaded(): boolean {
     return this._isLoaded;
+  }
+
+  /** IANA timezone for GTFS schedule times (from agency.txt agency_timezone). */
+  get agencyTimezone(): string | null {
+    return this._agencyTimezone;
   }
 
   // Override parser data with dynamically fetched cache
@@ -35,7 +41,8 @@ export class GTFSParser {
     shapes: Record<string, Shape[]> = {},
     trips: Trip[] = [],
     calendar: CalendarEntry[] = [],
-    calendarDates: CalendarDateException[] = []
+    calendarDates: CalendarDateException[] = [],
+    agencyTimezone: string | null = null,
   ): void {
     this.routes.clear();
     this.stops.clear();
@@ -88,6 +95,7 @@ export class GTFSParser {
       }
     });
     this.hasCalendarData = this.calendarEntries.size > 0 || this.calendarDateExceptions.size > 0;
+    this._agencyTimezone = agencyTimezone || null;
 
     this._isLoaded = this.routes.size > 0 && this.stops.size > 0;
 
@@ -648,9 +656,8 @@ export class GTFSParser {
    */
   getUpcomingTrainsFromStop(stopId: string, limit = 2): Array<{ trip: Trip; departureTime: string; trainNumber: string; routeName: string }> {
     const now = new Date();
-    const stop = this.stops.get(stopId);
-    const tz = stop ? getTimezoneForStop(stop) : null;
-    const nowMinutes = getCurrentMinutesInTimezone(tz);
+    // GTFS stop times are in the agency timezone, so compare "now" in that timezone
+    const nowMinutes = getCurrentMinutesInTimezone(this._agencyTimezone);
     const results: Array<{ trip: Trip; departureTime: string; trainNumber: string; routeName: string; depMinutes: number }> = [];
     const seenTrainNumbers = new Set<string>();
 

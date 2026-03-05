@@ -24,6 +24,7 @@ const GTFS_FILES = {
   trips: 'trips.json',
   calendar: 'calendar.json',
   calendarDates: 'calendar_dates.json',
+  agencyTimezone: 'agency_timezone.json',
 };
 
 const STORAGE_KEYS = {
@@ -35,6 +36,7 @@ const STORAGE_KEYS = {
   TRIPS: 'GTFS_TRIPS_JSON',
   CALENDAR: 'GTFS_CALENDAR_JSON',
   CALENDAR_DATES: 'GTFS_CALENDAR_DATES_JSON',
+  AGENCY_TIMEZONE: 'GTFS_AGENCY_TIMEZONE',
 };
 
 function isOlderThanDays(dateMs: number, days: number): boolean {
@@ -226,6 +228,14 @@ function buildCalendar(rows: Array<Record<string, string>>): CalendarEntry[] {
     .filter(c => !!c.service_id);
 }
 
+function parseAgencyTimezone(rows: Array<Record<string, string>>): string | null {
+  for (const r of rows) {
+    const tz = r['agency_timezone'];
+    if (tz) return tz;
+  }
+  return null;
+}
+
 function buildCalendarDates(rows: Array<Record<string, string>>): CalendarDateException[] {
   return rows
     .map(r => ({
@@ -264,6 +274,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       const keys = [
         STORAGE_KEYS.ROUTES, STORAGE_KEYS.STOPS, STORAGE_KEYS.STOP_TIMES,
         STORAGE_KEYS.SHAPES, STORAGE_KEYS.TRIPS, STORAGE_KEYS.CALENDAR, STORAGE_KEYS.CALENDAR_DATES,
+        STORAGE_KEYS.AGENCY_TIMEZONE,
       ];
       const pairs = await AsyncStorage.multiGet(keys);
       const map = new Map(pairs);
@@ -274,8 +285,9 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       const trips = safeJSONParse<Trip[]>(map.get(STORAGE_KEYS.TRIPS) ?? null);
       const calendar = safeJSONParse<CalendarEntry[]>(map.get(STORAGE_KEYS.CALENDAR) ?? null);
       const calendarDates = safeJSONParse<CalendarDateException[]>(map.get(STORAGE_KEYS.CALENDAR_DATES) ?? null);
+      const agencyTimezone = map.get(STORAGE_KEYS.AGENCY_TIMEZONE) ?? null;
       if (routes && stops && stopTimes) {
-        gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || [], calendar || [], calendarDates || []);
+        gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || [], calendar || [], calendarDates || [], agencyTimezone);
         shapeLoader.initialize(shapes || {});
         await report('Using cached GTFS', 1, 'Cache age < 3 days');
         return { usedCache: true };
@@ -296,6 +308,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     const tripsTxt = files['trips.txt'] ? strFromU8(files['trips.txt']) : '';
     const calendarTxt = files['calendar.txt'] ? strFromU8(files['calendar.txt']) : '';
     const calendarDatesTxt = files['calendar_dates.txt'] ? strFromU8(files['calendar_dates.txt']) : '';
+    const agencyTxt = files['agency.txt'] ? strFromU8(files['agency.txt']) : '';
 
     if (!routesTxt || !stopsTxt || !stopTimesTxt) {
       logger.error('[GTFS Refresh] Missing expected GTFS files (routes/stops/stop_times)');
@@ -315,6 +328,7 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
     await report('Parsing calendar', 0.8);
     const calendar = calendarTxt ? buildCalendar(parseCSV(calendarTxt)) : [];
     const calendarDates = calendarDatesTxt ? buildCalendarDates(parseCSV(calendarDatesTxt)) : [];
+    const agencyTimezone = agencyTxt ? parseAgencyTimezone(parseCSV(agencyTxt)) : null;
 
     await report('Persisting cache', 0.9, 'Writing JSON to device storage');
 
@@ -327,10 +341,11 @@ export async function ensureFreshGTFS(onProgress?: (update: ProgressUpdate) => v
       [STORAGE_KEYS.TRIPS, JSON.stringify(trips)],
       [STORAGE_KEYS.CALENDAR, JSON.stringify(calendar)],
       [STORAGE_KEYS.CALENDAR_DATES, JSON.stringify(calendarDates)],
+      [STORAGE_KEYS.AGENCY_TIMEZONE, agencyTimezone || ''],
       [STORAGE_KEYS.LAST_FETCH, String(Date.now())],
     ]);
 
-    gtfsParser.overrideData(routes, stops, stopTimes, shapes, trips, calendar, calendarDates);
+    gtfsParser.overrideData(routes, stops, stopTimes, shapes, trips, calendar, calendarDates, agencyTimezone);
 
     // Initialize shape loader for map rendering
     shapeLoader.initialize(shapes);
@@ -374,6 +389,7 @@ export async function loadCachedGTFS(): Promise<boolean> {
       STORAGE_KEYS.TRIPS,
       STORAGE_KEYS.CALENDAR,
       STORAGE_KEYS.CALENDAR_DATES,
+      STORAGE_KEYS.AGENCY_TIMEZONE,
     ];
     const pairs = await AsyncStorage.multiGet(keys);
     const map = new Map(pairs);
@@ -400,8 +416,9 @@ export async function loadCachedGTFS(): Promise<boolean> {
     const trips = safeJSONParse<Trip[]>(map.get(STORAGE_KEYS.TRIPS) ?? null);
     const calendar = safeJSONParse<CalendarEntry[]>(map.get(STORAGE_KEYS.CALENDAR) ?? null);
     const calendarDates = safeJSONParse<CalendarDateException[]>(map.get(STORAGE_KEYS.CALENDAR_DATES) ?? null);
+    const agencyTimezone = map.get(STORAGE_KEYS.AGENCY_TIMEZONE) ?? null;
 
-    gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || [], calendar || [], calendarDates || []);
+    gtfsParser.overrideData(routes, stops, stopTimes, shapes || {}, trips || [], calendar || [], calendarDates || [], agencyTimezone);
     shapeLoader.initialize(shapes || {});
     logger.info('[GTFS] Loaded cached data on startup');
     return true;

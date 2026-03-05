@@ -358,8 +358,39 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     const stop = gtfsParser.getStop(trainData.fromCode);
     return stop ? getTimezoneForStop(stop) : null;
   }, [trainData]);
-  const countdown = trainData ? getCountdownForTrain(trainData, departTz) : null;
+  const countdown = trainData ? getCountdownForTrain(trainData) : null;
   const unitLabel = countdown ? `${countdown.unit}${countdown.past ? ' AGO' : ''}` : '';
+
+  const handleStationPress = (stationCode: string) => {
+    if (!onStationSelect) return;
+    hapticLight();
+    try {
+      const stop = gtfsParser.getStop(stationCode);
+      if (stop) {
+        onStationSelect(stationCode, stop.stop_lat, stop.stop_lon);
+      }
+    } catch (e) {
+      logger.error('Failed to get station coordinates:', e);
+    }
+  };
+
+  // Find next stop for live trains
+  // GTFS stop times are in the agency timezone, so compare "now" in that timezone
+  const agencyTz = gtfsParser.agencyTimezone;
+  const nextStopIndex = React.useMemo(() => {
+    if (!isLiveTrain || allStops.length === 0) return -1;
+
+    const currentMinutes = getCurrentMinutesInTimezone(agencyTz);
+    for (let i = 0; i < allStops.length; i++) {
+      const stop = allStops[i];
+      const stopMinutes = timeToMinutes(stop.time);
+      const adjustedStopMinutes = stopMinutes + stop.dayOffset * 24 * 60;
+      if (adjustedStopMinutes > currentMinutes) {
+        return i;
+      }
+    }
+    return -1;
+  }, [isLiveTrain, allStops, agencyTz]);
 
   // Local time at the train's next stop (only for live trains)
   const [trainLocalTime, setTrainLocalTime] = React.useState<string | null>(null);
@@ -388,45 +419,12 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     return () => clearInterval(id);
   }, [nextStopTz]);
 
-  const handleStationPress = (stationCode: string) => {
-    if (!onStationSelect) return;
-    hapticLight();
-    try {
-      const stop = gtfsParser.getStop(stationCode);
-      if (stop) {
-        onStationSelect(stationCode, stop.stop_lat, stop.stop_lon);
-      }
-    } catch (e) {
-      logger.error('Failed to get station coordinates:', e);
-    }
-  };
-
-  // Find next stop for live trains
-  const nextStopIndex = React.useMemo(() => {
-    if (!isLiveTrain || allStops.length === 0) return -1;
-
-    for (let i = 0; i < allStops.length; i++) {
-      const stop = allStops[i];
-      const stopData = gtfsParser.getStop(stop.code);
-      const tz = stopData ? getTimezoneForStop(stopData) : null;
-      const currentMinutes = getCurrentMinutesInTimezone(tz);
-      const stopMinutes = timeToMinutes(stop.time);
-      const adjustedStopMinutes = stopMinutes + stop.dayOffset * 24 * 60;
-      if (adjustedStopMinutes > currentMinutes) {
-        return i;
-      }
-    }
-    return -1;
-  }, [isLiveTrain, allStops]);
-
   const whereIsMyTrainSubtext = React.useMemo(() => {
     if (!isLiveTrain || nextStopIndex < 0 || allStops.length === 0) {
       return `${allStops.length} stops`;
     }
     const stop = allStops[nextStopIndex];
-    const stopData = gtfsParser.getStop(stop.code);
-    const tz = stopData ? getTimezoneForStop(stopData) : null;
-    const currentMinutes = getCurrentMinutesInTimezone(tz);
+    const currentMinutes = getCurrentMinutesInTimezone(agencyTz);
     const stopMinutes = timeToMinutes(stop.time) + stop.dayOffset * 24 * 60;
     const delayData = stopDelays.get(stop.code);
     const delayMin = delayData?.arrivalDelay ?? delayData?.departureDelay ?? 0;
@@ -437,7 +435,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
       : `${diffMin} min`;
     const delayLabel = delayOffset > 0 ? ` (${delayOffset}m late)` : '';
     return nextStopIndex === 0 ? `Departs ${stop.name} in ${timeStr}${delayLabel}` : `${stop.name} in ${timeStr}${delayLabel}`;
-  }, [isLiveTrain, nextStopIndex, allStops, stopDelays]);
+  }, [isLiveTrain, nextStopIndex, allStops, stopDelays, agencyTz]);
 
   if (!trainData) {
     return (
@@ -778,9 +776,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                                   </>
                                 )}
                                 {isCurrent && (() => {
-                                  const stopGtfs = gtfsParser.getStop(stop.code);
-                                  const tz = stopGtfs ? getTimezoneForStop(stopGtfs) : null;
-                                  const currentMinutes = getCurrentMinutesInTimezone(tz);
+                                  const currentMinutes = getCurrentMinutesInTimezone(agencyTz);
                                   const scheduledMinutes = timeToMinutes(stop.time) + stop.dayOffset * 24 * 60;
                                   const delayOffset = stopDelayMin && stopDelayMin > 0 ? stopDelayMin : 0;
                                   const diffMin = Math.max(0, Math.round(scheduledMinutes + delayOffset - currentMinutes));

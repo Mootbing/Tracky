@@ -20,8 +20,6 @@ import type { Train } from '../types/train';
 import TrainCardContent from './TrainCardContent';
 import { SlideUpModalContext } from './ui/slide-up-modal';
 import { addDelayToTime, parseTimeToDate } from '../utils/time-formatting';
-import { gtfsParser } from '../utils/gtfs-parser';
-import { getTimezoneForStop } from '../utils/timezone';
 import { getCountdownForTrain } from '../utils/train-display';
 
 // Re-export for backwards compatibility
@@ -185,11 +183,7 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
     };
   });
 
-  const departTz = useMemo(() => {
-    const stop = gtfsParser.getStop(train.fromCode);
-    return stop ? getTimezoneForStop(stop) : null;
-  }, [train.fromCode]);
-  const countdown = getCountdownForTrain(train, departTz);
+  const countdown = getCountdownForTrain(train);
   const singularUnit = countdown.unit.slice(0, -1);
   const unitText = countdown.value === 1 ? singularUnit : countdown.unit;
   const unitLabel = unitText;
