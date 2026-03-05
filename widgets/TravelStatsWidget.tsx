@@ -1,4 +1,6 @@
 import { createWidget, type WidgetBase } from 'expo-widgets';
+import { Text, VStack, HStack, Spacer } from '@expo/ui/swift-ui';
+import { foregroundStyle, font, padding } from '@expo/ui/swift-ui/modifiers';
 import type { TravelStatsWidgetData } from '../services/widget-data';
 
 function formatDuration(minutes: number): string {
@@ -10,9 +12,6 @@ function formatDuration(minutes: number): string {
 
 function TravelStatsWidgetView(props: WidgetBase<TravelStatsWidgetData>) {
   'widget';
-
-  const { Text, VStack, HStack, Spacer } = require('@expo/ui/swift-ui');
-  const { foregroundStyle, font, padding } = require('@expo/ui/swift-ui/modifiers');
 
   const headline = font({ size: 17, weight: 'semibold' });
   const subheadline = font({ size: 15 });

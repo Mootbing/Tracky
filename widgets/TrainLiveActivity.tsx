@@ -1,4 +1,6 @@
 import { createLiveActivity, type LiveActivityLayout } from 'expo-widgets';
+import { Text, VStack, HStack, Spacer, Image } from '@expo/ui/swift-ui';
+import { foregroundStyle, font, padding, background, cornerRadius } from '@expo/ui/swift-ui/modifiers';
 
 export interface TrainActivityProps {
   trainNumber: string;
@@ -40,12 +42,6 @@ function statusLabel(delay: number): string {
 
 function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout {
   'widget';
-
-  // @expo/ui imports are only available in the widget extension context,
-  // so they must be loaded inside the 'widget' function, not at module scope.
-  const { Text, VStack, HStack, Spacer, Image } = require('@expo/ui/swift-ui');
-  const { foregroundStyle, font, padding, background, cornerRadius } =
-    require('@expo/ui/swift-ui/modifiers');
 
   const headline = font({ size: 17, weight: 'semibold' });
   const subheadlineBold = font({ size: 15, weight: 'bold' });

@@ -1,11 +1,10 @@
 import { createWidget, type WidgetBase } from 'expo-widgets';
+import { Text, VStack, HStack, Spacer, Image } from '@expo/ui/swift-ui';
+import { foregroundStyle, font, padding, frame } from '@expo/ui/swift-ui/modifiers';
 import type { NextTrainWidgetData } from '../services/widget-data';
 
 function NextTrainWidgetView(props: WidgetBase<NextTrainWidgetData>) {
   'widget';
-
-  const { Text, VStack, HStack, Spacer, Image } = require('@expo/ui/swift-ui');
-  const { foregroundStyle, font, padding, frame } = require('@expo/ui/swift-ui/modifiers');
 
   const headline = font({ size: 17, weight: 'semibold' });
   const subheadline = font({ size: 15 });
