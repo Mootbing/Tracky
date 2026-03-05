@@ -139,7 +139,20 @@ export const ModalContent = React.forwardRef<
   const isMainActive = activeModal === 'main';
   useEffect(() => {
     if (!isMainActive || !hasInitialized.current) return;
-    TrainStorageService.getSavedTrains().then(setSavedTrains);
+    TrainStorageService.getSavedTrains().then(freshTrains => {
+      setSavedTrains(prev => {
+        const realtimeByKey = new Map<string, Train['realtime']>();
+        for (const t of prev) {
+          const key = `${t.tripId}|${t.fromCode}|${t.toCode}`;
+          if (t.realtime) realtimeByKey.set(key, t.realtime);
+        }
+        return freshTrains.map(t => {
+          const key = `${t.tripId}|${t.fromCode}|${t.toCode}`;
+          const existing = realtimeByKey.get(key);
+          return existing ? { ...t, realtime: existing } : t;
+        });
+      });
+    });
     // Always scroll to top when navigating back to My Trains
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [isMainActive, setSavedTrains]);

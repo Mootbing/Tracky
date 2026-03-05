@@ -29,6 +29,7 @@ const STORAGE_KEYS = {
   CALENDAR_SYNC_PREFS: 'calendarSyncPrefs',
   NOTIFICATION_PREFS: 'notificationPrefs',
   SENT_ARRIVAL_ALERTS: 'sentArrivalAlerts',
+  LAST_NOTIFIED_DELAY: 'lastNotifiedDelay',
 } as const;
 
 export interface CalendarSyncPrefs {
@@ -528,5 +529,48 @@ export class TrainStorageService {
       logger.error('Error saving notification prefs:', error);
       return false;
     }
+  }
+
+  /**
+   * Get the persisted map of last-notified delay values per train key.
+   */
+  static async getLastNotifiedDelays(): Promise<Map<string, number>> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.LAST_NOTIFIED_DELAY);
+      return data ? new Map(JSON.parse(data)) : new Map();
+    } catch (error) {
+      logger.error('Error loading last notified delays:', error);
+      return new Map();
+    }
+  }
+
+  /**
+   * Persist a single train's last-notified delay value.
+   */
+  static async setLastNotifiedDelay(key: string, delay: number): Promise<void> {
+    return withLock(STORAGE_KEYS.LAST_NOTIFIED_DELAY, async () => {
+      try {
+        const map = await this.getLastNotifiedDelays();
+        map.set(key, delay);
+        await AsyncStorage.setItem(STORAGE_KEYS.LAST_NOTIFIED_DELAY, JSON.stringify([...map]));
+      } catch (error) {
+        logger.error('Error saving last notified delay:', error);
+      }
+    });
+  }
+
+  /**
+   * Remove a train's last-notified delay entry.
+   */
+  static async clearLastNotifiedDelay(key: string): Promise<void> {
+    return withLock(STORAGE_KEYS.LAST_NOTIFIED_DELAY, async () => {
+      try {
+        const map = await this.getLastNotifiedDelays();
+        map.delete(key);
+        await AsyncStorage.setItem(STORAGE_KEYS.LAST_NOTIFIED_DELAY, JSON.stringify([...map]));
+      } catch (error) {
+        logger.error('Error clearing last notified delay:', error);
+      }
+    });
   }
 }

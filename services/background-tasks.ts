@@ -44,8 +44,9 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
 
     let hasNewData = false;
 
-    // Load persistent dedup set so background task doesn't re-send arrival alerts
+    // Load persistent dedup sets so background task shares state with foreground
     const sentAlerts = await TrainStorageService.getSentArrivalAlerts();
+    const lastNotifiedDelays = await TrainStorageService.getLastNotifiedDelays();
 
     function bgTrainKey(t: Train): string {
       return `${t.tripId}|${t.fromCode}|${t.toCode}`;
@@ -54,13 +55,23 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
     for (const train of todayTrains) {
       const updated = await TrainAPIService.refreshRealtimeData(train);
 
-      // Delay alerts
-      if (prefs.delayAlerts && train.realtime?.delay != null && updated.realtime?.delay != null) {
-        const oldDelay = train.realtime.delay;
+      // Delay alerts — use persisted dedup map to avoid re-notifying
+      if (prefs.delayAlerts && updated.realtime?.delay != null) {
+        const key = bgTrainKey(updated);
         const newDelay = updated.realtime.delay;
-        if (Math.abs(newDelay - oldDelay) >= 5) {
-          await NotificationService.sendDelayAlert(updated, oldDelay, newDelay);
-          hasNewData = true;
+        const prevNotified = lastNotifiedDelays.get(key);
+        if (prevNotified === undefined) {
+          // Seed cycle: record current delay, don't notify
+          lastNotifiedDelays.set(key, newDelay);
+          await TrainStorageService.setLastNotifiedDelay(key, newDelay);
+        } else if (newDelay !== prevNotified) {
+          const oldDelay = prevNotified;
+          lastNotifiedDelays.set(key, newDelay);
+          await TrainStorageService.setLastNotifiedDelay(key, newDelay);
+          if (Math.abs(newDelay - oldDelay) >= 5) {
+            await NotificationService.sendDelayAlert(updated, oldDelay, newDelay);
+            hasNewData = true;
+          }
         }
       }
 

@@ -38,7 +38,7 @@ export default function MarqueeText({ text, style, children }: MarqueeTextProps)
     const cycleWidth = tw + GAP;
     translateX.value = 0;
     translateX.value = withDelay(
-      1500,
+      500,
       withRepeat(
         withTiming(-cycleWidth, { duration: cycleWidth * 25, easing: Easing.linear }),
         -1,

@@ -113,6 +113,7 @@ export const TrainActivityManager = {
     sentArrivalAlerts.delete(deletedKey);
     lastNotifiedDelay.delete(deletedKey);
     await TrainStorageService.clearArrivalAlert(deletedKey);
+    await TrainStorageService.clearLastNotifiedDelay(deletedKey);
 
     const remaining = await TrainStorageService.getSavedTrains();
     refreshTrainWidgets(remaining);
@@ -125,6 +126,7 @@ export const TrainActivityManager = {
     sentArrivalAlerts.delete(archivedKey);
     lastNotifiedDelay.delete(archivedKey);
     await TrainStorageService.clearArrivalAlert(archivedKey);
+    await TrainStorageService.clearLastNotifiedDelay(archivedKey);
 
     const remaining = await TrainStorageService.getSavedTrains();
     refreshTrainWidgets(remaining);
@@ -152,6 +154,7 @@ export const TrainActivityManager = {
         const oldDelay = prevNotified ?? oldTrain?.realtime?.delay ?? 0;
         if (prevNotified === undefined || newDelay !== prevNotified) {
           lastNotifiedDelay.set(key, newDelay);
+          TrainStorageService.setLastNotifiedDelay(key, newDelay).catch(e => logger.warn('Failed to persist lastNotifiedDelay', e));
           if (prevNotified !== undefined && Math.abs(newDelay - oldDelay) >= 5) {
             if (prefs.delayAlerts) {
               await NotificationService.sendDelayAlert(newTrain, oldDelay, newDelay);
@@ -194,6 +197,10 @@ export const TrainActivityManager = {
     // Restore persisted arrival alert dedup set
     const persisted = await TrainStorageService.getSentArrivalAlerts();
     for (const key of persisted) sentArrivalAlerts.add(key);
+
+    // Restore persisted delay dedup map
+    const persistedDelays = await TrainStorageService.getLastNotifiedDelays();
+    for (const [key, delay] of persistedDelays) lastNotifiedDelay.set(key, delay);
 
     const prefs = await loadPrefs();
     if (!hasAnyFeatureEnabled(prefs)) return;

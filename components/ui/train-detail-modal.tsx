@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { Easing, FadeInDown, useAnimatedStyle } from 'react-native-reanimated';
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -706,7 +706,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
 
             {/* Timezone Widget */}
             {timezoneInfo && (
-              <View style={styles.infoCard}>
+              <Animated.View entering={FadeInDown.delay(0).duration(200).easing(Easing.out(Easing.quad))} style={styles.infoCard}>
                 <View style={styles.infoCardIcon}>
                   <Ionicons name="time-outline" size={24} color={AppColors.primary} />
                 </View>
@@ -716,11 +716,11 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   </Text>
                   <MarqueeText text={timezoneInfo.message} style={styles.infoCardSubtext} />
                 </View>
-              </View>
+              </Animated.View>
             )}
 
             {/* Arrival Weather Widget */}
-            <View style={styles.infoCard}>
+            <Animated.View entering={FadeInDown.delay(100).duration(200).easing(Easing.out(Easing.quad))} style={styles.infoCard}>
               <View style={styles.infoCardIcon}>
                 {isLoadingWeather ? (
                   <ActivityIndicator size="small" color={AppColors.primary} />
@@ -737,9 +737,10 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   style={styles.infoCardSubtext}
                 />
               </View>
-            </View>
+            </Animated.View>
 
             {/* Where's My Train? */}
+            <Animated.View entering={FadeInDown.delay(200).duration(200).easing(Easing.out(Easing.quad))}>
             <TouchableOpacity
               style={styles.historyCard}
               onPress={() => { hapticLight(); setIsWhereIsMyTrainExpanded(!isWhereIsMyTrainExpanded); }}
@@ -858,9 +859,10 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 </View>
               )}
             </TouchableOpacity>
+            </Animated.View>
 
             {/* My History on This Route */}
-            <View style={styles.historyCard}>
+            <Animated.View entering={FadeInDown.delay(300).duration(200).easing(Easing.out(Easing.quad))} style={styles.historyCard}>
               <Text style={[styles.sectionTitle, { marginBottom: Spacing.xs }]}>My History on This Route</Text>
               {trainData && (
                 <Text style={styles.historyRouteSubtitle}>{trainData.routeName}</Text>
@@ -904,7 +906,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
               {(!routeHistory || routeHistory.trips === 0) && (
                 <Text style={styles.historyEmptyText}>No past rides on this route</Text>
               )}
-            </View>
+            </Animated.View>
           </View>
 
           {/* Report Bad Data */}

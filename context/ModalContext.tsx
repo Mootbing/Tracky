@@ -202,7 +202,10 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         // Different modal: dismiss old + slide in new simultaneously
         getModalRef(currentActive).current?.dismiss?.(true);
-        detailModalRef.current?.slideIn?.(targetSnap);
+        // Delay slideIn by a frame so TrainDetailModal content renders before the modal animates up
+        requestAnimationFrame(() => {
+          detailModalRef.current?.slideIn?.(targetSnap);
+        });
       }
     },
     [getModalRef]
@@ -234,7 +237,9 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         // Different modal: dismiss old + slide in new simultaneously
         getModalRef(currentActive).current?.dismiss?.(true);
-        departureBoardRef.current?.slideIn?.('half');
+        requestAnimationFrame(() => {
+          departureBoardRef.current?.slideIn?.('half');
+        });
       }
     },
     [getModalRef]

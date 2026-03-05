@@ -121,7 +121,7 @@ export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps)
             <View style={styles.segment}>
               <Ionicons name="compass-outline" size={14} color={AppColors.secondary} />
               <AnimatedRollingText value={bearingDisplay} style={styles.valueText} />
-              <AnimatedRollingText value={`${Math.round(displayBearing!)}°`} style={styles.degreeText} />
+              <AnimatedRollingText value={`${Math.round(displayBearing!)}°`} style={styles.valueText} />
             </View>
           )}
         </Animated.View>
@@ -171,10 +171,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: AppColors.primary,
     fontWeight: '600',
-  },
-  degreeText: {
-    fontSize: 11,
-    color: AppColors.secondary,
-    fontWeight: '500',
   },
 });
