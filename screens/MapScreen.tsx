@@ -17,7 +17,7 @@ import { TrainSpeedPill } from '../components/ui/TrainSpeedPill';
 import SettingsModal from '../components/ui/SettingsModal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
-import { type ColorPalette } from '../constants/theme';
+import { type ColorPalette, withTextShadow } from '../constants/theme';
 import { useColors } from '../context/ThemeContext';
 import { GTFSRefreshProvider, useGTFSRefresh } from '../context/GTFSRefreshContext';
 import { ModalProvider, useModalActions, useModalState } from '../context/ModalContext';
@@ -77,7 +77,7 @@ function getLatitudeOffsetForModal(latitudeDelta: number, modalSnap: 'min' | 'ha
 }
 
 const createLoadingStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     overlay: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.background.primary,
@@ -100,7 +100,7 @@ const createLoadingStyles = (colors: ColorPalette) =>
       fontWeight: '400',
       opacity: 0.6,
     },
-  });
+  }, colors.textShadow));
 
 function LoadingOverlay({ visible }: { visible: boolean }) {
   const colors = useColors();

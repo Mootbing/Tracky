@@ -16,7 +16,7 @@ import {
 import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { type ColorPalette, BorderRadius, Spacing, getCloseButtonStyle } from '../../constants/theme';
+import { type ColorPalette, BorderRadius, Spacing, getCloseButtonStyle, withTextShadow } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { type DistanceUnit, type TempUnit, useUnits } from '../../context/UnitsContext';
 import {
@@ -1411,7 +1411,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
   );
 }
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
   modalContent: { flex: 1, marginHorizontal: -Spacing.xl, minHeight: '100%', overflow: 'hidden' },
   pageContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -1551,4 +1551,4 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     marginTop: 2,
     lineHeight: 14,
   },
-});
+}, colors.textShadow));

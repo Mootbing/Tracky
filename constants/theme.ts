@@ -1,3 +1,9 @@
+export type TextShadowStyle = {
+  textShadowColor?: string;
+  textShadowOffset?: { width: number; height: number };
+  textShadowRadius?: number;
+};
+
 export type ColorPalette = {
   primary: string;
   secondary: string;
@@ -18,7 +24,25 @@ export type ColorPalette = {
     primary: string;
     secondary: string;
   };
+  textShadow: TextShadowStyle;
 };
+
+/** Spread text shadow onto every style that has `fontSize` (i.e. text styles). */
+export function withTextShadow<T extends Record<string, any>>(
+  styles: T,
+  shadow: TextShadowStyle,
+): T {
+  if (!shadow.textShadowColor) return styles;
+  const result: any = {};
+  for (const [key, style] of Object.entries(styles)) {
+    if (style && typeof style === 'object' && 'fontSize' in style) {
+      result[key] = { ...style, ...shadow };
+    } else {
+      result[key] = style;
+    }
+  }
+  return result;
+}
 
 export const DarkColors: ColorPalette = {
   primary: '#fff',
@@ -40,6 +64,7 @@ export const DarkColors: ColorPalette = {
     primary: '#2C2C30',
     secondary: '#3A3A3F',
   },
+  textShadow: {},
 };
 
 export const LightColors: ColorPalette = {
@@ -61,6 +86,11 @@ export const LightColors: ColorPalette = {
   border: {
     primary: 'rgba(255, 255, 255, 0.15)',
     secondary: 'rgba(255, 255, 255, 0.10)',
+  },
+  textShadow: {
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 0.5 },
+    textShadowRadius: 2,
   },
 };
 

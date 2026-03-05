@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
-import { type ColorPalette, Spacing } from '../../constants/theme';
+import { type ColorPalette, Spacing, withTextShadow } from '../../constants/theme';
 import { useColors } from '../../context/ThemeContext';
 import { formatDelayStatus } from '../../utils/time-formatting';
 import AnimatedRollingText from './AnimatedRollingText';
@@ -19,7 +19,7 @@ interface TimeDisplayProps {
 }
 
 const createStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     container: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -81,7 +81,7 @@ const createStyles = (colors: ColorPalette) =>
     delayLabel: {
       textDecorationLine: 'none',
     },
-  });
+  }, colors.textShadow));
 
 function formatDayOffset(offset: number): string {
   return offset > 0 ? `+${offset}` : `${offset}`;

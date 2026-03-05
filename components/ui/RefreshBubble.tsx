@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type ColorPalette } from '../../constants/theme';
+import { type ColorPalette, withTextShadow } from '../../constants/theme';
 import { useColors } from '../../context/ThemeContext';
 import { useGTFSRefresh } from '../../context/GTFSRefreshContext';
 import { light as hapticLight, warning as hapticWarning } from '../../utils/haptics';
 import AnimatedRollingText from './AnimatedRollingText';
 
 const createStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     container: {
       position: 'absolute',
       left: 0,
@@ -75,7 +75,7 @@ const createStyles = (colors: ColorPalette) =>
       color: 'rgba(255, 69, 58, 0.9)',
       fontWeight: '600',
     },
-  });
+  }, colors.textShadow));
 
 export function RefreshBubble() {
   const insets = useSafeAreaInsets();

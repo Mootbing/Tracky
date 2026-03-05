@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { type ColorPalette, FontSizes, Spacing } from '../constants/theme';
+import { type ColorPalette, FontSizes, Spacing, withTextShadow } from '../constants/theme';
 import { useColors } from '../context/ThemeContext';
 import { createStyles } from '../screens/styles';
 import { getDelayColorKey, parseTimeToMinutes } from '../utils/time-formatting';
@@ -182,7 +182,7 @@ export default function TrainCardContent({
 }
 
 const createLocalStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     row: {
       flexDirection: 'row',
       padding: Spacing.lg,
@@ -199,4 +199,4 @@ const createLocalStyles = (colors: ColorPalette) =>
       marginLeft: 2,
       marginTop: -2,
     },
-  });
+  }, colors.textShadow));

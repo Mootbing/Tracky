@@ -377,7 +377,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
           >
             <Animated.View style={[StyleSheet.absoluteFill, animatedBorderRadius, { overflow: 'hidden' }]}>
               {!isDark && (
-                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
               )}
               <View style={[StyleSheet.absoluteFill, { backgroundColor: bgPrimary }]} />
               <Animated.View style={staticStyles.content}>

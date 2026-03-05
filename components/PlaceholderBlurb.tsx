@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { type ColorPalette, Spacing } from '../constants/theme';
+import { Spacing } from '../constants/theme';
 import { useColors } from '../context/ThemeContext';
 
 interface PlaceholderBlurbProps {
@@ -25,8 +25,8 @@ export function PlaceholderBlurb({
   return (
     <View style={styles.container}>
       <Ionicons name={icon} size={iconSize} color={resolvedIconColor} style={styles.icon} />
-      <Text style={[styles.title, { color: colors.secondary }]}>{title}</Text>
-      <Text style={[styles.subtitle, { color: colors.tertiary }]}>{subtitle}</Text>
+      <Text style={[styles.title, { color: colors.secondary }, colors.textShadow]}>{title}</Text>
+      <Text style={[styles.subtitle, { color: colors.tertiary }, colors.textShadow]}>{subtitle}</Text>
     </View>
   );
 }

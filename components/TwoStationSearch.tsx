@@ -3,7 +3,7 @@ import { Dimensions, Keyboard, Platform, StyleSheet, Text, TextInput, TouchableO
 import { Calendar, DateData } from 'react-native-calendars';
 import { ScrollView } from 'react-native-gesture-handler';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { type ColorPalette, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { type ColorPalette, BorderRadius, FontSizes, Spacing, withTextShadow } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import TrainCardContent from './TrainCardContent';
 import { light as hapticLight, selection as hapticSelection, success as hapticSuccess } from '../utils/haptics';
@@ -1163,7 +1163,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
   );
 }
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
   container: {
     flex: 1,
   },
@@ -1408,4 +1408,4 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     color: colors.secondary,
     opacity: 0.6,
   },
-});
+}, colors.textShadow));

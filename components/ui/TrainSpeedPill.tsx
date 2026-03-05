@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { type ColorPalette } from '../../constants/theme';
+import { type ColorPalette, withTextShadow } from '../../constants/theme';
 import { useColors } from '../../context/ThemeContext';
 import { useUnits } from '../../context/UnitsContext';
 import AnimatedRollingText from './AnimatedRollingText';
@@ -29,7 +29,7 @@ function metersPerSecToKmh(mps: number): number {
 }
 
 const createStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     container: {
       position: 'absolute',
       left: 0,
@@ -71,7 +71,7 @@ const createStyles = (colors: ColorPalette) =>
       color: colors.primary,
       fontWeight: '600',
     },
-  });
+  }, colors.textShadow));
 
 export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps) {
   const insets = useSafeAreaInsets();

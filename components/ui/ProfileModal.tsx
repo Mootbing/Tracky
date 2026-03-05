@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { type ColorPalette, BorderRadius, FontSizes, Spacing } from '../../constants/theme';
+import { type ColorPalette, BorderRadius, FontSizes, Spacing, withTextShadow } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { useModalState } from '../../context/ModalContext';
@@ -777,7 +777,7 @@ const createSwipeStyles = (colors: ColorPalette) => StyleSheet.create({
   },
 });
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1113,4 +1113,4 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
-});
+}, colors.textShadow));

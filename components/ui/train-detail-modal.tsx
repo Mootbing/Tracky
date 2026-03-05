@@ -5,7 +5,7 @@ import Animated, { Easing, FadeInDown, useAnimatedStyle } from 'react-native-rea
 import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { type ColorPalette, Spacing, getCloseButtonStyle } from '../../constants/theme';
+import { type ColorPalette, Spacing, getCloseButtonStyle, withTextShadow } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { light as hapticLight } from '../../utils/haptics';
 import { isThruwayName, TrainIcon } from '../TrainIcon';
@@ -895,7 +895,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   );
 }
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
   modalContent: {
     flex: 1,
     marginHorizontal: -Spacing.xxl,
@@ -1395,4 +1395,4 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     backgroundColor: colors.border.primary,
     marginLeft: Spacing.sm,
   },
-});
+}, colors.textShadow));

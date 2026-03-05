@@ -1,10 +1,10 @@
 import { StyleSheet } from 'react-native';
-import { type ColorPalette, DarkColors, BorderRadius, FontSizes, Spacing } from '../constants/theme';
+import { type ColorPalette, DarkColors, BorderRadius, FontSizes, Spacing, withTextShadow } from '../constants/theme';
 
 export const FONTS = { family: 'System' };
 
 export const createStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     container: { flex: 1 },
     map: { flex: 1 },
     scrollView: { flex: 1 },
@@ -219,6 +219,6 @@ export const createStyles = (colors: ColorPalette) =>
     },
     progressBar: { height: '100%', backgroundColor: colors.accentBlue, borderRadius: 999 },
     progressStep: { fontSize: FontSizes.daysLabel, fontFamily: FONTS.family, color: colors.secondary },
-  });
+  }, colors.textShadow));
 
 export const styles = createStyles(DarkColors);

@@ -4,7 +4,7 @@ import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { type ColorPalette } from '../../constants/theme';
+import { type ColorPalette, withTextShadow } from '../../constants/theme';
 import { useColors } from '../../context/ThemeContext';
 import { light as hapticLight } from '../../utils/haptics';
 
@@ -76,7 +76,7 @@ function getModeColor(mode: string, colors: ColorPalette): string {
 }
 
 const createStyles = (colors: ColorPalette) =>
-  StyleSheet.create({
+  StyleSheet.create(withTextShadow({
     container: {
       position: 'absolute',
       right: 16,
@@ -150,7 +150,7 @@ const createStyles = (colors: ColorPalette) =>
       borderRadius: 1,
       transform: [{ rotate: '45deg' }],
     },
-  });
+  }, colors.textShadow));
 
 export default function MapSettingsPill({
   top,

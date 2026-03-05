@@ -14,7 +14,7 @@ import { FlatList } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { type ColorPalette, BorderRadius, Spacing } from '../../constants/theme';
+import { type ColorPalette, BorderRadius, Spacing, withTextShadow } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { TrainAPIService } from '../../services/api';
@@ -709,7 +709,7 @@ export default function DepartureBoardModal({
   );
 }
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
   modalContent: {
     flex: 1,
     marginHorizontal: -Spacing.xl,
@@ -882,7 +882,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-});
+}, colors.textShadow));
 
 const createDepartureStyles = (colors: ColorPalette) => StyleSheet.create({
   separator: {
