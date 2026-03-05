@@ -4,6 +4,7 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -54,6 +55,8 @@ const CharSlot = memo(function CharSlot({
 
     // Direction: value increases → old scrolls up, new enters from below
     const up = char > old;
+    // Slide only part-way so opacity fade is visible before clipping
+    const slide = charHeight * 0.5;
 
     // Reset outgoing to visible + sharp
     outY.value = 0;
@@ -66,14 +69,15 @@ const CharSlot = memo(function CharSlot({
     inBlur.value = BLUR_MAX;
 
     const cfg = { duration, easing: EASING };
+    const springCfg = { damping: 14, stiffness: 180, mass: 0.8 };
 
-    // Animate outgoing: slide away, fade, blur
-    outY.value = withTiming(up ? -charHeight : charHeight, cfg);
+    // Animate outgoing: partial slide + fade + blur
+    outY.value = withTiming(up ? -slide : slide, cfg);
     outOpacity.value = withTiming(0, cfg);
     outBlur.value = withTiming(BLUR_MAX, cfg);
 
-    // Animate incoming: slide in, appear, deblur
-    inY.value = withTiming(0, cfg);
+    // Animate incoming: spring in (overshoots & bounces), fade in, deblur
+    inY.value = withSpring(0, springCfg);
     inOpacity.value = withTiming(1, cfg);
     inBlur.value = withTiming(0, cfg);
   }, [char, charHeight, duration, outY, outOpacity, outBlur, inY, inOpacity, inBlur]);

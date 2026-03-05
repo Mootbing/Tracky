@@ -65,7 +65,7 @@ export default function MarqueeText({ text, style }: MarqueeTextProps) {
   return (
     <View style={{ overflow: 'hidden' }} onLayout={onContainerLayout}>
       {/* Off-screen measurement — wide parent prevents text from wrapping */}
-      <View style={{ position: 'absolute', top: -9999, left: 0, width: 99999, opacity: 0 }}>
+      <View style={{ position: 'absolute', top: -9999, left: 0, width: 99999, opacity: 0, flexDirection: 'row' }}>
         <Text style={style} onLayout={onTextLayout}>{text}</Text>
       </View>
       {/* Two copies for seamless loop — when first scrolls off, second is already visible */}
