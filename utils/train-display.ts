@@ -12,11 +12,12 @@ import { getCurrentSecondsInTimezone, getTimezoneForStop } from './timezone';
  */
 export function getCountdownForTrain(train: Train): {
   value: number;
-  unit: 'DAYS' | 'HOURS' | 'MINUTES' | 'SECONDS';
+  unit: 'DAY' | 'DAYS' | 'HOUR' | 'HOURS' | 'MINUTE' | 'MINUTES' | 'SECOND' | 'SECONDS';
   past: boolean;
 } {
   if (train.daysAway && train.daysAway > 0) {
-    return { value: Math.round(train.daysAway), unit: 'DAYS', past: false };
+    const days = Math.round(train.daysAway);
+    return { value: days, unit: days === 1 ? 'DAY' : 'DAYS', past: false };
   }
   const fromStop = gtfsParser.getStop(train.fromCode);
   const fromTz = fromStop ? getTimezoneForStop(fromStop) : gtfsParser.agencyTimezone;
@@ -27,13 +28,13 @@ export function getCountdownForTrain(train: Train): {
   const absSec = Math.abs(deltaSec);
 
   let hours = Math.round(absSec / 3600);
-  if (hours >= 1) return { value: hours, unit: 'HOURS', past };
+  if (hours >= 1) return { value: hours, unit: hours === 1 ? 'HOUR' : 'HOURS', past };
   let minutes = Math.round(absSec / 60);
-  if (minutes >= 60) return { value: 1, unit: 'HOURS', past };
-  if (minutes >= 1) return { value: minutes, unit: 'MINUTES', past };
+  if (minutes >= 60) return { value: 1, unit: 'HOUR', past };
+  if (minutes >= 1) return { value: minutes, unit: minutes === 1 ? 'MINUTE' : 'MINUTES', past };
   let seconds = Math.round(absSec);
-  if (seconds >= 60) return { value: 1, unit: 'MINUTES', past };
-  return { value: seconds, unit: 'SECONDS', past };
+  if (seconds >= 60) return { value: 1, unit: 'MINUTE', past };
+  return { value: seconds, unit: seconds === 1 ? 'SECOND' : 'SECONDS', past };
 }
 
 /**

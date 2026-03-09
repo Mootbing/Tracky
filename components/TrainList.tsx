@@ -184,9 +184,7 @@ const SwipeableTrainCard = React.memo(function SwipeableTrainCard({ train, onPre
   });
 
   const countdown = getCountdownForTrain(train);
-  const singularUnit = countdown.unit.slice(0, -1);
-  const unitText = countdown.value === 1 ? singularUnit : countdown.unit;
-  const unitLabel = unitText;
+  const unitLabel = countdown.unit;
   const isPast = countdown.past;
 
   const departDelay = train.daysAway <= 0 ? train.realtime?.delay : undefined;

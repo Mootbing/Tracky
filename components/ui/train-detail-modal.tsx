@@ -510,12 +510,12 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
               + (trainData.arriveDayOffset || 0) * 24 * 3600;
             const isCompleted = countdown.past && arriveSec - nowSec < 0;
             const arrDeltaSec = Math.abs(arriveSec - nowSec);
-            const arrHours = Math.round(arrDeltaSec / 3600);
-            const arrMinutes = Math.round(arrDeltaSec / 60);
-            const arrSeconds = Math.round(arrDeltaSec);
-            const arrivalCountdown = arrHours >= 1 ? { value: arrHours, unit: 'hours' }
-              : arrMinutes >= 1 ? { value: arrMinutes >= 60 ? 1 : arrMinutes, unit: arrMinutes >= 60 ? 'hours' : 'minutes' }
-              : { value: arrSeconds >= 60 ? 1 : arrSeconds, unit: arrSeconds >= 60 ? 'minutes' : 'seconds' };
+            const arrHours = Math.floor(arrDeltaSec / 3600);
+            const arrMinutes = Math.floor(arrDeltaSec / 60);
+            const arrSeconds = Math.floor(arrDeltaSec);
+            const arrivalCountdown = arrHours >= 1 ? { value: arrHours, unit: pluralize(arrHours, 'hour') }
+              : arrMinutes >= 1 ? { value: arrMinutes, unit: pluralize(arrMinutes, 'minute') }
+              : { value: arrSeconds, unit: pluralize(arrSeconds, 'second') };
             return (
             <View style={[styles.expandableSection, bannerBg != null && { backgroundColor: bannerBg }]}>
               <View style={styles.statusRow}>

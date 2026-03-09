@@ -66,13 +66,13 @@ function getCountdownFromDeparture(departureTime: string, travelDate: Date): { v
   const absSec = Math.abs(deltaSec);
 
   const days = Math.round(absSec / 86400);
-  if (days >= 1) return { value: days, unit: 'DAYS', past };
+  if (days >= 1) return { value: days, unit: days === 1 ? 'DAY' : 'DAYS', past };
   const hours = Math.round(absSec / 3600);
-  if (hours >= 1) return { value: hours, unit: 'HOURS', past };
+  if (hours >= 1) return { value: hours, unit: hours === 1 ? 'HOUR' : 'HOURS', past };
   const minutes = Math.round(absSec / 60);
-  if (minutes >= 1) return { value: minutes, unit: 'MINUTES', past };
+  if (minutes >= 1) return { value: minutes, unit: minutes === 1 ? 'MINUTE' : 'MINUTES', past };
   const seconds = Math.round(absSec);
-  return { value: seconds, unit: 'SECONDS', past };
+  return { value: seconds, unit: seconds === 1 ? 'SECOND' : 'SECONDS', past };
 }
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -1103,9 +1103,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
                 const { displayName, routeName } = getTrainDisplayName(trip.tripId);
                 const isLast = index === tripResults.length - 1;
                 const countdown = getCountdownFromDeparture(trip.fromStop.departure_time, selectedDate);
-                const singularUnit = countdown.unit.slice(0, -1);
-                const unitText = countdown.value === 1 ? singularUnit : countdown.unit;
-                const countdownLabel = unitText;
+                const countdownLabel = countdown.unit;
                 const depart = convertGtfsTimeForStop(trip.fromStop.departure_time, trip.fromStop.stop_id);
                 const arrive = convertGtfsTimeForStop(trip.toStop.arrival_time, trip.toStop.stop_id);
                 const delays = tripDelays.get(trip.tripId);

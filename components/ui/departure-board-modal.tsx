@@ -202,7 +202,7 @@ const DepartureItem = React.memo(function DepartureItem({ train, stationTime, st
     const daysAway = Math.round((target.getTime() - today.getTime()) / 86400000);
 
     if (daysAway > 0) {
-      return { value: daysAway, unit: 'DAYS', past: false };
+      return { value: daysAway, unit: daysAway === 1 ? 'DAY' : 'DAYS', past: false };
     }
 
     const nowSec = getCurrentSecondsInTimezone(tz);
@@ -213,17 +213,16 @@ const DepartureItem = React.memo(function DepartureItem({ train, stationTime, st
     const absSec = Math.abs(deltaSec);
 
     const hours = Math.round(absSec / 3600);
-    if (hours >= 1) return { value: hours, unit: 'HOURS', past };
+    if (hours >= 1) return { value: hours, unit: hours === 1 ? 'HOUR' : 'HOURS', past };
     const minutes = Math.round(absSec / 60);
-    if (minutes >= 60) return { value: 1, unit: 'HOURS', past };
-    if (minutes >= 1) return { value: minutes, unit: 'MINUTES', past };
+    if (minutes >= 60) return { value: 1, unit: 'HOUR', past };
+    if (minutes >= 1) return { value: minutes, unit: minutes === 1 ? 'MINUTE' : 'MINUTES', past };
     const seconds = Math.round(absSec);
-    if (seconds >= 60) return { value: 1, unit: 'MINUTES', past };
-    return { value: seconds, unit: 'SECONDS', past };
+    if (seconds >= 60) return { value: 1, unit: 'MINUTE', past };
+    return { value: seconds, unit: seconds === 1 ? 'SECOND' : 'SECONDS', past };
   }, [stationTime, selectedDate, stationId]);
 
-  const singularUnit = countdown.unit.slice(0, -1);
-  const countdownLabel = countdown.value === 1 ? singularUnit : countdown.unit;
+  const countdownLabel = countdown.unit;
 
   const depDelay = train.realtime?.delay;
   const arrDelay = train.realtime?.arrivalDelay;
