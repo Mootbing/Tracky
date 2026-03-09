@@ -1,6 +1,15 @@
+import { HStack, Image, ProgressView, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import {
+  background,
+  clipShape,
+  font,
+  foregroundStyle,
+  padding,
+  progressViewStyle,
+  textCase,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
 import { createLiveActivity, type LiveActivityLayout } from 'expo-widgets';
-import { Text, VStack, HStack, Spacer, Image, ProgressView } from '@expo/ui/swift-ui';
-import { foregroundStyle, font, padding, frame, background, clipShape, textCase, tint, progressViewStyle } from '@expo/ui/swift-ui/modifiers';
 
 export interface TrainActivityProps {
   trainNumber: string;
@@ -105,8 +114,12 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
         <HStack>
           <VStack alignment="leading" spacing={3}>
             <HStack spacing={5}>
-              <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>{props?.fromCode}</Text>
-              <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle(departColor)]}>{props?.departTime}</Text>
+              <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>
+                {props?.fromCode}
+              </Text>
+              <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle(departColor)]}>
+                {props?.departTime}
+              </Text>
             </HStack>
             <Text modifiers={[font({ size: 12 }), foregroundStyle(departColor)]}>{delayLabel(departDelay)}</Text>
           </VStack>
@@ -117,7 +130,9 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
 
           <VStack alignment="trailing" spacing={3}>
             <HStack spacing={5}>
-              <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle(arrivalColor)]}>{props?.arriveTime}</Text>
+              <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle(arrivalColor)]}>
+                {props?.arriveTime}
+              </Text>
               <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>{props?.toCode}</Text>
             </HStack>
             <Text modifiers={[font({ size: 12 }), foregroundStyle(arrivalColor)]}>{delayLabel(arrivalDelay)}</Text>
@@ -127,19 +142,17 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
         {/* Progress bar */}
         <ProgressView
           value={progress}
-          modifiers={[
-            progressViewStyle('linear'),
-            tint(color),
-            padding({ top: 14, bottom: 12 }),
-          ]}
+          modifiers={[progressViewStyle('linear'), tint(color), padding({ top: 14, bottom: 12 })]}
         />
 
         {/* Time remaining */}
         <VStack alignment="center" spacing={3}>
-          <Text modifiers={[font({ size: 22, weight: 'bold', design: 'rounded' }), foregroundStyle(color)]}>
+          <Text modifiers={[font({ size: 18, weight: 'bold', design: 'rounded' }), foregroundStyle(color)]}>
             {timeRemaining}
           </Text>
-          <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle('#FFFFFF50'), textCase('uppercase')]}>
+          <Text
+            modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle('#FFFFFF50'), textCase('uppercase')]}
+          >
             Until arrival
           </Text>
         </VStack>
@@ -158,12 +171,15 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
         <Text modifiers={[caption2Bold, foregroundStyle(departColor)]}>{minutesUntilDeparture}m</Text>
       </HStack>
     ) : (
-      <Text modifiers={[font({ size: 20, weight: 'bold' }), foregroundStyle(arrivalColor)]}>{timeRemaining}</Text>
+      <Text modifiers={[caption2Bold, foregroundStyle(arrivalColor)]}>{timeRemaining}</Text>
     ),
 
     // Dynamic Island compact: trailing
     compactTrailing: (
-      <HStack spacing={4} modifiers={[padding({ horizontal: 6, vertical: 3 }), background('#EAB308'), clipShape('capsule')]}>
+      <HStack
+        spacing={4}
+        modifiers={[padding({ horizontal: 6, vertical: 3 }), background('#EAB308'), clipShape('capsule')]}
+      >
         <Text modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle('#000000')]}>{compactStationCode}</Text>
       </HStack>
     ),
@@ -176,7 +192,9 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
       <VStack alignment="leading" spacing={2} modifiers={[padding({ leading: 4 })]}>
         <HStack spacing={5}>
           <Text modifiers={[font({ size: 18, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>{props?.fromCode}</Text>
-          <Text modifiers={[font({ size: 18, weight: 'bold' }), foregroundStyle(departColor)]}>{props?.departTime}</Text>
+          <Text modifiers={[font({ size: 18, weight: 'bold' }), foregroundStyle(departColor)]}>
+            {props?.departTime}
+          </Text>
         </HStack>
         <Text modifiers={[font({ size: 11 }), foregroundStyle(departColor)]}>{delayLabel(departDelay)}</Text>
       </VStack>
@@ -195,7 +213,9 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
     expandedTrailing: (
       <VStack alignment="trailing" spacing={2} modifiers={[padding({ trailing: 4 })]}>
         <HStack spacing={5}>
-          <Text modifiers={[font({ size: 18, weight: 'bold' }), foregroundStyle(arrivalColor)]}>{props?.arriveTime}</Text>
+          <Text modifiers={[font({ size: 18, weight: 'bold' }), foregroundStyle(arrivalColor)]}>
+            {props?.arriveTime}
+          </Text>
           <Text modifiers={[font({ size: 18, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>{props?.toCode}</Text>
         </HStack>
         <Text modifiers={[font({ size: 11 }), foregroundStyle(arrivalColor)]}>{delayLabel(arrivalDelay)}</Text>
@@ -210,7 +230,10 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
         </Text>
         <Spacer />
         {arrivalDelay > 0 && (
-          <HStack spacing={3} modifiers={[padding({ horizontal: 8, vertical: 3 }), background(arrivalColor), clipShape('capsule')]}>
+          <HStack
+            spacing={3}
+            modifiers={[padding({ horizontal: 8, vertical: 3 }), background(arrivalColor), clipShape('capsule')]}
+          >
             <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>+{arrivalDelay}m</Text>
           </HStack>
         )}
@@ -219,7 +242,4 @@ function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout
   };
 }
 
-export const trainLiveActivity = createLiveActivity<TrainActivityProps>(
-  'TrainLiveActivity',
-  TrainLiveActivityLayout
-);
+export const trainLiveActivity = createLiveActivity<TrainActivityProps>('TrainLiveActivity', TrainLiveActivityLayout);
