@@ -1,16 +1,12 @@
 import { createWidget, type WidgetBase } from 'expo-widgets';
 import { Text, VStack, HStack, Spacer, Image } from '@expo/ui/swift-ui';
-import { foregroundStyle, font, padding, frame } from '@expo/ui/swift-ui/modifiers';
+import { foregroundStyle, font, padding, background, italic, clipShape } from '@expo/ui/swift-ui/modifiers';
 import type { NextTrainWidgetData } from '../services/widget-data';
 
 function NextTrainWidgetView(props: WidgetBase<NextTrainWidgetData>) {
   'widget';
 
   const headline = font({ size: 17, weight: 'semibold' });
-  const subheadline = font({ size: 15 });
-  const title1 = font({ size: 28, weight: 'bold' });
-  const title2 = font({ size: 22, weight: 'bold' });
-  const title3 = font({ size: 20, weight: 'semibold' });
   const body = font({ size: 14 });
   const caption = font({ size: 12 });
   const caption2 = font({ size: 11 });
@@ -36,10 +32,21 @@ function NextTrainWidgetView(props: WidgetBase<NextTrainWidgetData>) {
         </VStack>
       );
     }
+    // Home screen empty state
     return (
-      <VStack spacing={4}>
-        <Text modifiers={[headline]}>No upcoming trains</Text>
-        <Text modifiers={[caption, foregroundStyle('secondary')]}>Save a train to see it here</Text>
+      <VStack alignment="leading" spacing={0} modifiers={[padding({ all: 12 })]}>
+        <Image
+          systemName="tram.fill"
+          size={18}
+          color="#FFFFFF"
+          modifiers={[frame({ width: 42, height: 42 }), background('#000000'), clipShape('circle')]}
+        />
+        <Spacer />
+        <Text modifiers={[font({ size: 20, weight: 'semibold' })]}>No trains</Text>
+        <HStack spacing={5} modifiers={[padding({ top: 4 })]}>
+          <Image systemName="plus.circle.fill" size={13} color="#888888" />
+          <Text modifiers={[font({ size: 13 }), foregroundStyle('secondary')]}>Tap to add</Text>
+        </HStack>
       </VStack>
     );
   }
@@ -92,96 +99,89 @@ function NextTrainWidgetView(props: WidgetBase<NextTrainWidgetData>) {
 
   // --- Home screen widgets ---
 
+  const badgeBg = [padding({ horizontal: 7, vertical: 3 }), background('#88888822'), clipShape('capsule')];
+
   if (props.family === 'systemSmall') {
     return (
-      <VStack alignment="leading" spacing={6} modifiers={[padding({ all: 12 })]}>
-        <HStack spacing={4}>
-          <Text modifiers={[headline]}>{props.fromCode}</Text>
-          <Text modifiers={[foregroundStyle('secondary')]}>-</Text>
-          <Text modifiers={[headline]}>{props.toCode}</Text>
+      <VStack alignment="leading" spacing={0} modifiers={[padding({ all: 12 })]}>
+        {/* Header: brand + train number badge */}
+        <HStack>
+          <Text modifiers={[caption2, foregroundStyle('secondary'), italic()]}>Amtrak</Text>
+          <Spacer />
+          <HStack spacing={3} modifiers={badgeBg}>
+            <Image systemName="arrow.up.right" size={9} />
+            <Text modifiers={[caption2, font({ weight: 'medium', size: 11 })]}>#{props.trainNumber}</Text>
+          </HStack>
         </HStack>
-        <Text modifiers={[title2]}>{props.departTime}</Text>
+
         <Spacer />
-        <Text modifiers={[caption, foregroundStyle(delayColor)]}>{delayLabel}</Text>
+
+        {/* Identity */}
+        <Text modifiers={[font({ size: 13, weight: 'light' }), foregroundStyle('secondary')]}>Train {props.trainNumber}</Text>
+        <Text modifiers={[font({ size: 20, weight: 'bold' })]}>to {props.toCode}</Text>
+
+        <Spacer />
+
+        {/* Times */}
+        <HStack spacing={4}>
+          <Image systemName="arrow.up.right" size={9} />
+          <Text modifiers={[caption2, foregroundStyle('secondary')]}>{props.fromCode}</Text>
+          <Spacer />
+          <Text modifiers={[caption2]}>{props.departTime}</Text>
+        </HStack>
+        <HStack spacing={4} modifiers={[padding({ top: 3 })]}>
+          <Image systemName="arrow.down.right" size={9} color={delayColor} />
+          <Text modifiers={[caption2, foregroundStyle('secondary')]}>{props.toCode}</Text>
+          <Spacer />
+          <Text modifiers={[caption2, foregroundStyle(delayColor)]}>{props.arriveTime}</Text>
+        </HStack>
+      </VStack>
+    );
+  }
+
+  // systemMedium (default) — full-width VStack avoids left-side collapse
+  return (
+    <VStack alignment="leading" spacing={0} modifiers={[padding({ all: 12 })]}>
+      {/* Header: brand + badge */}
+      <HStack>
+        <Text modifiers={[caption2, foregroundStyle('secondary'), italic()]}>Amtrak</Text>
+        <Spacer />
+        <HStack spacing={3} modifiers={badgeBg}>
+          <Image systemName="arrow.up.right" size={9} />
+          <Text modifiers={[caption2, font({ weight: 'medium', size: 11 })]}>#{props.trainNumber}</Text>
+        </HStack>
+      </HStack>
+
+      <Spacer />
+
+      {/* Identity */}
+      <Text modifiers={[font({ size: 13, weight: 'light' }), foregroundStyle('secondary')]}>Train {props.trainNumber}</Text>
+      <Text modifiers={[font({ size: 22, weight: 'bold' })]}>to {props.toCode}</Text>
+
+      <Spacer />
+
+      {/* Times — full width so times never truncate */}
+      <HStack spacing={4}>
+        <Image systemName="arrow.up.right" size={9} />
+        <Text modifiers={[caption2, foregroundStyle('secondary')]}>{props.fromCode}</Text>
+        <Spacer />
+        <Text modifiers={[font({ size: 13, weight: 'semibold' })]}>{props.departTime}</Text>
+      </HStack>
+      <HStack spacing={4} modifiers={[padding({ top: 3 })]}>
+        <Image systemName="arrow.down.right" size={9} color={delayColor} />
+        <Text modifiers={[caption2, foregroundStyle('secondary')]}>{props.toCode}</Text>
+        <Spacer />
+        <Text modifiers={[font({ size: 13, weight: 'semibold' }), foregroundStyle(delayColor)]}>{props.arriveTime}</Text>
+      </HStack>
+
+      {/* Status footer */}
+      <HStack modifiers={[padding({ top: 6 })]}>
+        <Text modifiers={[caption2, foregroundStyle(delayColor)]}>{delayLabel}</Text>
+        <Spacer />
         {props.daysAway > 0 && (
           <Text modifiers={[caption2, foregroundStyle('secondary')]}>in {props.daysAway}d</Text>
         )}
-      </VStack>
-    );
-  }
-
-  if (props.family === 'systemLarge') {
-    return (
-      <VStack alignment="leading" spacing={12} modifiers={[padding({ all: 16 })]}>
-        {/* Header */}
-        <HStack>
-          <Text modifiers={[caption, foregroundStyle('secondary')]}>Next Train</Text>
-          <Spacer />
-          {props.daysAway > 0 && (
-            <Text modifiers={[caption, foregroundStyle('secondary')]}>in {props.daysAway}d</Text>
-          )}
-        </HStack>
-
-        {/* Route visual */}
-        <HStack spacing={12}>
-          <VStack alignment="center" spacing={4}>
-            <Text modifiers={[title1]}>{props.fromCode}</Text>
-            <Text modifiers={[caption, foregroundStyle('secondary')]}>Departs</Text>
-            <Text modifiers={[title3]}>{props.departTime}</Text>
-          </VStack>
-          <Spacer />
-          <VStack spacing={4}>
-            <Text modifiers={[foregroundStyle('secondary')]}>→</Text>
-            <Text modifiers={[caption, foregroundStyle('secondary')]}>{props.routeName}</Text>
-          </VStack>
-          <Spacer />
-          <VStack alignment="center" spacing={4}>
-            <Text modifiers={[title1]}>{props.toCode}</Text>
-            <Text modifiers={[caption, foregroundStyle('secondary')]}>Arrives</Text>
-            <Text modifiers={[title3]}>{props.arriveTime}</Text>
-          </VStack>
-        </HStack>
-
-        {/* Train info */}
-        <HStack>
-          <Text modifiers={[subheadline]}>Train {props.trainNumber}</Text>
-          <Spacer />
-        </HStack>
-
-        <Spacer />
-
-        {/* Delay badge */}
-        <HStack>
-          <Spacer />
-          <Text modifiers={[title2, foregroundStyle(delayColor)]}>{delayLabel}</Text>
-          <Spacer />
-        </HStack>
-      </VStack>
-    );
-  }
-
-  // systemMedium (default)
-  return (
-    <VStack alignment="leading" spacing={6} modifiers={[padding({ all: 12 })]}>
-      <HStack>
-        <Text modifiers={[headline]}>Train {props.trainNumber}</Text>
-        <Spacer />
-        <Text modifiers={[subheadline, foregroundStyle(delayColor)]}>{delayLabel}</Text>
       </HStack>
-      <HStack spacing={8}>
-        <VStack alignment="leading" spacing={2}>
-          <Text modifiers={[title3]}>{props.fromCode}</Text>
-          <Text modifiers={[caption, foregroundStyle('secondary')]}>{props.departTime}</Text>
-        </VStack>
-        <Spacer />
-        <Text modifiers={[foregroundStyle('secondary')]}>→</Text>
-        <Spacer />
-        <VStack alignment="trailing" spacing={2}>
-          <Text modifiers={[title3]}>{props.toCode}</Text>
-          <Text modifiers={[caption, foregroundStyle('secondary')]}>{props.arriveTime}</Text>
-        </VStack>
-      </HStack>
-      <Text modifiers={[caption, foregroundStyle('secondary')]}>{props.routeName}</Text>
     </VStack>
   );
 }

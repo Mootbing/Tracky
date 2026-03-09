@@ -10,9 +10,7 @@ function getWidgetHandles() {
   if (Platform.OS !== 'ios') return null;
   try {
     const { nextTrainWidget } = require('../widgets/NextTrainWidget');
-    const { travelStatsWidget } = require('../widgets/TravelStatsWidget');
-    const { upcomingTrainsWidget } = require('../widgets/UpcomingTrainsWidget');
-    return { nextTrainWidget, travelStatsWidget, upcomingTrainsWidget };
+    return { nextTrainWidget };
   } catch {
     return null;
   }
@@ -31,7 +29,7 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
     const NotificationService = require('./notifications') as typeof import('./notifications');
     const LiveActivityService = require('./live-activity') as typeof import('./live-activity');
     const { parseTimeToDate } = require('../utils/time-formatting') as typeof import('../utils/time-formatting');
-    const { selectNextTrain, selectUpcomingTrains, buildTravelStats } = require('./widget-data') as typeof import('./widget-data');
+    const { selectNextTrain } = require('./widget-data') as typeof import('./widget-data');
 
     const prefs = await TrainStorageService.getNotificationPrefs();
     const trains = await TrainStorageService.getSavedTrains();
@@ -109,9 +107,6 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
       if (widgets) {
         const allTrains = await TrainStorageService.getSavedTrains();
         widgets.nextTrainWidget.updateSnapshot(selectNextTrain(allTrains));
-        widgets.upcomingTrainsWidget.updateSnapshot(selectUpcomingTrains(allTrains));
-        const history = await TrainStorageService.getTripHistory();
-        widgets.travelStatsWidget.updateSnapshot(buildTravelStats(history));
       }
     } catch (widgetErr) {
       logger.error('[BackgroundTask] Widget refresh failed:', widgetErr);

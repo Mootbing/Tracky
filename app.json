@@ -97,30 +97,15 @@
               "supportedFamilies": [
                 "systemSmall",
                 "systemMedium",
-                "systemLarge",
                 "accessoryInline",
                 "accessoryRectangular",
                 "accessoryCircular"
               ]
-            },
+            }
+          ],
+          "liveActivities": [
             {
-              "name": "TravelStatsWidget",
-              "displayName": "Travel Stats",
-              "description": "Shows your travel statistics",
-              "supportedFamilies": [
-                "systemSmall",
-                "systemMedium",
-                "systemLarge",
-                "accessoryCircular"
-              ]
-            },
-            {
-              "name": "UpcomingTrainsWidget",
-              "displayName": "Upcoming Trains",
-              "description": "Lists your upcoming trains",
-              "supportedFamilies": [
-                "systemLarge"
-              ]
+              "name": "TrainLiveActivity"
             }
           ]
         }

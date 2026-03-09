@@ -58,6 +58,12 @@ export function isTrainActiveNow(train: Train): boolean {
 function buildProps(train: Train): TrainActivityProps {
   const delay = train.realtime?.delay ?? 0;
   const status = delay > 0 ? 'delayed' : delay < 0 ? 'early' : 'on-time';
+
+  const now = new Date();
+  const arriveDate = parseTimeToDate(train.arriveTime, now);
+  if (train.arriveDayOffset) arriveDate.setDate(arriveDate.getDate() + train.arriveDayOffset);
+  const minutesRemaining = Math.max(0, Math.round((arriveDate.getTime() + delay * 60_000 - now.getTime()) / 60_000));
+
   return {
     trainNumber: train.trainNumber,
     routeName: train.routeName,
@@ -68,6 +74,7 @@ function buildProps(train: Train): TrainActivityProps {
     departTime: train.departTime,
     arriveTime: train.arriveTime,
     delayMinutes: delay,
+    minutesRemaining,
     status,
     lastUpdated: Date.now(),
   };

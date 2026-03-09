@@ -1,6 +1,6 @@
 import { createLiveActivity, type LiveActivityLayout } from 'expo-widgets';
 import { Text, VStack, HStack, Spacer, Image } from '@expo/ui/swift-ui';
-import { foregroundStyle, font, padding, background, cornerRadius } from '@expo/ui/swift-ui/modifiers';
+import { foregroundStyle, font, padding, frame, background, clipShape, textCase } from '@expo/ui/swift-ui/modifiers';
 
 export interface TrainActivityProps {
   trainNumber: string;
@@ -12,6 +12,7 @@ export interface TrainActivityProps {
   departTime: string;
   arriveTime: string;
   delayMinutes: number;
+  minutesRemaining: number;
   status: string;
   lastUpdated: number;
 }
@@ -20,10 +21,13 @@ function delayColor(delay: number): string {
   return delay > 0 ? '#EF4444' : '#22C55E';
 }
 
-function delayText(delay: number): string {
-  if (delay > 0) return `+${delay}m`;
-  if (delay < 0) return `${delay}m`;
-  return 'On Time';
+function formatTimeRemaining(minutes: number): string {
+  if (minutes <= 0) return 'Arrived';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
 }
 
 function statusLabel(delay: number): string {
@@ -34,77 +38,116 @@ function statusLabel(delay: number): string {
     if (h > 0) return `Delayed ${h}h`;
     return `Delayed ${m}m`;
   }
-  if (delay < 0) {
-    return `${-delay}m early`;
-  }
+  if (delay < 0) return `${-delay}m early`;
   return 'On Time';
 }
 
 function TrainLiveActivityLayout(props?: TrainActivityProps): LiveActivityLayout {
   'widget';
 
-  const headline = font({ size: 17, weight: 'semibold' });
-  const subheadlineBold = font({ size: 15, weight: 'bold' });
-  const title3Bold = font({ size: 20, weight: 'bold' });
   const captionBold = font({ size: 12, weight: 'bold' });
-  const caption = font({ size: 12 });
   const caption2 = font({ size: 11 });
   const caption2Bold = font({ size: 11, weight: 'bold' });
 
   const delay = props?.delayMinutes ?? 0;
   const color = delayColor(delay);
+  const timeRemaining = formatTimeRemaining(props?.minutesRemaining ?? 0);
+  const toCode = props?.toCode ?? '';
+
+  const delayLabel = delay > 0
+    ? `${delay}m late`
+    : delay < 0
+      ? `${-delay}m early`
+      : 'On time';
 
   return {
     // Lock Screen / Notification Center banner
     banner: (
-      <VStack spacing={12} modifiers={[padding({ all: 16 })]}>
-        {/* Header */}
+      <VStack spacing={0} modifiers={[padding({ all: 16 })]}>
+        {/* Header: train id left, app name right */}
+        <HStack modifiers={[padding({ bottom: 10 })]}>
+          <HStack spacing={7}>
+            <Image
+              systemName="tram.fill"
+              size={12}
+              color="#FFFFFF"
+              modifiers={[padding({ all: 5 }), background(color), clipShape('circle')]}
+            />
+            <Text modifiers={[font({ size: 13, weight: 'semibold' }), foregroundStyle('#FFFFFF')]}>
+              Train {props?.trainNumber}
+            </Text>
+          </HStack>
+          <Spacer />
+          <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle('#FFFFFF60')]}>Tracky</Text>
+        </HStack>
+
+        {/* Route row: FROM time ... tram ... time TO */}
         <HStack>
-          <Text modifiers={[headline, foregroundStyle('#FFFFFF')]}>Train {props?.trainNumber}</Text>
+          <VStack alignment="leading" spacing={3}>
+            <HStack spacing={6}>
+              <Text modifiers={[font({ size: 24, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>{props?.fromCode}</Text>
+              <Text modifiers={[font({ size: 24, weight: 'bold' }), foregroundStyle(color)]}>{props?.departTime}</Text>
+            </HStack>
+            {delay !== 0 && (
+              <Text modifiers={[font({ size: 12 }), foregroundStyle(color)]}>{delayLabel}</Text>
+            )}
+          </VStack>
+
           <Spacer />
-          <Text
-            modifiers={[
-              subheadlineBold,
-              foregroundStyle(color),
-              padding({ leading: 8, trailing: 8, top: 4, bottom: 4 }),
-              background(color + '4D'),
-              cornerRadius(12),
-            ]}
-          >
-            {statusLabel(delay)}
+          <Image systemName="tram.fill" size={15} color="#FFFFFF50" />
+          <Spacer />
+
+          <VStack alignment="trailing" spacing={3}>
+            <HStack spacing={6}>
+              <Text modifiers={[font({ size: 24, weight: 'bold' }), foregroundStyle(color)]}>{props?.arriveTime}</Text>
+              <Text modifiers={[font({ size: 24, weight: 'bold' }), foregroundStyle('#FFFFFF')]}>{props?.toCode}</Text>
+            </HStack>
+            {delay !== 0 && (
+              <Text modifiers={[font({ size: 12 }), foregroundStyle(color)]}>{delayLabel}</Text>
+            )}
+          </VStack>
+        </HStack>
+
+        {/* Progress line */}
+        <HStack modifiers={[frame({ height: 2 }), background(color), clipShape('capsule'), padding({ vertical: 14 })]}>
+          <Spacer />
+        </HStack>
+
+        {/* Time remaining */}
+        <VStack alignment="center" spacing={4}>
+          <Text modifiers={[font({ size: 26, weight: 'bold', design: 'rounded' }), foregroundStyle(color)]}>
+            {timeRemaining}
           </Text>
-        </HStack>
-
-        {/* Route row */}
-        <HStack spacing={8}>
-          <VStack alignment="leading" spacing={2}>
-            <Text modifiers={[title3Bold, foregroundStyle('#FFFFFF')]}>{props?.fromCode}</Text>
-            <Text modifiers={[caption, foregroundStyle('#FFFFFFB3')]}>{props?.departTime}</Text>
-          </VStack>
-          <Spacer />
-          <Text modifiers={[foregroundStyle('#FFFFFF80')]}>→</Text>
-          <Spacer />
-          <VStack alignment="trailing" spacing={2}>
-            <Text modifiers={[title3Bold, foregroundStyle('#FFFFFF')]}>{props?.toCode}</Text>
-            <Text modifiers={[caption, foregroundStyle('#FFFFFFB3')]}>{props?.arriveTime}</Text>
-          </VStack>
-        </HStack>
-
-        {/* Route name footer */}
-        <Text modifiers={[caption, foregroundStyle('#FFFFFF80')]}>{props?.routeName}</Text>
+          <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle('#FFFFFF60'), textCase('uppercase')]}>
+            Until arrival
+          </Text>
+        </VStack>
       </VStack>
     ),
 
-    // Dynamic Island compact: leading = tram icon
-    compactLeading: <Image systemName="tram.fill" size={14} color="#007AFF" />,
+    // Dynamic Island compact: leading = colored circle + time remaining
+    compactLeading: (
+      <HStack spacing={4}>
+        <Image
+          systemName="arrow.up.right"
+          size={10}
+          color="#000000"
+          modifiers={[padding({ all: 4 }), background(color), clipShape('circle')]}
+        />
+        <Text modifiers={[caption2Bold, foregroundStyle(color)]}>{timeRemaining}</Text>
+      </HStack>
+    ),
 
-    // Dynamic Island compact: trailing = delay text
+    // Dynamic Island compact: trailing = station pill
     compactTrailing: (
-      <Text modifiers={[caption2Bold, foregroundStyle(color)]}>{delayText(delay)}</Text>
+      <HStack spacing={4} modifiers={[padding({ horizontal: 6, vertical: 3 }), background(color), clipShape('capsule')]}>
+        <Image systemName="tram.fill" size={9} color="#000000" />
+        <Text modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle('#000000')]}>{toCode}</Text>
+      </HStack>
     ),
 
     // Dynamic Island minimal: tram icon
-    minimal: <Image systemName="tram.fill" size={12} color="#007AFF" />,
+    minimal: <Image systemName="tram.fill" size={12} color={color} />,
 
     // Dynamic Island expanded: leading
     expandedLeading: (

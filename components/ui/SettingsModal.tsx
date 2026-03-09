@@ -445,52 +445,58 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
   }, []);
 
   const handleTestLiveActivity = useCallback(() => {
-    const startTest = async (action: string) => {
-      if (action === 'start') {
-        try {
-          const LiveActivityService = require('../../services/live-activity');
-          if (!LiveActivityService.isSupported()) {
-            Alert.alert('Not Supported', 'Live Activities require iOS 16.2+ and a development build (not Expo Go).');
-            return;
-          }
-          const started = await LiveActivityService.startForTrain({
-            tripId: 'test-live-activity',
-            trainNumber: '91',
-            routeName: 'Northeast Regional',
-            fromCode: 'NYP',
-            toCode: 'BOS',
-            from: 'New York',
-            to: 'Boston',
-            departTime: '2:30 PM',
-            arriveTime: '6:45 PM',
-            daysAway: 0,
-            realtime: { delay: 12 },
-          });
-          if (started) {
-            logger.info('[Debug] Started test Live Activity');
-            Alert.alert('Live Activity Started', 'Check the Dynamic Island or Lock Screen.');
-          } else {
-            Alert.alert('Not Available', 'Live Activities native module is not available. Make sure you are running a development build (not Expo Go) and Live Activities are enabled in Settings > Tracky.');
-          }
-        } catch (e) {
-          logger.error('[Debug] Live Activity start failed:', e);
-          Alert.alert('Failed to Start', `${e instanceof Error ? e.message : String(e)}\n\nMake sure Live Activities are enabled in Settings > Tracky.`);
+    const LA = () => require('../../services/live-activity');
+
+    const baseTrain = {
+      tripId: 'test-live-activity',
+      trainNumber: '91',
+      routeName: 'Northeast Regional',
+      fromCode: 'NYP',
+      toCode: 'BOS',
+      from: 'New York',
+      to: 'Boston',
+      daysAway: 0,
+    };
+
+    const runAction = async (action: string) => {
+      try {
+        const LiveActivityService = LA();
+        if (!LiveActivityService.isSupported()) {
+          Alert.alert('Not Supported', 'Live Activities require iOS 16.2+ and a development build.');
+          return;
         }
-      } else if (action === 'end') {
-        try {
-          const LiveActivityService = require('../../services/live-activity');
+        if (action === 'end') {
           await LiveActivityService.endAll();
-          logger.info('[Debug] Ended all Live Activities');
           Alert.alert('Done', 'All Live Activities ended.');
-        } catch (e) {
-          Alert.alert('Error', String(e));
+          return;
         }
+        // End any existing test activity first so the new state is visible
+        await LiveActivityService.endAll();
+        const scenarios: Record<string, object> = {
+          ontime_long:   { ...baseTrain, departTime: '9:25 AM',  arriveTime: '6:45 PM',  realtime: { delay: 0  } },
+          ontime_short:  { ...baseTrain, departTime: '2:30 PM',  arriveTime: '3:05 PM',  realtime: { delay: 0  } },
+          delayed:       { ...baseTrain, departTime: '2:30 PM',  arriveTime: '6:45 PM',  realtime: { delay: 18 } },
+          arrived:       { ...baseTrain, departTime: '8:00 AM',  arriveTime: '8:01 AM',  realtime: { delay: 0  } },
+        };
+        const train = scenarios[action];
+        const started = await LiveActivityService.startForTrain(train);
+        if (started) {
+          Alert.alert('Live Activity Started', 'Check the Dynamic Island or Lock Screen.\n\nLong-press the Dynamic Island pill to see the expanded view.');
+        } else {
+          Alert.alert('Not Available', 'Make sure you are running a development build and Live Activities are enabled in Settings > Tracky.');
+        }
+      } catch (e) {
+        logger.error('[Debug] Live Activity test failed:', e);
+        Alert.alert('Failed', `${e instanceof Error ? e.message : String(e)}`);
       }
     };
 
-    Alert.alert('Test Live Activity', 'Choose an action:', [
-      { text: 'Start Sample', onPress: () => startTest('start') },
-      { text: 'End All', onPress: () => startTest('end') },
+    Alert.alert('Test Live Activity', 'Pick a scenario to preview all Dynamic Island + Lock Screen states:', [
+      { text: '🟢 On Time — Long journey (9h)',  onPress: () => runAction('ontime_long')  },
+      { text: '🟢 On Time — Short trip (35m)',   onPress: () => runAction('ontime_short') },
+      { text: '🔴 Delayed 18m',                  onPress: () => runAction('delayed')      },
+      { text: '⬛ Arrived',                       onPress: () => runAction('arrived')      },
+      { text: 'End All',                          onPress: () => runAction('end')          },
       { text: 'Cancel', style: 'cancel' },
     ]);
   }, []);

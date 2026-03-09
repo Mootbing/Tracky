@@ -3,7 +3,7 @@ import { DEFAULT_NOTIFICATION_PREFS, TrainStorageService } from './storage';
 import { BackgroundTaskService } from './background-tasks';
 import * as LiveActivityService from './live-activity';
 import * as NotificationService from './notifications';
-import { selectNextTrain, selectUpcomingTrains, buildTravelStats } from './widget-data';
+import { selectNextTrain } from './widget-data';
 import type { Train } from '../types/train';
 import { parseTimeToDate } from '../utils/time-formatting';
 import { logger } from '../utils/logger';
@@ -42,9 +42,7 @@ function getWidgetHandles() {
   if (Platform.OS !== 'ios') return null;
   try {
     const { nextTrainWidget } = require('../widgets/NextTrainWidget');
-    const { travelStatsWidget } = require('../widgets/TravelStatsWidget');
-    const { upcomingTrainsWidget } = require('../widgets/UpcomingTrainsWidget');
-    return { nextTrainWidget, travelStatsWidget, upcomingTrainsWidget };
+    return { nextTrainWidget };
   } catch {
     return null;
   }
@@ -55,23 +53,9 @@ function refreshTrainWidgets(trains: Train[]): void {
     const widgets = getWidgetHandles();
     if (!widgets) return;
     widgets.nextTrainWidget.updateSnapshot(selectNextTrain(trains));
-    widgets.upcomingTrainsWidget.updateSnapshot(selectUpcomingTrains(trains));
   } catch (e) {
     logger.error('[Widget] Failed to refresh train widgets:', e);
   }
-}
-
-function refreshStatsWidget(): void {
-  const widgets = getWidgetHandles();
-  if (!widgets) return;
-  TrainStorageService.getTripHistory()
-    .then(history => {
-      const data = buildTravelStats(history);
-      widgets.travelStatsWidget.updateSnapshot(data);
-    })
-    .catch(e => {
-      logger.error('[Widget] Failed to refresh TravelStats widget:', e);
-    });
 }
 
 function isArrived(train: Train): boolean {
@@ -130,7 +114,6 @@ export const TrainActivityManager = {
 
     const remaining = await TrainStorageService.getSavedTrains();
     refreshTrainWidgets(remaining);
-    refreshStatsWidget();
   },
 
   async onRealtimeUpdate(oldTrains: Train[], newTrains: Train[]): Promise<void> {
@@ -192,7 +175,6 @@ export const TrainActivityManager = {
   async onAppStartup(trains: Train[]): Promise<void> {
     // Refresh widgets on every startup
     refreshTrainWidgets(trains);
-    refreshStatsWidget();
 
     // Restore persisted arrival alert dedup set
     const persisted = await TrainStorageService.getSentArrivalAlerts();
