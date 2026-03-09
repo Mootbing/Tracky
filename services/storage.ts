@@ -393,14 +393,12 @@ export class TrainStorageService {
         const departMinutes = parseTimeToMinutes(train.departTime);
         const arriveMinutes = parseTimeToMinutes(train.arriveTime);
         duration = arriveMinutes - departMinutes;
-        // Handle next-day arrivals
-        if (duration < 0) {
-          duration += 24 * 60;
-        }
-        // Adjust for day offsets if available
         if (typeof train.arriveDayOffset === 'number' && typeof train.departDayOffset === 'number') {
-          const dayDiff = train.arriveDayOffset - train.departDayOffset;
-          duration += dayDiff * 24 * 60;
+          // Use day offsets for accurate multi-day duration
+          duration += (train.arriveDayOffset - train.departDayOffset) * 24 * 60;
+        } else if (duration < 0) {
+          // Fallback: assume next day when no day offsets available
+          duration += 24 * 60;
         }
       } catch (error) {
         logger.error('Error calculating duration:', error);

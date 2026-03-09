@@ -208,7 +208,7 @@ const DepartureItem = React.memo(function DepartureItem({ train, stationTime, st
     const nowSec = getCurrentSecondsInTimezone(tz);
     const departSec = parseTimeToMinutes(stationTime.time) * 60
       + (stationTime.dayOffset ?? 0) * 24 * 3600;
-    const deltaSec = departSec - nowSec;
+    const deltaSec = departSec + daysAway * 86400 - nowSec;
     const past = deltaSec < 0;
     const absSec = Math.abs(deltaSec);
 

@@ -347,7 +347,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   });
 
   const isHalfHeight = !isCollapsed && !isFullscreen;
-  const duration = trainData ? calculateDuration(trainData.departTime, trainData.arriveTime) : '';
+  const duration = trainData ? calculateDuration(trainData.departTime, trainData.arriveTime, trainData.departDayOffset, trainData.arriveDayOffset) : '';
 
   let distanceMiles: number | null = null;
   if (trainData) {
@@ -508,8 +508,9 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             const nowSec = getCurrentSecondsInTimezone(destTz);
             const arriveSec = parseTimeToMinutes(trainData.arriveTime) * 60
               + (trainData.arriveDayOffset || 0) * 24 * 3600;
-            const isCompleted = countdown.past && arriveSec - nowSec < 0;
-            const arrDeltaSec = Math.abs(arriveSec - nowSec);
+            const adjustedArriveSec = arriveSec + (trainData.daysAway ?? 0) * 86400;
+            const isCompleted = countdown.past && adjustedArriveSec - nowSec < 0;
+            const arrDeltaSec = Math.abs(adjustedArriveSec - nowSec);
             const arrHours = Math.floor(arrDeltaSec / 3600);
             const arrMinutes = Math.floor(arrDeltaSec / 60);
             const arrSeconds = Math.floor(arrDeltaSec);
@@ -636,7 +637,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 const nowSec = getCurrentSecondsInTimezone(destTimezone);
                 const arriveSec = parseTimeToMinutes(arriveTime) * 60
                   + arriveDayOffset * 24 * 3600;
-                const arrDeltaSec = arriveSec - nowSec;
+                const arrDeltaSec = arriveSec + (trainData.daysAway ?? 0) * 86400 - nowSec;
                 const arrPast = arrDeltaSec < 0;
                 const arrAbsSec = Math.abs(arrDeltaSec);
                 let arrCountdownText = '';

@@ -82,8 +82,8 @@ export default function TrainCardContent({
     const arriveSec = parseTimeToMinutes(arriveTime) * 60
       + (arriveDayOffset ?? 0) * 24 * 3600;
     const delaySec = (arriveDelayMinutes ?? 0) * 60;
-    return nowSec >= arriveSec + delaySec;
-  }, [isPast, arriveTime, arriveDayOffset, arriveDelayMinutes, toCode]);
+    return nowSec >= arriveSec + delaySec + (daysAway ?? 0) * 86400;
+  }, [isPast, arriveTime, arriveDayOffset, arriveDelayMinutes, toCode, daysAway]);
 
   const shouldFadeTitle = fadeOnlyOnArrival ? isArrived : isPast;
   const pastColor = isPast ? { color: colors.secondary } : undefined;

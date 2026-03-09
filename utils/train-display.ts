@@ -54,14 +54,16 @@ export function pluralCount(count: number, singular: string, plural?: string): s
 /**
  * Calculate journey duration string from start and end times (HH:MM format).
  */
-export function calculateDuration(startTime: string, endTime: string): string {
+export function calculateDuration(startTime: string, endTime: string, departDayOffset?: number, arriveDayOffset?: number): string {
   const startMinutes = timeToMinutes(startTime);
   let endMinutes = timeToMinutes(endTime);
-  // If end time is earlier than start time, assume it's the next day
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
+  let duration = endMinutes - startMinutes;
+  if (typeof departDayOffset === 'number' && typeof arriveDayOffset === 'number') {
+    duration += (arriveDayOffset - departDayOffset) * 24 * 60;
+  } else if (duration < 0) {
+    // Fallback: assume next day when no day offsets available
+    duration += 24 * 60;
   }
-  const duration = endMinutes - startMinutes;
   const hours = Math.floor(duration / 60);
   const minutes = duration % 60;
   return `${hours}h ${minutes}m`;
