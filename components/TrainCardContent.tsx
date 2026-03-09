@@ -144,7 +144,7 @@ export default function TrainCardContent({
             return (
               <View style={styles.timeInfo}>
                 <View style={[styles.arrowIcon, { backgroundColor: depBg }]}>
-                  <MaterialCommunityIcons name="arrow-top-right" size={10} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="arrow-top-right" size={10} color={colors.background.primary} />
                 </View>
                 <Text style={styles.timeCode}>{fromCode}</Text>
                 <TimeDisplay
@@ -163,7 +163,7 @@ export default function TrainCardContent({
             return (
               <View style={styles.timeInfo}>
                 <View style={[styles.arrowIcon, { backgroundColor: arrBg }]}>
-                  <MaterialCommunityIcons name="arrow-bottom-left" size={10} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="arrow-bottom-left" size={10} color={colors.background.primary} />
                 </View>
                 <Text style={styles.timeCode}>{toCode}</Text>
                 <TimeDisplay
