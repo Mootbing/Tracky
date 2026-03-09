@@ -44,6 +44,13 @@ export function pluralize(count: number, singular: string, plural?: string): str
 }
 
 /**
+ * Return "count word(s)" — e.g. pluralCount(3, 'hour') → "3 hours".
+ */
+export function pluralCount(count: number, singular: string, plural?: string): string {
+  return `${count} ${pluralize(count, singular, plural)}`;
+}
+
+/**
  * Calculate journey duration string from start and end times (HH:MM format).
  */
 export function calculateDuration(startTime: string, endTime: string): string {

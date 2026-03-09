@@ -23,6 +23,7 @@ import { calculateProfileStats, formatDuration } from '../../utils/profile-stats
 import { formatDistance } from '../../utils/units';
 import { error as logError } from '../../utils/logger';
 import AnimatedRollingText from './AnimatedRollingText';
+import { pluralCount } from '../../utils/train-display';
 import MarqueeText from './MarqueeText';
 import { SlideUpModalContext } from './slide-up-modal';
 
@@ -483,7 +484,7 @@ export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalPr
           <View style={styles.groupHeader}>
             <Text style={styles.groupHeaderText}>{item.groupKey}</Text>
             <Text style={styles.groupHeaderCount}>
-              {item.count} {item.count === 1 ? 'TRIP' : 'TRIPS'}
+              {pluralCount(item.count, 'TRIP')}
             </Text>
           </View>
           <View style={styles.groupDivider} />

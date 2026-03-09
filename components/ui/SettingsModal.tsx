@@ -36,6 +36,7 @@ import { type LogEntry, LogLevel, logger, openReportBadDataEmail, openReportBugE
 import { useGTFSRefresh } from '../../context/GTFSRefreshContext';
 import { PlaceholderBlurb } from '../PlaceholderBlurb';
 import { SlideUpModalContext } from './slide-up-modal';
+import { pluralCount } from '../../utils/train-display';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -248,21 +249,21 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
         message = `No calendar events found in the ${range}.\n\nMake sure the selected calendar${ids.length > 1 ? 's have' : ' has'} events in this range.`;
       } else if (result.failReason === 'no_pattern_match') {
         title = 'No Train Events';
-        message = `Scanned ${result.totalCalendarEvents} event${result.totalCalendarEvents !== 1 ? 's' : ''} (${range}) but none matched the "Train to ..." pattern.\n\nEvents must be titled like "Train to Philadelphia" to be detected.`;
+        message = `Scanned ${pluralCount(result.totalCalendarEvents ?? 0, 'event')} (${range}) but none matched the "Train to ..." pattern.\n\nEvents must be titled like "Train to Philadelphia" to be detected.`;
       } else if (result.added === 0 && result.skipped > 0) {
         title = 'Already Synced';
         const indexed = result.totalCalendarEvents ?? 0;
-        message = `Scanned ${indexed} event${indexed !== 1 ? 's' : ''}, found ${result.matched} trip${result.matched !== 1 ? 's' : ''}.\n\nAll ${result.skipped} already exist in your history.`;
+        message = `Scanned ${pluralCount(indexed, 'event')}, found ${pluralCount(result.matched, 'trip')}.\n\nAll ${result.skipped} already exist in your history.`;
       } else if (result.matched === 0) {
         title = 'No Matches';
         const indexed = result.totalCalendarEvents ?? 0;
-        message = `Scanned ${indexed} event${indexed !== 1 ? 's' : ''}, found ${result.parsed} train event${result.parsed !== 1 ? 's' : ''} but couldn\'t match any to ${matchGtfs ? 'current timetables' : 'known stations'}.\n\nCheck that event locations and destinations use valid station names.`;
+        message = `Scanned ${pluralCount(indexed, 'event')}, found ${pluralCount(result.parsed, 'train event')} but couldn\'t match any to ${matchGtfs ? 'current timetables' : 'known stations'}.\n\nCheck that event locations and destinations use valid station names.`;
       } else {
         title = 'Sync Complete';
         const indexed = result.totalCalendarEvents ?? 0;
         const lines: string[] = [];
         lines.push(
-          `Scanned ${indexed} event${indexed !== 1 ? 's' : ''}, found ${result.matched} trip${result.matched !== 1 ? 's' : ''}.`
+          `Scanned ${pluralCount(indexed, 'event')}, found ${pluralCount(result.matched, 'trip')}.`
         );
         lines.push(`${result.added} added to history.`);
         if (result.skipped > 0) {
@@ -519,7 +520,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
           onPress: async () => {
             const removed = await TrainStorageService.deleteCalendarSyncedTrips();
             logger.info(`[Settings] Deleted ${removed} calendar-synced trips`);
-            Alert.alert('Done', `Deleted ${removed} synced trip${removed !== 1 ? 's' : ''}.`);
+            Alert.alert('Done', `Deleted ${pluralCount(removed, 'synced trip')}.`);
           },
         },
       ]
@@ -1386,7 +1387,7 @@ export default function SettingsModal({ onClose, onRefreshGTFS }: SettingsModalP
                     ))}
                   </View>
                   <Text style={[styles.logCount, { marginTop: Spacing.sm }]}>
-                    {filteredLogs.length} log{filteredLogs.length !== 1 ? 's' : ''}
+                    {pluralCount(filteredLogs.length, 'log')}
                   </Text>
                 </>
               )}

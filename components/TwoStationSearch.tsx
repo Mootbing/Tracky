@@ -17,6 +17,7 @@ import { SlideUpModalContext } from './ui/slide-up-modal';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { logger } from '../utils/logger';
 import { LocationSuggestionsService } from '../services/location-suggestions';
+import { pluralCount } from '../utils/train-display';
 
 interface TripResult {
   tripId: string;
@@ -226,7 +227,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         setHistorySuggestions(sorted.map(r => ({
           type: 'station' as const,
           label: `${r.fromCode} → ${r.toCode}`,
-          subtitle: `${r.routeName} · ${r.count} ${r.count === 1 ? 'trip' : 'trips'}`,
+          subtitle: `${r.routeName} · ${pluralCount(r.count, 'trip')}`,
           stop: gtfsParser.getStop(r.fromCode) || undefined,
           toStop: gtfsParser.getStop(r.toCode) || undefined,
         })));
@@ -1074,7 +1075,7 @@ export function TwoStationSearch({ onSelectTrip, onClose }: TwoStationSearchProp
         {showingResults && (
           <View style={styles.resultsContainer}>
             <Text style={styles.sectionLabel}>
-              {tripResults.length} TRAIN{tripResults.length !== 1 ? 'S' : ''} FOUND
+              {pluralCount(tripResults.length, 'TRAIN')} FOUND
             </Text>
             {tripResults.length === 0 ? (
               <Text style={styles.noResults}>No direct trains between these stations</Text>

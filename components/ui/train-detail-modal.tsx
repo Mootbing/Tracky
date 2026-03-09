@@ -21,7 +21,7 @@ import { haversineDistance } from '../../utils/distance';
 import { gtfsParser } from '../../utils/gtfs-parser';
 import { logger, openReportBadDataEmail } from '../../utils/logger';
 import { convertGtfsTimeToLocal, getCurrentMinutesInTimezone, getCurrentSecondsInTimezone, getTimezoneForStop } from '../../utils/timezone';
-import { calculateDuration, getCountdownForTrain, pluralize } from '../../utils/train-display';
+import { calculateDuration, getCountdownForTrain, pluralize, pluralCount } from '../../utils/train-display';
 import { convertDistance, distanceSuffix, formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
 import AnimatedRollingText from './AnimatedRollingText';
@@ -66,7 +66,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   const trainData = train || selectedTrain;
   
   const [allStops, setAllStops] = React.useState<StopInfo[]>([]);
-  const [isWhereIsMyTrainExpanded, setIsWhereIsMyTrainExpanded] = React.useState(false);
+  const [isWhereIsMyTrainExpanded, setIsWhereIsMyTrainExpanded] = React.useState(true);
 
   const [weatherData, setWeatherData] = React.useState<WeatherData | null>(null);
   const [isLoadingWeather, setIsLoadingWeather] = React.useState(false);
@@ -509,6 +509,13 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             const arriveSec = parseTimeToMinutes(trainData.arriveTime) * 60
               + (trainData.arriveDayOffset || 0) * 24 * 3600;
             const isCompleted = countdown.past && arriveSec - nowSec < 0;
+            const arrDeltaSec = Math.abs(arriveSec - nowSec);
+            const arrHours = Math.round(arrDeltaSec / 3600);
+            const arrMinutes = Math.round(arrDeltaSec / 60);
+            const arrSeconds = Math.round(arrDeltaSec);
+            const arrivalCountdown = arrHours >= 1 ? { value: arrHours, unit: 'hours' }
+              : arrMinutes >= 1 ? { value: arrMinutes >= 60 ? 1 : arrMinutes, unit: arrMinutes >= 60 ? 'hours' : 'minutes' }
+              : { value: arrSeconds >= 60 ? 1 : arrSeconds, unit: arrSeconds >= 60 ? 'minutes' : 'seconds' };
             return (
             <View style={[styles.expandableSection, bannerBg != null && { backgroundColor: bannerBg }]}>
               <View style={styles.statusRow}>
@@ -521,8 +528,8 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                   {isLiveTrain && !isCompleted ? 'En route, ' : ''}
                   {isCompleted ? 'Completed ' : countdown.past ? (isLiveTrain ? 'departed ' : 'Departed ') : (isLiveTrain ? 'departs in ' : 'Departs in ')}
                 </Text>
-                <AnimatedRollingText value={String(countdown.value)} style={[styles.statusText, { fontWeight: 'bold', color: bannerColor }]} />
-                <Text style={[styles.statusText, { color: bannerColor }]}>{' '}{unitLabel.toLowerCase()}</Text>
+                <AnimatedRollingText value={String(isCompleted ? arrivalCountdown.value : countdown.value)} style={[styles.statusText, { fontWeight: 'bold', color: bannerColor }]} />
+                <Text style={[styles.statusText, { color: bannerColor }]}>{' '}{isCompleted ? `${arrivalCountdown.unit} ago` : unitLabel.toLowerCase()}</Text>
               </View>
             </View>
             );
@@ -635,13 +642,13 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
                 let arrCountdownText = '';
                 if (arrAbsSec >= 3600) {
                   const h = Math.round(arrAbsSec / 3600);
-                  arrCountdownText = `${h} ${h === 1 ? 'hour' : 'hours'}`;
+                  arrCountdownText = pluralCount(h, 'hour');
                 } else if (arrAbsSec >= 60) {
                   const m = Math.round(arrAbsSec / 60);
-                  arrCountdownText = `${m} ${m === 1 ? 'minute' : 'minutes'}`;
+                  arrCountdownText = pluralCount(m, 'minute');
                 } else {
                   const s = Math.round(arrAbsSec);
-                  arrCountdownText = `${s} ${s === 1 ? 'second' : 'seconds'}`;
+                  arrCountdownText = pluralCount(s, 'second');
                 }
                 return (
                   <>

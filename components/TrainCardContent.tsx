@@ -5,6 +5,7 @@ import { type ColorPalette, FontSizes, Spacing, withTextShadow } from '../consta
 import { useColors } from '../context/ThemeContext';
 import { createStyles } from '../screens/styles';
 import { getDelayColorKey, parseTimeToMinutes } from '../utils/time-formatting';
+import { pluralCount } from '../utils/train-display';
 import { gtfsParser } from '../utils/gtfs-parser';
 import { getCurrentSecondsInTimezone, getTimezoneForStop } from '../utils/timezone';
 import AnimatedRollingText from './ui/AnimatedRollingText';
@@ -106,7 +107,7 @@ export default function TrainCardContent({
           </Text>
           {intermediateStopCount != null && intermediateStopCount > 0 && (
             <AnimatedRollingText
-              value={`${intermediateStopCount} stop${intermediateStopCount !== 1 ? 's' : ''}`}
+              value={pluralCount(intermediateStopCount, 'stop')}
               style={localStyles.stops}
             />
           )}
