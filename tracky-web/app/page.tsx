@@ -756,7 +756,7 @@ export default function Home() {
           left={
             <div className="max-w-sm w-full">
               <p className="reveal text-xs font-mono text-black/25 uppercase tracking-[0.2em] mb-3">Delays</p>
-              <h3 className="reveal text-2xl md:text-3xl font-bold mb-3">Know before Amtrak does</h3>
+              <h3 className="reveal text-2xl md:text-3xl font-bold mb-3">Conductor-level intelligence</h3>
               <p className="reveal reveal-d1 text-black/45 leading-relaxed">
                 Live GTFS-RT delay data for every stop along the route. The moment
                 a delay is reported, you see it&nbsp;&mdash; often minutes before the
