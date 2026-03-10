@@ -337,13 +337,14 @@ export default function Home() {
   const [trainReveal, setTrainReveal] = useState(0);
   const [tunnelProgress, setTunnelProgress] = useState(0);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [headerCompact, setHeaderCompact] = useState(false);
   const lastScrollY = useRef(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
   /* ---- Intro sequence stages ---- */
   const [introStage, setIntroStage] = useState(0);
   // 0 = nothing, 1 = typewriter started, 2 = desc visible, 3 = notif visible, 4 = track drawing, 5 = header visible
-  const { displayed: titleText, done: titleDone } = useTypewriter("Tracky", 300, 80);
+  const { displayed: titleText, done: titleDone } = useTypewriter("From 'Where's My Train?' To 'Wow that's quick'", 300, 25);
 
   useEffect(() => {
     // Stage 1: typewriter starts immediately (via hook delay)
@@ -374,6 +375,7 @@ export default function Home() {
     const y = window.scrollY;
     setScrollingUp(y < lastScrollY.current);
     if (y > 50) setHasScrolled(true);
+    setHeaderCompact(y > 50);
     lastScrollY.current = y;
 
     // Train car reveal: based on notification passing mid-screen
@@ -420,25 +422,40 @@ export default function Home() {
     <main className="bg-white min-h-screen">
 
       {/* ===== FLOATING BUBBLE HEADER ===== */}
-      <header className="fixed top-4 left-1/2 z-50 w-[92%] max-w-xl" style={{
-        transition: "opacity 0.6s ease, transform 0.6s ease",
+      <header className="fixed top-0 left-1/2 z-50" style={{
+        transition: "opacity 0.6s ease, transform 0.6s ease, width 0.5s ease, max-width 0.5s ease, top 0.5s ease, border-radius 0.5s ease, background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease",
         opacity: introStage >= 5 ? 1 : 0,
         transform: introStage >= 5 ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-30px)",
+        width: headerCompact ? "92%" : "100%",
+        maxWidth: headerCompact ? "36rem" : "100%",
+        top: headerCompact ? "16px" : "0px",
+        borderRadius: headerCompact ? "9999px" : "0px",
+        background: headerCompact ? "rgba(255,255,255,0.7)" : "transparent",
+        backdropFilter: headerCompact ? "blur(24px)" : "none",
+        WebkitBackdropFilter: headerCompact ? "blur(24px)" : "none",
+        borderWidth: "1px",
+        borderStyle: "solid",
+        borderColor: headerCompact ? "rgba(0,0,0,0.08)" : "transparent",
+        boxShadow: headerCompact ? "0 2px 20px rgba(0,0,0,0.06)" : "none",
       }}>
-        <div className="flex items-center justify-between px-5 h-12 rounded-full bg-white/70 backdrop-blur-xl border border-black/8 shadow-[0_2px_20px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between px-5 h-12">
           <div className="flex items-center gap-2">
             <img src="/tracky-logo.png" alt="Tracky" className="w-7 h-7 rounded-lg" />
-            <span className="text-sm font-bold tracking-tight">Tracky</span>
+            <span className="text-sm font-bold tracking-tight overflow-hidden" style={{
+              transition: "max-width 0.4s ease, opacity 0.4s ease",
+              maxWidth: headerCompact ? "0px" : "80px",
+              opacity: headerCompact ? 0 : 1,
+              whiteSpace: "nowrap",
+            }}>Tracky</span>
           </div>
-          <div className="flex items-center gap-3">
-            <a href="#" className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black text-white text-xs font-semibold transition-opacity hover:opacity-80">
-              Download
+          <div className="flex items-center gap-1.5">
+            <a href="#" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black text-white text-xs font-semibold transition-opacity hover:opacity-80">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              Get The App
             </a>
-            <button className="flex flex-col gap-[4px] p-1.5" aria-label="Menu">
-              <span className="block w-4 h-[1.5px] bg-black/50 rounded-full" />
-              <span className="block w-4 h-[1.5px] bg-black/50 rounded-full" />
-              <span className="block w-2.5 h-[1.5px] bg-black/50 rounded-full" />
-            </button>
+            <a href="#" className="inline-flex items-center p-1.5 rounded-full bg-white border border-black/10 text-black transition-all hover:bg-black/5" aria-label="Android">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 2.246l1.378-2.39a.326.326 0 00-.567-.327L16.93 1.94C15.985 1.513 14.952 1.27 13.86 1.27c-1.09 0-2.124.243-3.07.67L9.387-.47a.326.326 0 00-.567.327l1.378 2.39C7.78 3.587 6.17 5.96 6.17 8.704h15.38c0-2.744-1.61-5.117-4.027-6.458zM10.4 6.26a.807.807 0 110-1.614.807.807 0 010 1.614zm7.12 0a.807.807 0 110-1.614.807.807 0 010 1.614zM6.17 19.924c0 .903.732 1.635 1.635 1.635h1.09v3.076a1.635 1.635 0 013.27 0V21.56h3.39v3.076a1.635 1.635 0 013.27 0V21.56h1.09c.903 0 1.635-.732 1.635-1.635V9.614H6.17v10.31zM3.72 9.614a1.635 1.635 0 00-1.635 1.635v7.04a1.635 1.635 0 003.27 0v-7.04A1.635 1.635 0 003.72 9.614zm20.28 0a1.635 1.635 0 00-1.635 1.635v7.04a1.635 1.635 0 003.27 0v-7.04A1.635 1.635 0 0024 9.614z"/></svg>
+            </a>
           </div>
         </div>
       </header>
@@ -452,14 +469,14 @@ export default function Home() {
 
       {/* ========== HERO ========== */}
       <section ref={heroRef} className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center">
-        <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-bold tracking-tight leading-[1.05] max-w-3xl mb-8" style={{
+        <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-bold tracking-tight leading-[1.05] max-w-3xl mb-2" style={{
           textWrap: "balance",
           filter: titleDone ? "blur(0px)" : "blur(4px)",
           transition: "filter 0.6s ease",
         }}>
           {titleText}
         </h1>
-        <p className="text-black/45 text-lg md:text-xl max-w-xl mt-6 leading-relaxed" style={{
+        <p className="text-black/45 text-lg md:text-xl max-w-xl mt-2 leading-relaxed" style={{
           textWrap: "balance",
           transition: "opacity 0.7s ease, transform 0.7s ease, filter 0.7s ease",
           opacity: introStage >= 2 ? 1 : 0,

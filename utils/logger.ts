@@ -228,20 +228,11 @@ function getRecentLogsFormatted(minutes: number): string {
 }
 
 export function openReportBugEmail() {
-  const logs = getRecentLogsFormatted(15);
-  const subject = encodeURIComponent('Tracky Bug Report');
-  const body = encodeURIComponent(
-    `\n\n[Provide a brief description above if you can — if not just hit send — the logs are below]\n\n` +
-    `────────────────────────────────\n` +
-    `Debug Logs (last 15 min)\n` +
-    `────────────────────────────────\n\n` +
-    `${logs || 'No logs recorded'}\n`
-  );
-  Linking.openURL(`mailto:him@jasonxu.me?subject=${subject}&body=${body}`);
+  Linking.openURL('https://github.com/Mootbing/Tracky/issues/new');
 }
 
 export function openReportBadDataEmail() {
-  Linking.openURL('mailto:him@jasonxu.me?subject=Incorrect%20Tracky%20Data');
+  Linking.openURL('https://github.com/Mootbing/Tracky/issues/new');
 }
 
 export function openCrashReportEmail(err: Error | null, componentStack: string | null) {
