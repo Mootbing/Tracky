@@ -80,7 +80,7 @@ const createLoadingStyles = (colors: ColorPalette) =>
   StyleSheet.create(withTextShadow({
     overlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: colors.background.primary,
+      backgroundColor: '#000000',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 99999,
@@ -484,7 +484,13 @@ function MapScreenInner() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
-          const location = await Location.getCurrentPositionAsync({});
+          // Try last known position first (instant, works on emulators without GPS)
+          let location = await Location.getLastKnownPositionAsync();
+          if (!location) {
+            location = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+          }
           logger.debug(`[MapScreen] User location: ${location.coords.latitude.toFixed(3)}, ${location.coords.longitude.toFixed(3)}`);
           setInitialRegion({
             latitude: location.coords.latitude,
@@ -611,7 +617,12 @@ function MapScreenInner() {
       if (status !== 'granted') {
         return;
       }
-      const location = await Location.getCurrentPositionAsync({});
+      let location = await Location.getLastKnownPositionAsync();
+      if (!location) {
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
       const latitudeDelta = 0.05;
       const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, currentSnap);
       mapRef.current?.animateToRegion(
@@ -655,11 +666,7 @@ function MapScreenInner() {
 
   // Don't render until we have a region
   if (!mapReady || !regionRef.current) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: colors.primary }}>Loading map...</Text>
-      </View>
-    );
+    return <LoadingOverlay visible={true} />;
   }
 
   return (
@@ -670,6 +677,7 @@ function MapScreenInner() {
         mapType={mapType}
         initialRegion={regionRef.current!}
         showsUserLocation={true}
+        showsMyLocationButton={false}
         showsTraffic={false}
         showsIndoors={true}
         userLocationAnnotationTitle="Your Location"

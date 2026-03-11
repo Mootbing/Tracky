@@ -77,6 +77,24 @@ The app is designed around a single map screen with a stack of gesture-driven bo
 npm install --legacy-peer-deps
 ```
 
+### Environment Setup
+
+Copy the example environment file and add your own API keys:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and set your Google Maps API key:
+
+```
+GOOGLE_MAPS_API_KEY=your_key_here
+```
+
+You can get a Google Maps API key from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials). Make sure to enable **Maps SDK for Android**.
+
+> **Note:** The `.env` file is gitignored. Never commit your API keys.
+
 ### Run the App
 
 ```bash

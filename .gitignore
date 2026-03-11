@@ -37,6 +37,7 @@ Thumbs.db
 desktop.ini
 
 # local env files
+.env
 .env*.local
 
 # typescript
