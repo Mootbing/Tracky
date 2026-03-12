@@ -26,6 +26,7 @@ import { convertDistance, distanceSuffix, formatTemp, weatherApiTempUnit } from 
 import { getWeatherCondition } from '../../utils/weather';
 import AnimatedRollingText from './AnimatedRollingText';
 import MarqueeText from './MarqueeText';
+import { SkeletonBox } from './SkeletonBox';
 import { SlideUpModalContext } from './slide-up-modal';
 import TimeDisplay from './TimeDisplay';
 
@@ -445,6 +446,9 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
     return nextStopIndex === 0 ? `Departs ${stop.name} in ${timeStr}${delayLabel}` : `${stop.name} in ${timeStr}${delayLabel}`;
   }, [isLiveTrain, nextStopIndex, allStops, stopDelays]);
 
+  // Detect skeleton/loading state: placeholder trains have empty `from`
+  const isSkeletonLoading = !!trainData && !trainData.from;
+
   if (!trainData) {
     return (
       <View style={styles.modalContent}>
@@ -467,13 +471,18 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
           <View style={styles.headerTextContainer}>
             <View style={styles.headerTop}>
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {trainData.routeName || trainData.operator} {trainData.trainNumber} · {isLiveTrain && trainLocalTime ? trainLocalTime : trainData.date}
+                {trainData.routeName || trainData.operator} {trainData.trainNumber}
+                {!isSkeletonLoading && ` · ${isLiveTrain && trainLocalTime ? trainLocalTime : trainData.date}`}
               </Text>
             </View>
-            <MarqueeText
-              text={`${trainData.from} to ${trainData.to}`}
-              style={styles.routeTitle}
-            />
+            {isSkeletonLoading ? (
+              <SkeletonBox width={180} height={16} borderRadius={4} style={{ marginTop: 4 }} />
+            ) : (
+              <MarqueeText
+                text={`${trainData.from} to ${trainData.to}`}
+                style={styles.routeTitle}
+              />
+            )}
           </View>
         </View>
         <TouchableOpacity onPress={() => { hapticLight(); onClose(); }} style={styles.absoluteCloseButton} activeOpacity={0.6}>
@@ -481,7 +490,44 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
+      {/* Skeleton is outside fade wrapper — visible immediately during slide-in */}
+      {isSkeletonLoading && (
+        <View style={{ flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md }}>
+          {/* Skeleton countdown banner */}
+          <SkeletonBox width="100%" height={48} borderRadius={12} />
+          {/* Skeleton departure/arrival board */}
+          <View style={{ marginTop: Spacing.lg }}>
+            {/* Departure */}
+            <View style={{ paddingVertical: Spacing.md }}>
+              <SkeletonBox width={80} height={14} borderRadius={4} />
+              <SkeletonBox width={120} height={32} borderRadius={6} style={{ marginTop: 8 }} />
+              <SkeletonBox width={180} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+            </View>
+            <View style={{ height: 1, backgroundColor: colors.border.primary, marginVertical: Spacing.sm }} />
+            {/* Arrival */}
+            <View style={{ paddingVertical: Spacing.md }}>
+              <SkeletonBox width={80} height={14} borderRadius={4} />
+              <SkeletonBox width={120} height={32} borderRadius={6} style={{ marginTop: 8 }} />
+              <SkeletonBox width={180} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+            </View>
+          </View>
+          {/* Skeleton Good to Know */}
+          <View style={{ marginTop: Spacing.lg }}>
+            <SkeletonBox width={100} height={14} borderRadius={4} style={{ marginBottom: Spacing.md }} />
+            {[0, 1].map(i => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md }}>
+                <SkeletonBox width={24} height={24} borderRadius={12} />
+                <View style={{ marginLeft: Spacing.md }}>
+                  <SkeletonBox width={140} height={16} borderRadius={4} />
+                  <SkeletonBox width={100} height={12} borderRadius={4} style={{ marginTop: 6 }} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+      {/* Real content — inside fade wrapper */}
+      {!isSkeletonLoading && (
       <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]}>
         <ScrollView
           style={styles.scrollContent}
@@ -495,7 +541,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
             setIsScrolled(offsetY > 0);
           }}
           scrollEventThrottle={16}
-          bounces={false}
+          bounces={isFullscreen}
           nestedScrollEnabled={true}
         >
           {/* Countdown Section */}
@@ -907,6 +953,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
+      )}
     </View>
   );
 }

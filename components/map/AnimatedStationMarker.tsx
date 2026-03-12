@@ -24,6 +24,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const [currentDisplay, setCurrentDisplay] = useState(displayName);
   const [currentIsCluster, setCurrentIsCluster] = useState(cluster.isCluster);
+  const [tracksChanges, setTracksChanges] = useState(true);
 
   useEffect(() => {
     Animated.parallel([
@@ -38,11 +39,14 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
         tension: 100,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      setTracksChanges(false);
+    });
   }, [fadeAnim, scaleAnim]);
 
   useEffect(() => {
     if (displayName !== currentDisplay || cluster.isCluster !== currentIsCluster) {
+      setTracksChanges(true);
       Animated.sequence([
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -72,7 +76,9 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
             tension: 100,
             useNativeDriver: true,
           }),
-        ]).start();
+        ]).start(() => {
+          setTracksChanges(false);
+        });
       });
     }
   }, [displayName, cluster.isCluster, currentDisplay, currentIsCluster, fadeAnim, scaleAnim]);
@@ -83,7 +89,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
       coordinate={{ latitude: cluster.lat, longitude: cluster.lon }}
       anchor={{ x: 0.5, y: 0.5 }}
       onPress={onPress}
-      tracksViewChanges={true}
+      tracksViewChanges={tracksChanges}
     >
       <Animated.View
         style={{

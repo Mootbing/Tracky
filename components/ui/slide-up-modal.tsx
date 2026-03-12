@@ -230,7 +230,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
         return;
       }
 
-      if (Math.abs(dy) < 15) return;
+      if (Math.abs(dy) < 8) return;
 
       if (currentSnap.value !== 'max') {
         stateManager.activate();

@@ -31,10 +31,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const unstable_settings = {
-  anchor: '/',
-};
-
 function RootLayout() {
   useEffect(() => {
     const version = Constants.expoConfig?.version ?? 'unknown';

@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Image, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Image, Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -188,6 +188,29 @@ function MapScreenInner() {
     currentSnap,
   } = useModalState();
   const isProfileActive = activeModal === 'profile';
+
+  // Stagger MapView children swap to avoid Android "addViewAt" crash.
+  // When isProfileActive changes, first remove old children, then after a
+  // frame add new children — prevents simultaneous bulk add/remove.
+  const [showNormalMapContent, setShowNormalMapContent] = useState(true);
+  const [showProfileMapContent, setShowProfileMapContent] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      setShowNormalMapContent(!isProfileActive);
+      setShowProfileMapContent(isProfileActive);
+      return;
+    }
+    if (isProfileActive) {
+      setShowNormalMapContent(false);
+      const timer = setTimeout(() => setShowProfileMapContent(true), 100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowProfileMapContent(false);
+      const timer = setTimeout(() => setShowNormalMapContent(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isProfileActive]);
+
   // Region is stored as a ref — only the initial value matters for MapView.
   // mapReady gates rendering; subsequent region changes don't need re-renders.
   const regionRef = useRef<MapRegion | null>(null);
@@ -386,11 +409,14 @@ function MapScreenInner() {
     [setSelectedTrain, navigateToTrain]
   );
 
-  // Handle live train marker press - zoom immediately, fetch train details in parallel
+  // Race-condition guard: only apply API result if it matches the latest request
+  const latestLiveTrainRequestRef = useRef<string | null>(null);
+
+  // Handle live train marker press - zoom immediately, show skeleton, fetch in background
   const handleLiveTrainMarkerPress = useCallback(
-    async (tripId: string, trainNumber: string, lat: number, lon: number) => {
+    (tripId: string, trainNumber: string, lat: number, lon: number, routeName?: string) => {
       hapticLight();
-      // Start map zoom immediately — don't wait for API
+      // Snap map instantly so modal + content appear without delay
       const latitudeDelta = 0.05;
       const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
       mapRef.current?.animateToRegion(
@@ -400,23 +426,50 @@ function MapScreenInner() {
           latitudeDelta,
           longitudeDelta: 0.05,
         },
-        500
+        0
       );
 
-      try {
-        const train = await TrainAPIService.getTrainDetails(tripId, undefined, trainNumber);
-        if (train) {
-          setSelectedTrain(train);
-          navigateToTrain(train, { fromMarker: true });
-        } else {
-          Alert.alert('Train Unavailable', 'Could not load details for this train. It may no longer be active.');
-        }
-      } catch (error) {
-        logger.error('Error fetching train details:', error);
-        Alert.alert('Connection Error', 'Could not load train details. Check your internet connection and try again.');
-      }
+      // Create placeholder train with available data — modal opens instantly with skeleton
+      const placeholder: Train = {
+        id: 0,
+        operator: '',
+        trainNumber,
+        from: '',
+        to: '',
+        fromCode: '',
+        toCode: '',
+        departTime: '',
+        arriveTime: '',
+        date: '',
+        daysAway: 0,
+        routeName: routeName || '',
+        tripId,
+        realtime: { position: { lat, lon } },
+      };
+
+      latestLiveTrainRequestRef.current = tripId;
+      setSelectedTrain(placeholder);
+      navigateToTrain(placeholder, { fromMarker: true });
+
+      // Fetch full details in background
+      TrainAPIService.getTrainDetails(tripId, undefined, trainNumber)
+        .then(train => {
+          if (latestLiveTrainRequestRef.current !== tripId) return; // stale
+          if (train) {
+            setSelectedTrain(train);
+          } else {
+            goBack();
+            Alert.alert('Train Unavailable', 'Could not load details for this train. It may no longer be active.');
+          }
+        })
+        .catch(error => {
+          if (latestLiveTrainRequestRef.current !== tripId) return; // stale
+          logger.error('Error fetching train details:', error);
+          goBack();
+          Alert.alert('Connection Error', 'Could not load train details. Check your internet connection and try again.');
+        });
     },
-    [setSelectedTrain, navigateToTrain]
+    [setSelectedTrain, navigateToTrain, goBack]
   );
 
   // Handle station pin press - show departure board
@@ -452,7 +505,7 @@ function MapScreenInner() {
         stop_lon: stationData.lon,
       };
 
-      // Zoom to station immediately
+      // Snap map instantly so modal + skeleton appear without delay
       const latitudeDelta = 0.05;
       const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
       mapRef.current?.animateToRegion(
@@ -462,7 +515,7 @@ function MapScreenInner() {
           latitudeDelta,
           longitudeDelta: 0.05,
         },
-        500
+        0
       );
 
       navigateToStation(stop);
@@ -783,7 +836,8 @@ function MapScreenInner() {
         userInterfaceStyle={isDark ? 'dark' : 'light'}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
-        {!isProfileActive && shouldRenderRoutes &&
+        {showNormalMapContent &&
+          shouldRenderRoutes &&
           visibleShapes.map(shape => {
             const colorScheme = getRouteColor(shape.id, colors.accentBlue);
             return (
@@ -797,43 +851,45 @@ function MapScreenInner() {
             );
           })}
 
-        {!isProfileActive && stationClusters.map(cluster => {
-          // Show full name when zoomed in enough
-          const showFullName = !cluster.isCluster && debouncedLatDelta < ClusteringConfig.fullNameThreshold;
-          const displayName = cluster.isCluster
-            ? `${cluster.stations.length}+`
-            : showFullName
-              ? cluster.stations[0].name
-              : getStationAbbreviation(cluster.stations[0].id, cluster.stations[0].name);
-          return (
-            <AnimatedStationMarker
-              key={cluster.id}
-              cluster={cluster}
-              showFullName={showFullName}
-              displayName={displayName}
-              color={colors.accentBlue}
-              onPress={() => {
-                // Center map on station with offset for 50% modal (departure board opens at half)
-                const latitudeDelta = 0.02;
-                const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
-                mapRef.current?.animateToRegion(
-                  {
-                    latitude: cluster.lat - latitudeOffset,
-                    longitude: cluster.lon,
-                    latitudeDelta: latitudeDelta,
-                    longitudeDelta: 0.02,
-                  },
-                  500
-                );
-                // Show departure board
-                handleStationPress(cluster);
-              }}
-            />
-          );
-        })}
+        {showNormalMapContent &&
+          stationClusters.map(cluster => {
+            // Show full name when zoomed in enough
+            const showFullName = !cluster.isCluster && debouncedLatDelta < ClusteringConfig.fullNameThreshold;
+            const displayName = cluster.isCluster
+              ? `${cluster.stations.length}+`
+              : showFullName
+                ? cluster.stations[0].name
+                : getStationAbbreviation(cluster.stations[0].id, cluster.stations[0].name);
+            return (
+              <AnimatedStationMarker
+                key={cluster.id}
+                cluster={cluster}
+                showFullName={showFullName}
+                displayName={displayName}
+                color={colors.accentBlue}
+                onPress={() => {
+                  // Center map on station with offset for 50% modal (departure board opens at half)
+                  const latitudeDelta = 0.02;
+                  const latitudeOffset = getLatitudeOffsetForModal(latitudeDelta, 'half');
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: cluster.lat - latitudeOffset,
+                      longitude: cluster.lon,
+                      latitudeDelta: latitudeDelta,
+                      longitudeDelta: 0.02,
+                    },
+                    500
+                  );
+                  // Show departure board
+                  handleStationPress(cluster);
+                }}
+              />
+            );
+          })}
 
         {/* Render saved trains when mode is 'saved' */}
-        {!isProfileActive && trainMode === 'saved' &&
+        {showNormalMapContent &&
+          trainMode === 'saved' &&
           clusteredSavedTrains.map(cluster => (
             <LiveTrainMarker
               key={cluster.id}
@@ -856,7 +912,8 @@ function MapScreenInner() {
           ))}
 
         {/* Render all live trains when mode is 'all' */}
-        {!isProfileActive && trainMode === 'all' &&
+        {showNormalMapContent &&
+          trainMode === 'all' &&
           clusteredLiveTrains.map(cluster => (
             <LiveTrainMarker
               key={cluster.id}
@@ -878,7 +935,7 @@ function MapScreenInner() {
                     handleTrainMarkerPress(trainData.savedTrain, cluster.lat, cluster.lon);
                   } else {
                     // Fetch train details for non-saved trains
-                    handleLiveTrainMarkerPress(trainData.tripId, trainData.trainNumber, cluster.lat, cluster.lon);
+                    handleLiveTrainMarkerPress(trainData.tripId, trainData.trainNumber, cluster.lat, cluster.lon, trainData.routeName || undefined);
                   }
                 }
               }}
@@ -886,29 +943,28 @@ function MapScreenInner() {
           ))}
 
         {/* Travel history overlay when profile is open */}
-        {isProfileActive && travelLines.map(line => (
-          <Polyline
-            key={line.key}
-            coordinates={[line.from, line.to]}
-            strokeColor={colors.accentBlue}
-            strokeWidth={2}
-          />
-        ))}
-        {isProfileActive && travelStations.map(station => (
-          <Marker
-            key={station.id}
-            coordinate={station}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-          >
-            <View style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: colors.accentBlue,
-            }} />
-          </Marker>
-        ))}
+        {showProfileMapContent &&
+          travelLines.map(line => (
+            <Polyline
+              key={line.key}
+              coordinates={[line.from, line.to]}
+              strokeColor={colors.accentBlue}
+              strokeWidth={2}
+            />
+          ))}
+        {showProfileMapContent &&
+          travelStations.map(station => (
+            <Marker key={station.id} coordinate={station} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: colors.accentBlue,
+                }}
+              />
+            </Marker>
+          ))}
       </MapView>
 
       <RefreshBubble />
@@ -1011,7 +1067,7 @@ function MapScreenInner() {
       {/* Settings modal - always mounted, starts hidden, content conditional */}
       <SlideUpModal
         ref={settingsModalRef}
-        minSnapPercent={0.95}
+        minSnapPercent={0.50}
         initialSnap={getInitialSnap('settings')}
         startHidden
         onDismiss={() => handleModalDismissed('settings')}

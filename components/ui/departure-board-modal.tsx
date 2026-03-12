@@ -26,6 +26,7 @@ import { fetchWithTimeout } from '../../utils/fetch-with-timeout';
 import { addDelayToTime, parseTimeToMinutes } from '../../utils/time-formatting';
 import TrainCardContent from '../TrainCardContent';
 import MarqueeText from './MarqueeText';
+import { SkeletonBox } from './SkeletonBox';
 import { getCurrentMinutesInTimezone, getCurrentSecondsInTimezone, getTimezoneForStop } from '../../utils/timezone';
 import { gtfsParser } from '../../utils/gtfs-parser';
 import { formatTemp, weatherApiTempUnit } from '../../utils/units';
@@ -262,6 +263,30 @@ const DepartureItem = React.memo(function DepartureItem({ train, stationTime, st
     </View>
   );
 });
+
+function SkeletonDepartureRow({ colors }: { colors: ColorPalette }) {
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 4 }}>
+        {/* Left: countdown */}
+        <View style={{ width: 52, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+          <SkeletonBox width={40} height={36} borderRadius={8} />
+          <SkeletonBox width={30} height={12} borderRadius={4} style={{ marginTop: 4 }} />
+        </View>
+        {/* Center: route and times */}
+        <View style={{ flex: 1 }}>
+          <SkeletonBox width={100} height={14} borderRadius={4} />
+          <SkeletonBox width="80%" height={18} borderRadius={4} style={{ marginTop: 6 }} />
+          <View style={{ flexDirection: 'row', marginTop: 6, gap: 16 }}>
+            <SkeletonBox width={60} height={13} borderRadius={4} />
+            <SkeletonBox width={60} height={13} borderRadius={4} />
+          </View>
+        </View>
+      </View>
+      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.border.primary }} />
+    </View>
+  );
+}
 
 export default function DepartureBoardModal({
   station,
@@ -524,31 +549,8 @@ export default function DepartureBoardModal({
     </Text>
   ), [filterMode, filteredDepartures.length, styles]);
 
-  const departureListEmpty = useMemo(() => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading departures...</Text>
-        </View>
-      );
-    }
-    return (
-      <PlaceholderBlurb
-        icon="train-outline"
-        title={
-          searchQuery
-            ? 'No trains match your search'
-            : filterMode === 'departing'
-              ? 'No departing trains found'
-              : filterMode === 'arriving'
-                ? 'No arriving trains found'
-                : 'No trains found for this station'
-        }
-        subtitle={searchQuery ? 'Try a different search term' : 'Try changing the filter or date'}
-      />
-    );
-  }, [loading, searchQuery, filterMode, styles, colors]);
+  // departureListEmpty is no longer needed — skeleton rows are rendered
+  // outside the fade wrapper, and the empty placeholder is inlined in FlatList
 
   return (
     <View style={styles.modalContent}>
@@ -665,6 +667,16 @@ export default function DepartureBoardModal({
         </Animated.View>
       </View>
 
+      {/* Skeleton rows outside fade wrapper — visible immediately during slide-in */}
+      {loading && (
+        <View style={{ flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md }}>
+          {[0, 1, 2, 3, 4].map(i => (
+            <SkeletonDepartureRow key={i} colors={colors} />
+          ))}
+        </View>
+      )}
+      {/* Real content inside fade wrapper */}
+      {!loading && (
       <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]}>
         {/* Date Picker */}
         {showDatePicker && (
@@ -681,11 +693,25 @@ export default function DepartureBoardModal({
         )}
 
         <FlatList
-          data={loading ? [] : filteredDepartures}
+          data={filteredDepartures}
           keyExtractor={departureKeyExtractor}
           renderItem={renderDepartureItem}
-          ListHeaderComponent={!loading && filteredDepartures.length > 0 ? departureListHeader : null}
-          ListEmptyComponent={departureListEmpty}
+          ListHeaderComponent={filteredDepartures.length > 0 ? departureListHeader : null}
+          ListEmptyComponent={
+            <PlaceholderBlurb
+              icon="train-outline"
+              title={
+                searchQuery
+                  ? 'No trains match your search'
+                  : filterMode === 'departing'
+                    ? 'No departing trains found'
+                    : filterMode === 'arriving'
+                      ? 'No arriving trains found'
+                      : 'No trains found for this station'
+              }
+              subtitle={searchQuery ? 'Try a different search term' : 'Try changing the filter or date'}
+            />
+          }
           style={styles.scrollContent}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: isHalfHeight ? SCREEN_HEIGHT * 0.5 : 100, paddingHorizontal: Spacing.xl }}
           showsVerticalScrollIndicator={true}
@@ -697,7 +723,7 @@ export default function DepartureBoardModal({
             setIsScrolled(offsetY > 0);
           }}
           scrollEventThrottle={16}
-          bounces={false}
+          bounces={isFullscreen}
           nestedScrollEnabled={true}
           initialNumToRender={12}
           maxToRenderPerBatch={8}
@@ -705,6 +731,7 @@ export default function DepartureBoardModal({
           removeClippedSubviews={true}
         />
       </Animated.View>
+      )}
     </View>
   );
 }

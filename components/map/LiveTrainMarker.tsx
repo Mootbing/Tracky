@@ -45,6 +45,7 @@ export function LiveTrainMarker({
 
   const [currentLabel, setCurrentLabel] = useState(isCluster ? `${clusterCount}+` : trainNumber);
   const [currentIsCluster, setCurrentIsCluster] = useState(isCluster);
+  const [tracksChanges, setTracksChanges] = useState(true);
 
   const iconColor = color;
 
@@ -61,7 +62,9 @@ export function LiveTrainMarker({
         tension: 100,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      setTracksChanges(false);
+    });
   }, [fadeAnim, scaleAnim]);
 
   useEffect(() => {
@@ -82,6 +85,7 @@ export function LiveTrainMarker({
   const newLabel = isCluster ? `${clusterCount}+` : trainNumber;
   useEffect(() => {
     if (newLabel !== currentLabel || isCluster !== currentIsCluster) {
+      setTracksChanges(true);
       Animated.sequence([
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -111,13 +115,15 @@ export function LiveTrainMarker({
             tension: 100,
             useNativeDriver: true,
           }),
-        ]).start();
+        ]).start(() => {
+          setTracksChanges(false);
+        });
       });
     }
   }, [newLabel, isCluster, currentLabel, currentIsCluster, fadeAnim, scaleAnim]);
 
   return (
-    <Marker.Animated coordinate={animatedCoordinate as any} onPress={onPress} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={true}>
+    <Marker.Animated coordinate={animatedCoordinate as any} onPress={onPress} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracksChanges}>
       <Animated.View
         style={{
           alignItems: 'center',
