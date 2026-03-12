@@ -1,4 +1,3 @@
-import { BlurView } from 'expo-blur';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -67,7 +66,7 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
   const { colors, isDark } = useTheme();
   // Capture color strings as locals for worklet closures
   const bgPrimary = colors.background.primary;
-  const borderPrimary = colors.border.primary;
+  const borderPrimary = isDark ? colors.border.primary : 'transparent';
   const shadowColor = colors.shadow;
 
   const screenHeight = Dimensions.get('screen').height;
@@ -376,9 +375,6 @@ export default React.forwardRef<SlideUpModalHandle, SlideUpModalProps>(function 
             ]}
           >
             <Animated.View style={[StyleSheet.absoluteFill, animatedBorderRadius, { overflow: 'hidden' }]}>
-              {!isDark && (
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-              )}
               <View style={[StyleSheet.absoluteFill, { backgroundColor: bgPrimary }]} />
               <Animated.View style={staticStyles.content}>
                 <View style={staticStyles.handleContainer} />

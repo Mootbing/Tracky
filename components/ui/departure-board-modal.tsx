@@ -642,7 +642,7 @@ export default function DepartureBoardModal({
                 <MaterialCommunityIcons
                   name="arrow-top-right"
                   size={18}
-                  color={colors.background.primary}
+                  color={colors.primary}
                 />
               </TouchableOpacity>
               <TouchableOpacity
@@ -657,7 +657,7 @@ export default function DepartureBoardModal({
                 <MaterialCommunityIcons
                   name="arrow-bottom-left"
                   size={18}
-                  color={colors.background.primary}
+                  color={colors.primary}
                 />
               </TouchableOpacity>
             </View>

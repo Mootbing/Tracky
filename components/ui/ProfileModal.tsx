@@ -239,8 +239,8 @@ type ListItem =
   | { type: 'trip'; key: string; trip: CompletedTrip; isLast: boolean };
 
 export default function ProfileModal({ onClose, onOpenSettings }: ProfileModalProps) {
-  const { colors, closeButtonStyle } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, isDark, closeButtonStyle } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [history, setHistory] = useState<CompletedTrip[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
@@ -778,7 +778,7 @@ const createSwipeStyles = (colors: ColorPalette) => StyleSheet.create({
   },
 });
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
+const createStyles = (colors: ColorPalette, isDark: boolean) => StyleSheet.create(withTextShadow({
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -795,7 +795,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: isDark ? colors.background.secondary : 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -824,7 +824,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.secondary,
+    backgroundColor: 'transparent',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,

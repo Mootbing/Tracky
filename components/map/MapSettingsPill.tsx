@@ -5,7 +5,7 @@ import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withS
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { type ColorPalette, withTextShadow } from '../../constants/theme';
-import { useColors } from '../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { light as hapticLight } from '../../utils/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -75,7 +75,7 @@ function getModeColor(mode: string, colors: ColorPalette): string {
   return colors.accentBlue;
 }
 
-const createStyles = (colors: ColorPalette) =>
+const createStyles = (colors: ColorPalette, isDark: boolean) =>
   StyleSheet.create(withTextShadow({
     container: {
       position: 'absolute',
@@ -85,7 +85,7 @@ const createStyles = (colors: ColorPalette) =>
       shadowOpacity: 0.25,
       shadowRadius: 8,
       elevation: 5,
-      borderWidth: 1,
+      borderWidth: isDark ? 1 : 0,
       borderColor: colors.border.primary,
       overflow: 'hidden',
     },
@@ -164,8 +164,8 @@ export default function MapSettingsPill({
   setTrainMode,
   onRecenter,
 }: MapSettingsPillProps) {
-  const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isConnected, setIsConnected] = React.useState(true);
   const expandProgress = useSharedValue(0);

@@ -68,30 +68,26 @@ export const DarkColors: ColorPalette = {
 };
 
 export const LightColors: ColorPalette = {
-  primary: '#fff',
-  secondary: 'rgba(255, 255, 255, 0.5)',
-  tertiary: 'rgba(255, 255, 255, 0.2)',
+  primary: '#000',
+  secondary: 'rgba(0, 0, 0, 0.5)',
+  tertiary: 'rgba(0, 0, 0, 0.2)',
   accent: '#FF6B35',
-  accentBlue: '#FFFFFF',
-  success: '#10B981',
-  error: '#EF4444',
-  delayed: '#EF4444',
-  inProgress: '#10B981',
-  shadow: '#000',
+  accentBlue: '#000000',
+  success: '#059669',
+  error: '#DC2626',
+  delayed: '#DC2626',
+  inProgress: '#059669',
+  shadow: 'rgba(0, 0, 0, 0.1)',
   background: {
-    primary: 'rgba(255, 255, 255, 0.12)',
-    secondary: 'rgba(255, 255, 255, 0.08)',
-    tertiary: 'rgba(255, 255, 255, 0.05)',
+    primary: '#FFFFFF',
+    secondary: '#F4F4F5',
+    tertiary: '#E4E4E7',
   },
   border: {
-    primary: 'rgba(255, 255, 255, 0.15)',
-    secondary: 'rgba(255, 255, 255, 0.10)',
+    primary: '#D4D4D8',
+    secondary: '#E4E4E7',
   },
-  textShadow: {
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 0.5 },
-    textShadowRadius: 2,
-  },
+  textShadow: {},
 };
 
 export const FontSizes = {
@@ -123,11 +119,11 @@ export const BorderRadius = {
   xl: 32,
 };
 
-export const getCloseButtonStyle = (colors: ColorPalette) => ({
+export const getCloseButtonStyle = (colors: ColorPalette, isDark: boolean) => ({
   width: 44,
   height: 44,
   borderRadius: 22,
-  backgroundColor: colors.background.secondary,
+  backgroundColor: isDark ? colors.background.secondary : 'transparent',
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
   borderWidth: 1,

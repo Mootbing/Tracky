@@ -19,6 +19,7 @@ interface LiveTrainMarkerProps {
   isCluster?: boolean;
   clusterCount?: number;
   onPress?: () => void;
+  color?: string;
 }
 
 export function LiveTrainMarker({
@@ -29,6 +30,7 @@ export function LiveTrainMarker({
   isCluster = false,
   clusterCount = 0,
   onPress,
+  color = '#FFFFFF',
 }: LiveTrainMarkerProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -44,7 +46,7 @@ export function LiveTrainMarker({
   const [currentLabel, setCurrentLabel] = useState(isCluster ? `${clusterCount}+` : trainNumber);
   const [currentIsCluster, setCurrentIsCluster] = useState(isCluster);
 
-  const iconColor = '#FFFFFF';
+  const iconColor = color;
 
   useEffect(() => {
     Animated.parallel([

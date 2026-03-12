@@ -11,12 +11,11 @@ export interface RouteColorScheme {
 
 /**
  * Get color for a route based on its ID or characteristics
- * All routes use white color with 25% opacity for consistency
+ * Uses the provided color (theme-aware) for consistency
  */
-export function getRouteColor(shapeId: string): RouteColorScheme {
-  // All routes use white color with 25% opacity
+export function getRouteColor(shapeId: string, color: string = '#FFFFFF'): RouteColorScheme {
   return {
-    stroke: '#FFFFFF',
+    stroke: color,
     strokeWidth: 2,
     opacity: 1,
   };

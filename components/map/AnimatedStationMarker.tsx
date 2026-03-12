@@ -16,9 +16,10 @@ interface AnimatedStationMarkerProps {
   showFullName: boolean;
   displayName: string;
   onPress: () => void;
+  color?: string;
 }
 
-export function AnimatedStationMarker({ cluster, showFullName, displayName, onPress }: AnimatedStationMarkerProps) {
+export function AnimatedStationMarker({ cluster, showFullName, displayName, onPress, color = '#FFFFFF' }: AnimatedStationMarkerProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const [currentDisplay, setCurrentDisplay] = useState(displayName);
@@ -94,7 +95,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
         <Ionicons
           name="location"
           size={24}
-          color="#FFFFFF"
+          color={color}
           style={{
             textShadowColor: 'rgba(0, 0, 0, 0.8)',
             textShadowOffset: { width: 0, height: 1 },
@@ -103,7 +104,7 @@ export function AnimatedStationMarker({ cluster, showFullName, displayName, onPr
         />
         <Text
           style={{
-            color: '#FFFFFF',
+            color,
             fontSize: currentIsCluster ? 10 : 9,
             fontWeight: '600',
             marginTop: 0,

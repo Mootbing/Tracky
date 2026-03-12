@@ -18,7 +18,7 @@ import SettingsModal from '../components/ui/SettingsModal';
 import SlideUpModal from '../components/ui/slide-up-modal';
 import TrainDetailModal from '../components/ui/train-detail-modal';
 import { type ColorPalette, withTextShadow } from '../constants/theme';
-import { useColors } from '../context/ThemeContext';
+import { useColors, useTheme } from '../context/ThemeContext';
 import { GTFSRefreshProvider, useGTFSRefresh } from '../context/GTFSRefreshContext';
 import { ModalProvider, useModalActions, useModalState } from '../context/ModalContext';
 import { TrainProvider, useTrainContext } from '../context/TrainContext';
@@ -154,7 +154,7 @@ function LoadingOverlay({ visible }: { visible: boolean }) {
 }
 
 function MapScreenInner() {
-  const colors = useColors();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const mapRef = useRef<MapView>(null);
   const modalContentRef = useRef<ModalContentHandle>(null);
@@ -704,13 +704,13 @@ function MapScreenInner() {
         showsIndoors={true}
         userLocationAnnotationTitle="Your Location"
         provider={PROVIDER_DEFAULT}
-        customMapStyle={darkMapStyle}
-        userInterfaceStyle="dark"
+        customMapStyle={isDark ? darkMapStyle : []}
+        userInterfaceStyle={isDark ? 'dark' : 'light'}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
         {shouldRenderRoutes &&
           visibleShapes.map(shape => {
-            const colorScheme = getRouteColor(shape.id);
+            const colorScheme = getRouteColor(shape.id, colors.primary);
             return (
               <AnimatedRoute
                 key={shape.id}
@@ -736,6 +736,7 @@ function MapScreenInner() {
               cluster={cluster}
               showFullName={showFullName}
               displayName={displayName}
+              color={colors.primary}
               onPress={() => {
                 // Center map on station with offset for 50% modal (departure board opens at half)
                 const latitudeDelta = 0.02;
@@ -770,6 +771,7 @@ function MapScreenInner() {
               isSaved={true}
               isCluster={cluster.isCluster}
               clusterCount={cluster.trains.length}
+              color={colors.primary}
               onPress={() => {
                 if (!cluster.isCluster && cluster.trains[0]?.originalTrain) {
                   handleTrainMarkerPress(cluster.trains[0].originalTrain, cluster.lat, cluster.lon);
@@ -792,6 +794,7 @@ function MapScreenInner() {
               isSaved={cluster.isSaved}
               isCluster={cluster.isCluster}
               clusterCount={cluster.trains.length}
+              color={colors.primary}
               onPress={() => {
                 if (!cluster.isCluster && cluster.trains[0]) {
                   const trainData = cluster.trains[0];

@@ -48,7 +48,7 @@ function RootLayout() {
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
           </Stack>
-          <StatusBar style="light" />
+          <StatusBar style="auto" />
         </GestureHandlerRootView>
       </ErrorBoundary>
     </ThemeProvider>

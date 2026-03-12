@@ -3,7 +3,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { type ColorPalette, withTextShadow } from '../../constants/theme';
-import { useColors } from '../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useUnits } from '../../context/UnitsContext';
 import AnimatedRollingText from './AnimatedRollingText';
 
@@ -28,7 +28,7 @@ function metersPerSecToKmh(mps: number): number {
   return mps * 3.6;
 }
 
-const createStyles = (colors: ColorPalette) =>
+const createStyles = (colors: ColorPalette, isDark: boolean) =>
   StyleSheet.create(withTextShadow({
     container: {
       position: 'absolute',
@@ -38,7 +38,7 @@ const createStyles = (colors: ColorPalette) =>
       zIndex: 999,
     },
     pill: {
-      backgroundColor: colors.background.tertiary,
+      backgroundColor: isDark ? colors.background.tertiary : colors.background.primary,
       borderRadius: 20,
       overflow: 'hidden',
       borderWidth: 1,
@@ -75,8 +75,8 @@ const createStyles = (colors: ColorPalette) =>
 
 export function TrainSpeedPill({ speed, bearing, visible }: TrainSpeedPillProps) {
   const insets = useSafeAreaInsets();
-  const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { distanceUnit } = useUnits();
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
