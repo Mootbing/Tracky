@@ -302,6 +302,7 @@ export default function DepartureBoardModal({
 
   const [departures, setDepartures] = useState<Train[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterTransitioning, setFilterTransitioning] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -323,11 +324,16 @@ export default function DepartureBoardModal({
   const isHalfHeight = !isCollapsed && !isFullscreen;
 
   // Fetch departures for the station
+  // setLoading(true) first, then defer the heavy GTFS work so the skeleton paints before the lag.
   useEffect(() => {
-    const fetchDepartures = async () => {
-      setLoading(true);
+    let cancelled = false;
+    setLoading(true);
+
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
       try {
         const trains = await TrainAPIService.getTrainsForStation(station.stop_id, selectedDate);
+        if (cancelled) return;
         // Sort by departure time
         trains.sort((a, b) => {
           const aMinutes = parseTimeToMinutes(a.departTime);
@@ -345,14 +351,15 @@ export default function DepartureBoardModal({
         logger.info(`[DepartureBoard] Fetched ${deduped.length} trains for ${station.stop_id} on ${toDateString(selectedDate)}`);
         setDepartures(deduped);
       } catch (error) {
+        if (cancelled) return;
         logger.error('[DepartureBoard] Error fetching departures:', error);
         setDepartures([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
+    }, 50);
 
-    fetchDepartures();
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [station.stop_id, selectedDate]);
 
   // Fetch weather for station (current for today, daily forecast for future dates)
@@ -490,6 +497,18 @@ export default function DepartureBoardModal({
     marks[toDateString(selectedDate)] = { selected: true, selectedColor: '#FFFFFF' };
     return marks;
   }, [selectedDate, isDark]);
+
+  // Handle filter change with brief skeleton flash so the list swap isn't jarring
+  const handleFilterChange = useCallback((mode: 'all' | 'departing' | 'arriving') => {
+    hapticSelection();
+    if (mode === filterMode) return;
+    setFilterTransitioning(true);
+    // Yield a frame so skeleton paints, then apply filter
+    setTimeout(() => {
+      setFilterMode(mode);
+      setFilterTransitioning(false);
+    }, 50);
+  }, [filterMode]);
 
   // Date navigation
   const navigateDate = useCallback((direction: 'prev' | 'next') => {
@@ -631,14 +650,14 @@ export default function DepartureBoardModal({
                   styles.filterButtonLeft,
                   filterMode === 'all' && styles.filterButtonActive,
                 ]}
-                onPress={() => { hapticSelection(); setFilterMode('all'); }}
+                onPress={() => handleFilterChange('all')}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.filterText, filterMode === 'all' && styles.filterTextActive]}>All</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.filterButton, filterMode === 'departing' && styles.filterButtonActive]}
-                onPress={() => { hapticSelection(); setFilterMode('departing'); }}
+                onPress={() => handleFilterChange('departing')}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -653,7 +672,7 @@ export default function DepartureBoardModal({
                   styles.filterButtonRight,
                   filterMode === 'arriving' && styles.filterButtonActive,
                 ]}
-                onPress={() => { hapticSelection(); setFilterMode('arriving'); }}
+                onPress={() => handleFilterChange('arriving')}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -667,8 +686,8 @@ export default function DepartureBoardModal({
         </Animated.View>
       </View>
 
-      {/* Skeleton rows outside fade wrapper — visible immediately during slide-in */}
-      {loading && (
+      {/* Skeleton rows outside fade wrapper — visible immediately during slide-in, date change, or filter change */}
+      {(loading || filterTransitioning) && (
         <View style={{ flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md }}>
           {[0, 1, 2, 3, 4].map(i => (
             <SkeletonDepartureRow key={i} colors={colors} />
@@ -676,7 +695,7 @@ export default function DepartureBoardModal({
         </View>
       )}
       {/* Real content inside fade wrapper */}
-      {!loading && (
+      {!loading && !filterTransitioning && (
       <Animated.View style={[{ flex: 1 }, fadeAnimatedStyle]}>
         {/* Date Picker */}
         {showDatePicker && (
