@@ -37,7 +37,7 @@ import { light as hapticLight, selection as hapticSelection } from '../../utils/
 import { type LogEntry, LogLevel, logger, openReportBugEmail } from '../../utils/logger';
 import { pluralCount } from '../../utils/train-display';
 import { PlaceholderBlurb } from '../PlaceholderBlurb';
-import { SlideUpModalContext } from './slide-up-modal';
+import { SlideUpModalContext } from './SlideUpModal';
 
 interface SettingsModalProps {
   onClose: () => void;

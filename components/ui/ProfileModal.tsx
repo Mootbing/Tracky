@@ -25,7 +25,7 @@ import { error as logError } from '../../utils/logger';
 import AnimatedRollingText from './AnimatedRollingText';
 import { pluralCount } from '../../utils/train-display';
 import MarqueeText from './MarqueeText';
-import { SlideUpModalContext } from './slide-up-modal';
+import { SlideUpModalContext } from './SlideUpModal';
 
 interface ProfileModalProps {
   onClose: () => void;

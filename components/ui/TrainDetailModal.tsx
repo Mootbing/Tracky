@@ -27,8 +27,13 @@ import { getWeatherCondition } from '../../utils/weather';
 import AnimatedRollingText from './AnimatedRollingText';
 import MarqueeText from './MarqueeText';
 import { SkeletonBox } from './SkeletonBox';
-import { SlideUpModalContext } from './slide-up-modal';
+import { SlideUpModalContext } from './SlideUpModal';
 import TimeDisplay from './TimeDisplay';
+
+import CountdownBanner from './train-detail/CountdownBanner';
+import DepartureArrivalBoard from './train-detail/DepartureArrivalBoard';
+import GoodToKnowSection from './train-detail/GoodToKnowSection';
+import TrainDetailSkeleton from './train-detail/TrainDetailSkeleton';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -45,18 +50,69 @@ interface TrainDetailModalProps {
 
 const formatTime24to12 = formatTimeWithDayOffset;
 
-interface WeatherData {
+export interface WeatherData {
   temperature: number;
   condition: string;
   icon: string;
 }
 
-interface StopInfo {
+export interface StopInfo {
   time: string;
   dayOffset: number;
   name: string;
   code: string;
   timezone: string;
+}
+
+// Style type for sub-components
+export type TrainDetailStyles = ReturnType<typeof createStyles>;
+
+// Sub-component prop types
+export interface CountdownBannerProps {
+  countdown: { value: number; unit: string; past: boolean };
+  unitLabel: string;
+  isLiveTrain: boolean;
+  isCompleted: boolean;
+  arrivalCountdown: { value: number; unit: string };
+  bannerBg: string | undefined;
+  bannerColor: string;
+  routeName: string | undefined;
+  styles: TrainDetailStyles;
+  colors: ColorPalette;
+}
+
+export interface DepartureArrivalBoardProps {
+  trainData: Train;
+  countdown: { value: number; unit: string; past: boolean } | null;
+  duration: string;
+  distanceMiles: number | null;
+  distanceUnit: string;
+  allStops: StopInfo[];
+  styles: TrainDetailStyles;
+  colors: ColorPalette;
+  handleStationPress: (stationCode: string) => void;
+}
+
+export interface GoodToKnowSectionProps {
+  trainData: Train;
+  timezoneInfo: { hasChange: boolean; title: string; message: string } | null;
+  weatherData: WeatherData | null;
+  isLoadingWeather: boolean;
+  tempUnit: string;
+  distanceUnit: string;
+  isWhereIsMyTrainExpanded: boolean;
+  setIsWhereIsMyTrainExpanded: (v: boolean) => void;
+  whereIsMyTrainSubtext: string;
+  allStops: StopInfo[];
+  isLiveTrain: boolean;
+  nextStopIndex: number;
+  stopDelays: Map<string, { departureDelay?: number; arrivalDelay?: number }>;
+  stopWeather: Record<string, { temp: number; icon: string }>;
+  agencyTz: string;
+  routeHistory: { trips: number; distance: number; duration: number } | null;
+  styles: TrainDetailStyles;
+  colors: ColorPalette;
+  handleStationPress: (stationCode: string) => void;
 }
 
 export default function TrainDetailModal({ train, onClose, onStationSelect, onTrainSelect }: TrainDetailModalProps) {
@@ -65,7 +121,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   const { selectedTrain } = useTrainContext();
   const { tempUnit, distanceUnit } = useUnits();
   const trainData = train || selectedTrain;
-  
+
   const [allStops, setAllStops] = React.useState<StopInfo[]>([]);
   const [isWhereIsMyTrainExpanded, setIsWhereIsMyTrainExpanded] = React.useState(true);
 
@@ -248,7 +304,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   // Get timezone info for origin and destination
   const timezoneInfo = React.useMemo(() => {
     if (!trainData || allStops.length === 0) return null;
-    
+
     try {
       const originStop = gtfsParser.getStop(trainData.fromCode);
       const destStop = gtfsParser.getStop(trainData.toCode);
@@ -492,39 +548,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
 
       {/* Skeleton is outside fade wrapper — visible immediately during slide-in */}
       {isSkeletonLoading && (
-        <View style={{ flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md }}>
-          {/* Skeleton countdown banner */}
-          <SkeletonBox width="100%" height={48} borderRadius={12} />
-          {/* Skeleton departure/arrival board */}
-          <View style={{ marginTop: Spacing.lg }}>
-            {/* Departure */}
-            <View style={{ paddingVertical: Spacing.md }}>
-              <SkeletonBox width={80} height={14} borderRadius={4} />
-              <SkeletonBox width={120} height={32} borderRadius={6} style={{ marginTop: 8 }} />
-              <SkeletonBox width={180} height={14} borderRadius={4} style={{ marginTop: 8 }} />
-            </View>
-            <View style={{ height: 1, backgroundColor: colors.border.primary, marginVertical: Spacing.sm }} />
-            {/* Arrival */}
-            <View style={{ paddingVertical: Spacing.md }}>
-              <SkeletonBox width={80} height={14} borderRadius={4} />
-              <SkeletonBox width={120} height={32} borderRadius={6} style={{ marginTop: 8 }} />
-              <SkeletonBox width={180} height={14} borderRadius={4} style={{ marginTop: 8 }} />
-            </View>
-          </View>
-          {/* Skeleton Good to Know */}
-          <View style={{ marginTop: Spacing.lg }}>
-            <SkeletonBox width={100} height={14} borderRadius={4} style={{ marginBottom: Spacing.md }} />
-            {[0, 1].map(i => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md }}>
-                <SkeletonBox width={24} height={24} borderRadius={12} />
-                <View style={{ marginLeft: Spacing.md }}>
-                  <SkeletonBox width={140} height={16} borderRadius={4} />
-                  <SkeletonBox width={100} height={12} borderRadius={4} style={{ marginTop: 6 }} />
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        <TrainDetailSkeleton colors={colors} />
       )}
       {/* Real content — inside fade wrapper */}
       {!isSkeletonLoading && (
@@ -572,375 +596,56 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
               : arrMinutes >= 1 ? { value: arrMinutes, unit: pluralize(arrMinutes, 'minute') }
               : { value: arrSeconds, unit: pluralize(arrSeconds, 'second') };
             return (
-            <View style={[styles.expandableSection, bannerBg != null && { backgroundColor: bannerBg }]}>
-              <View style={styles.statusRow}>
-                {isLiveTrain ? (
-                  <TrainIcon name={trainData?.routeName} size={20} color={bannerColor} style={{ marginRight: Spacing.sm }} />
-                ) : (
-                  <Ionicons name="time-outline" size={20} color={colors.primary} style={{ marginRight: Spacing.sm }} />
-                )}
-                <Text style={[styles.statusText, { color: bannerColor }]}>
-                  {isLiveTrain && !isCompleted ? 'En route, ' : ''}
-                  {isCompleted ? 'Completed ' : countdown.past ? (isLiveTrain ? 'departed ' : 'Departed ') : (isLiveTrain ? 'departs in ' : 'Departs in ')}
-                </Text>
-                <AnimatedRollingText value={String(isCompleted ? arrivalCountdown.value : countdown.value)} style={[styles.statusText, { fontWeight: 'bold', color: bannerColor }]} />
-                <Text style={[styles.statusText, { color: bannerColor }]}>{' '}{isCompleted ? `${arrivalCountdown.unit} ago` : unitLabel.toLowerCase()}</Text>
-              </View>
-            </View>
+              <CountdownBanner
+                countdown={countdown}
+                unitLabel={unitLabel}
+                isLiveTrain={isLiveTrain}
+                isCompleted={isCompleted}
+                arrivalCountdown={arrivalCountdown}
+                bannerBg={bannerBg}
+                bannerColor={bannerColor}
+                routeName={trainData?.routeName}
+                styles={styles}
+                colors={colors}
+              />
             );
           })()}
 
           {/* Departure / Arrival Board */}
-          <View style={styles.departArriveBoard}>
-            {/* Departure Info */}
-            <View style={[styles.infoSection, { paddingBottom: 0 }]}>
-              <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-top-right" size={16} color={colors.primary} />
-                <TouchableOpacity
-                  style={styles.stationTouchable}
-                  onPress={() => handleStationPress(trainData.fromCode)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.locationCode}>{trainData.fromCode}</Text>
-                  <Text style={styles.locationName}> · {trainData.from}</Text>
-                </TouchableOpacity>
-              </View>
-              {(() => {
-                const dDelay = trainData.daysAway <= 0 ? trainData.realtime?.delay : undefined;
-                const dDelayed = dDelay && dDelay > 0 ? addDelayToTime(trainData.departTime, dDelay, 0) : undefined;
-                const colorKey = getDelayColorKey(dDelay);
-                const timeColor = colorKey === 'onTime' ? colors.success : undefined;
-                return (
-                  <>
-                    <TimeDisplay
-                      time={trainData.departTime}
-                      dayOffset={0}
-                      style={[styles.timeText, timeColor && { color: timeColor }]}
-                      superscriptStyle={[styles.timeSuperscript, timeColor && { color: timeColor }]}
-                      delayMinutes={dDelay}
-                      delayedTime={dDelayed?.time}
-                      delayedDayOffset={dDelayed?.dayOffset}
-                      hideDelayLabel
-                    />
-                    {trainData.daysAway <= 0 && dDelay != null && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <AnimatedRollingText
-                          value={formatDelayStatus(dDelay)}
-                          style={[styles.delayStatusText, colorKey === 'delayed' ? styles.delayStatusLate : styles.delayStatusEarly]}
-                        />
-                        {countdown && (
-                          <AnimatedRollingText
-                            value={` · ${countdown.past ? `Departed ${countdown.value} ${countdown.unit.toLowerCase()} ago` : `Departs in ${countdown.value} ${countdown.unit.toLowerCase()}`}`}
-                            style={[styles.delayStatusText, styles.countdownInline]}
-                          />
-                        )}
-                      </View>
-                    )}
-                  </>
-                );
-              })()}
-              <View style={styles.durationLineRow}>
-                <View style={styles.durationContentRow}>
-                  <MaterialCommunityIcons
-                    name="clock-outline"
-                    size={14}
-                    color={colors.secondary}
-                    style={{ marginRight: Spacing.sm }}
-                  />
-                  <AnimatedRollingText value={duration} style={styles.durationText} />
-                  {distanceMiles !== null && (
-                    <AnimatedRollingText
-                      value={` · ${Math.round(convertDistance(distanceMiles, distanceUnit)).toLocaleString()} ${distanceSuffix(distanceUnit)}`}
-                      style={[styles.durationText, { marginLeft: 0 }]}
-                    />
-                  )}
-                  {allStops.length > 0 && (
-                    <AnimatedRollingText
-                      value={` · ${allStops.length - 1} ${pluralize(allStops.length - 1, 'stop')}`}
-                      style={[styles.durationText, { marginLeft: 0 }]}
-                    />
-                  )}
-                </View>
-                <View style={styles.horizontalLine} />
-              </View>
-            </View>
-
-            {/* Arrival Info */}
-            <View style={[styles.infoSection, { paddingTop: 0 }]}>
-              <View style={styles.infoHeader}>
-                <MaterialCommunityIcons name="arrow-bottom-left" size={16} color={colors.primary} />
-                <TouchableOpacity
-                  style={styles.stationTouchable}
-                  onPress={() => handleStationPress(trainData.toCode)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.locationCode}>{trainData.toCode}</Text>
-                  <Text style={styles.locationName}> · {trainData.to}</Text>
-                </TouchableOpacity>
-              </View>
-              {(() => {
-                const aDelay = trainData.daysAway <= 0 ? trainData.realtime?.arrivalDelay : undefined;
-                const aDelayed = aDelay && aDelay > 0 ? addDelayToTime(trainData.arriveTime, aDelay, trainData.arriveDayOffset || 0) : undefined;
-                const colorKey = getDelayColorKey(aDelay);
-                const timeColor = colorKey === 'onTime' ? colors.success : undefined;
-                // Compute arrival countdown
-                const arriveTime = aDelayed?.time || trainData.arriveTime;
-                const arriveDayOffset = aDelayed?.dayOffset ?? (trainData.arriveDayOffset || 0);
-                const destStopData = gtfsParser.getStop(trainData.toCode);
-                const destTimezone = destStopData ? getTimezoneForStop(destStopData) : gtfsParser.agencyTimezone;
-                const nowSec = getCurrentSecondsInTimezone(destTimezone);
-                const arriveSec = parseTimeToMinutes(arriveTime) * 60
-                  + arriveDayOffset * 24 * 3600;
-                const arrDeltaSec = arriveSec + (trainData.daysAway ?? 0) * 86400 - nowSec;
-                const arrPast = arrDeltaSec < 0;
-                const arrAbsSec = Math.abs(arrDeltaSec);
-                let arrCountdownText = '';
-                if (arrAbsSec >= 3600) {
-                  const h = Math.round(arrAbsSec / 3600);
-                  arrCountdownText = pluralCount(h, 'hour');
-                } else if (arrAbsSec >= 60) {
-                  const m = Math.round(arrAbsSec / 60);
-                  arrCountdownText = pluralCount(m, 'minute');
-                } else {
-                  const s = Math.round(arrAbsSec);
-                  arrCountdownText = pluralCount(s, 'second');
-                }
-                return (
-                  <>
-                    <TimeDisplay
-                      time={trainData.arriveTime}
-                      dayOffset={trainData.arriveDayOffset || 0}
-                      style={[styles.timeText, timeColor && { color: timeColor }]}
-                      superscriptStyle={[styles.timeSuperscript, timeColor && { color: timeColor }]}
-                      delayMinutes={aDelay}
-                      delayedTime={aDelayed?.time}
-                      delayedDayOffset={aDelayed?.dayOffset}
-                      hideDelayLabel
-                    />
-                    {trainData.daysAway <= 0 && aDelay != null && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <AnimatedRollingText
-                          value={formatDelayStatus(aDelay)}
-                          style={[styles.delayStatusText, colorKey === 'delayed' ? styles.delayStatusLate : styles.delayStatusEarly]}
-                        />
-                        <AnimatedRollingText
-                          value={` · ${arrPast ? `Arrived ${arrCountdownText} ago` : `Arrives in ${arrCountdownText}`}`}
-                          style={[styles.delayStatusText, styles.countdownInline]}
-                        />
-                      </View>
-                    )}
-                  </>
-                );
-              })()}
-            </View>
-          </View>
+          <DepartureArrivalBoard
+            trainData={trainData}
+            countdown={countdown}
+            duration={duration}
+            distanceMiles={distanceMiles}
+            distanceUnit={distanceUnit}
+            allStops={allStops}
+            styles={styles}
+            colors={colors}
+            handleStationPress={handleStationPress}
+          />
 
           {/* Good to Know Section */}
-          <View style={styles.goodToKnowSection}>
-            <Text style={styles.sectionTitle}>Good to Know</Text>
-
-            {/* Timezone Widget */}
-            {timezoneInfo && (
-              <Animated.View entering={FadeInDown.delay(0).duration(200).easing(Easing.out(Easing.quad))} style={styles.infoCard}>
-                <View style={styles.infoCardIcon}>
-                  <Ionicons name="time-outline" size={24} color={colors.primary} />
-                </View>
-                <View style={styles.infoCardContent}>
-                  <Text style={styles.infoCardTitle}>
-                    {timezoneInfo.title}
-                  </Text>
-                  <MarqueeText text={timezoneInfo.message} style={styles.infoCardSubtext} />
-                </View>
-              </Animated.View>
-            )}
-
-            {/* Arrival Weather Widget */}
-            <Animated.View entering={FadeInDown.delay(100).duration(200).easing(Easing.out(Easing.quad))} style={styles.infoCard}>
-              <View style={styles.infoCardIcon}>
-                {isLoadingWeather ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : weatherData ? (
-                  <Ionicons name={weatherData.icon as any} size={24} color={colors.primary} />
-                ) : (
-                  <Ionicons name="partly-sunny-outline" size={24} color={colors.primary} />
-                )}
-              </View>
-              <View style={styles.infoCardContent}>
-                <Text style={styles.infoCardTitle}>Arrival Weather</Text>
-                <MarqueeText
-                  text={isLoadingWeather ? 'Loading...' : weatherData ? `${weatherData.temperature}°${tempUnit} and ${weatherData.condition.toLowerCase()}` : 'Weather data unavailable'}
-                  style={styles.infoCardSubtext}
-                />
-              </View>
-            </Animated.View>
-
-            {/* Where's My Train? */}
-            <Animated.View entering={FadeInDown.delay(200).duration(200).easing(Easing.out(Easing.quad))}>
-            <TouchableOpacity
-              style={styles.historyCard}
-              onPress={() => { hapticLight(); setIsWhereIsMyTrainExpanded(!isWhereIsMyTrainExpanded); }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.infoCardRow}>
-                <View style={styles.infoCardIcon}>
-                  <TrainIcon name={trainData?.routeName} size={24} color={colors.primary} />
-                </View>
-                <View style={styles.infoCardContent}>
-                  <Text style={styles.infoCardTitle}>{isThruwayName(trainData?.routeName) ? "Where's My Bus?" : "Where's My Train?"}</Text>
-                  <MarqueeText text={whereIsMyTrainSubtext} style={styles.infoCardSubtext} />
-                </View>
-                <Ionicons
-                  name={isWhereIsMyTrainExpanded ? "chevron-up" : "chevron-down"}
-                  size={20}
-                  color={colors.secondary}
-                  style={{ alignSelf: 'center' }}
-                />
-              </View>
-              {isWhereIsMyTrainExpanded && allStops.length > 0 && (
-                <View style={styles.wheresMyTrainContent}>
-                  <View style={styles.fullRouteTimeline}>
-                    {allStops.map((stop, index) => {
-                      const isPast = isLiveTrain && index < nextStopIndex;
-                      const isCurrent = isLiveTrain && index === nextStopIndex;
-                      const isOrigin = index === 0;
-                      const isDest = index === allStops.length - 1;
-
-                      // Per-stop delay: use arrivalDelay for last stop, departureDelay for others
-                      const stopDelayData = trainData.daysAway <= 0 ? stopDelays.get(stop.code) : undefined;
-                      const stopDelayMin = isDest
-                        ? (stopDelayData?.arrivalDelay ?? stopDelayData?.departureDelay)
-                        : (stopDelayData?.departureDelay ?? stopDelayData?.arrivalDelay);
-                      const stopDelayed = stopDelayMin && stopDelayMin > 0
-                        ? addDelayToTime(stop.time, stopDelayMin, stop.dayOffset)
-                        : undefined;
-
-                      return (
-                        <View key={index} style={styles.timelineStop}>
-                          {!isOrigin && isPast && <View style={[styles.timelineConnector, styles.timelineConnectorPast]} />}
-                          {!isOrigin && !isPast && <View style={styles.timelineConnectorGap} />}
-                          {isCurrent && !isOrigin && (
-                            <View style={styles.timelineTrainPosition}>
-                              <TrainIcon name={trainData?.routeName} size={14} color={colors.primary} />
-                            </View>
-                          )}
-                          {!isDest && isPast && <View style={[styles.timelineConnectorBottom, styles.timelineConnectorPast]} />}
-                          {!isDest && !isPast && <View style={styles.timelineConnectorBottomGap} />}
-                          <View style={styles.timelineStopRow}>
-                            <View style={styles.timelineMarker}>
-                              <View style={[styles.timelineDot, isPast && styles.timelineDotPast]} />
-                            </View>
-                            <TouchableOpacity
-                              style={styles.timelineStopInfo}
-                              onPress={() => handleStationPress(stop.code)}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.timelineStopName, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}>
-                                {stop.name}
-                              </Text>
-                              <View style={styles.timelineStopCodeRow}>
-                                <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}>
-                                  {stop.code}
-                                </Text>
-                                {stopWeather[stop.code] && (
-                                  <>
-                                    <Text style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]}> ·</Text>
-                                    <Ionicons name={stopWeather[stop.code].icon as any} size={11} color={isCurrent ? '#FFFFFF' : colors.secondary} style={isPast ? { opacity: 0.6 } : undefined} />
-                                    <AnimatedRollingText value={` ${stopWeather[stop.code].temp}°${tempUnit}`} style={[styles.timelineStopCode, isPast && styles.timelineTextPast, isCurrent && styles.timelineTextCurrent]} />
-                                  </>
-                                )}
-                                {isCurrent && (() => {
-                                  const currentMinutes = getCurrentMinutesInTimezone(agencyTz);
-                                  const scheduledMinutes = timeToMinutes(stop.time) + stop.dayOffset * 24 * 60;
-                                  const delayOffset = stopDelayMin && stopDelayMin > 0 ? stopDelayMin : 0;
-                                  const diffMin = Math.max(0, Math.round(scheduledMinutes + delayOffset - currentMinutes));
-                                  const arrivalText = diffMin >= 60
-                                    ? `In ${Math.floor(diffMin / 60)}h${diffMin % 60 > 0 ? `${diffMin % 60}m` : ''}`
-                                    : `In ${diffMin} min`;
-                                  return (
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                      <Text style={styles.arrivalCountdown}> ·</Text>
-                                      <AnimatedRollingText value={arrivalText} style={styles.arrivalCountdown} />
-                                    </View>
-                                  );
-                                })()}
-                              </View>
-                            </TouchableOpacity>
-                            <TimeDisplay
-                              time={stop.time}
-                              dayOffset={stop.dayOffset}
-                              style={{
-                                ...styles.timelineStopTime,
-                                ...(isPast ? styles.timelineTextPast : {}),
-                                ...(isCurrent ? { color: '#FFFFFF', fontWeight: 'bold' as const } : {}),
-                              }}
-                              superscriptStyle={{
-                                ...styles.timelineStopTimeSuperscript,
-                                ...(isPast ? styles.timelineTextPast : {}),
-                                ...(isCurrent ? { color: '#FFFFFF', fontWeight: 'bold' as const } : {}),
-                              }}
-                              delayMinutes={stopDelayMin}
-                              delayedTime={stopDelayed?.time}
-                              delayedDayOffset={stopDelayed?.dayOffset}
-                              delayLayout="vertical"
-                            />
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                  <Text style={styles.weatherNote}>Weather is calculated at each stop's scheduled arrival time.</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            </Animated.View>
-
-            {/* My History on This Route */}
-            <Animated.View entering={FadeInDown.delay(300).duration(200).easing(Easing.out(Easing.quad))} style={styles.historyCard}>
-              <Text style={[styles.sectionTitle, { marginBottom: Spacing.xs }]}>My History on This Route</Text>
-              {trainData && (
-                <Text style={styles.historyRouteSubtitle}>{trainData.routeName}</Text>
-              )}
-              <View style={styles.historyStats}>
-                <View style={styles.historyStat}>
-                  <Text style={styles.historyStatLabel}>Trips</Text>
-                  <View style={styles.historyStatValueRow}>
-                    <TrainIcon name={trainData?.routeName} size={14} style={styles.historyStatIcon} />
-                    <AnimatedRollingText
-                      value={String(routeHistory && routeHistory.trips > 0 ? routeHistory.trips : 0)}
-                      style={styles.historyStatValue}
-                    />
-                  </View>
-                </View>
-                <View style={styles.historyStat}>
-                  <Text style={styles.historyStatLabel}>Distance</Text>
-                  <View style={styles.historyStatValueRow}>
-                    <Ionicons name="navigate" size={14} color={colors.primary} style={styles.historyStatIcon} />
-                    <AnimatedRollingText
-                      value={routeHistory && routeHistory.trips > 0
-                        ? `${Math.round(convertDistance(routeHistory.distance, distanceUnit)).toLocaleString()} ${distanceSuffix(distanceUnit)}`
-                        : `0 ${distanceSuffix(distanceUnit)}`}
-                      style={styles.historyStatValue}
-                    />
-                  </View>
-                </View>
-                <View style={styles.historyStat}>
-                  <Text style={styles.historyStatLabel}>Travel Time</Text>
-                  <View style={styles.historyStatValueRow}>
-                    <Ionicons name="time" size={14} color={colors.primary} style={styles.historyStatIcon} />
-                    <AnimatedRollingText
-                      value={routeHistory && routeHistory.trips > 0
-                        ? `${Math.floor(routeHistory.duration / 60)}h ${routeHistory.duration % 60}m`
-                        : '0m'}
-                      style={styles.historyStatValue}
-                    />
-                  </View>
-                </View>
-              </View>
-              {(!routeHistory || routeHistory.trips === 0) && (
-                <Text style={styles.historyEmptyText}>No past rides on this route</Text>
-              )}
-            </Animated.View>
-          </View>
+          <GoodToKnowSection
+            trainData={trainData}
+            timezoneInfo={timezoneInfo}
+            weatherData={weatherData}
+            isLoadingWeather={isLoadingWeather}
+            tempUnit={tempUnit}
+            distanceUnit={distanceUnit}
+            isWhereIsMyTrainExpanded={isWhereIsMyTrainExpanded}
+            setIsWhereIsMyTrainExpanded={setIsWhereIsMyTrainExpanded}
+            whereIsMyTrainSubtext={whereIsMyTrainSubtext}
+            allStops={allStops}
+            isLiveTrain={isLiveTrain}
+            nextStopIndex={nextStopIndex}
+            stopDelays={stopDelays}
+            stopWeather={stopWeather}
+            agencyTz={agencyTz}
+            routeHistory={routeHistory}
+            styles={styles}
+            colors={colors}
+            handleStationPress={handleStationPress}
+          />
 
           {/* Report Bad Data */}
           <TouchableOpacity
@@ -958,7 +663,7 @@ export default function TrainDetailModal({ train, onClose, onStationSelect, onTr
   );
 }
 
-const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
+export const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow({
   modalContent: {
     flex: 1,
     marginHorizontal: -Spacing.xxl,
@@ -1001,7 +706,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   headerTitle: {
     fontSize: 14,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
   },
   absoluteCloseButton: {
@@ -1014,7 +719,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   routeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   statusSection: {
@@ -1029,7 +734,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   statusText: {
     fontSize: 16,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   fullWidthLine: {
@@ -1065,13 +770,13 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   stationCode: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   bigTimeText: {
     fontSize: 32,
     fontWeight: 'bold',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   bigTimeSuperscript: {
@@ -1105,7 +810,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   journeyDetailText: {
     fontSize: 14,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
   },
   expandableSection: {
@@ -1121,7 +826,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   expandableTitle: {
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
     flex: 1,
   },
@@ -1212,7 +917,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   timelineStopName: {
     fontSize: 15,
     fontWeight: '500',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   arrivalCountdown: {
@@ -1226,7 +931,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   timelineStopCode: {
     fontSize: 12,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
   },
   timelineStopCodeRow: {
@@ -1236,7 +941,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   timelineStopTime: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   timelineStopTimeSuperscript: {
@@ -1267,7 +972,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
     marginBottom: Spacing.lg,
   },
@@ -1298,13 +1003,13 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   infoCardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
     marginBottom: Spacing.xs,
   },
   infoCardSubtext: {
     fontSize: 14,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
   },
   historySection: {
@@ -1313,7 +1018,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   historyRouteSubtitle: {
     fontSize: 14,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
     marginBottom: Spacing.md,
     fontWeight: '400',
@@ -1336,7 +1041,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   historyStatLabel: {
     fontSize: 14,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
     marginBottom: Spacing.sm,
     fontWeight: '400',
@@ -1351,7 +1056,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   historyStatValue: {
     fontSize: 14,
     fontWeight: '400',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   helpSection: {
@@ -1360,7 +1065,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   historyEmptyText: {
     fontSize: 14,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
     textAlign: 'left',
     paddingTop: Spacing.sm,
@@ -1375,7 +1080,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   reportBadDataText: {
     fontSize: 13,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
   },
   departArriveBoard: {
@@ -1398,18 +1103,18 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   locationCode: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   locationName: {
     fontSize: 16,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
   },
   timeText: {
     fontSize: 36,
     fontWeight: 'bold',
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.primary,
     marginBottom: 0,
   },
@@ -1449,7 +1154,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create(withTextShadow(
   },
   durationText: {
     fontSize: 12,
-    fontFamily: FONTS.family,
+    fontFamily: 'System',
     color: colors.secondary,
   },
   horizontalLine: {

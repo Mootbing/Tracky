@@ -31,7 +31,7 @@ import { getCurrentMinutesInTimezone, getCurrentSecondsInTimezone, getTimezoneFo
 import { gtfsParser } from '../../utils/gtfs-parser';
 import { formatTemp, weatherApiTempUnit } from '../../utils/units';
 import { getWeatherCondition } from '../../utils/weather';
-import { SlideUpModalContext } from './slide-up-modal';
+import { SlideUpModalContext } from './SlideUpModal';
 import { createStyles as createTrainCardStyles } from '../../screens/styles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');

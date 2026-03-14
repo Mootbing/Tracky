@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { SlideUpModalHandle } from '../components/ui/slide-up-modal';
+import type { SlideUpModalHandle } from '../components/ui/SlideUpModal';
 import type { Stop, Train } from '../types/train';
 import { logger } from '../utils/logger';
 

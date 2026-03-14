@@ -18,7 +18,7 @@ import { PlaceholderBlurb } from './PlaceholderBlurb';
 import { createStyles } from '../screens/styles';
 import type { Train } from '../types/train';
 import TrainCardContent from './TrainCardContent';
-import { SlideUpModalContext } from './ui/slide-up-modal';
+import { SlideUpModalContext } from './ui/SlideUpModal';
 import { addDelayToTime, parseTimeToDate } from '../utils/time-formatting';
 import { getCountdownForTrain } from '../utils/train-display';
 
